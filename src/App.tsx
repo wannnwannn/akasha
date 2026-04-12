@@ -10,7 +10,7 @@ import {
 // STYLES GLOBAUX (VARIABLES DE THÈME & SCROLLBARS)
 // ============================================================================
 const GlobalStyles = () => (
-  <style>{`
+  <style dangerouslySetInnerHTML={{ __html: `
     :root {
       /* THÈME CLAIR (Par défaut) */
       --bg-base: #f0f2f5;
@@ -77,7 +77,7 @@ const GlobalStyles = () => (
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
       background: var(--primary);
     }
-  `}</style>
+  `}} />
 );
 
 // ============================================================================
@@ -244,6 +244,7 @@ function useDebounce<T>(value: T, delay: number): T {
 // SERVICES API
 // ============================================================================
 const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
+  if (TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
   if (!res.ok) throw new Error("Erreur TMDB");
   const data = await res.json();
@@ -353,7 +354,7 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   }));
 };
 
-const mapStatusToLabel = (status: string | undefined) => {
+const mapStatusToLabel = (status: string | undefined, source: string) => {
   if (!status) return "Statut inconnu";
   const s = status.toLowerCase();
 
@@ -412,7 +413,7 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { icon?: any }> = ({ icon: Icon, ...props }) => (
   <div className="relative flex items-center w-full">
     {Icon && <Icon className="absolute left-4 text-[var(--text-muted)]" size={20} />}
-    <input className={`w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all placeholder:text-[var(--text-muted)] font-medium ${Icon ? 'pl-12' : ''}`} {...props} />
+    <input className={`w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all placeholder:text-[var(--text-muted)] font-medium ${Icon ? 'pl-12' : ''}`} {...props as any} />
   </div>
 );
 
@@ -423,7 +424,7 @@ const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant
     danger: "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30",
     ghost: "hover:bg-[var(--panel-bg)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
   };
-  return <button className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 ${variants[variant]} ${className}`} {...props}>{children}</button>;
+  return <button className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants]} ${className}`} {...props as any}>{children}</button>;
 };
 
 const CustomSelect: React.FC<{
@@ -454,7 +455,7 @@ const CustomSelect: React.FC<{
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center justify-between w-full rounded-xl px-4 py-3.5 cursor-pointer font-bold text-sm transition-all select-none border border-[var(--border-color)] bg-[var(--panel-bg-alt)] ${className}`}
       >
-        <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label || value}</span>
+        <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label || String(value)}</span>
         <ChevronRight size={16} className={`text-[var(--text-muted)] transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
       </div>
 
@@ -466,7 +467,7 @@ const CustomSelect: React.FC<{
               return (
                 <div
                   key={opt.value}
-                  onClick={() => { onChange(opt.value); setIsOpen(false); }}
+                  onClick={() => { onChange(String(opt.value)); setIsOpen(false); }}
                   className={`px-4 py-3 text-sm font-bold cursor-pointer transition-colors mx-1 rounded-lg ${
                     value === opt.value
                       ? 'text-[var(--primary)] bg-[var(--primary)]/10'
@@ -534,7 +535,7 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
         type="number"
         min={item.progress}
         className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center"
-        value={value}
+        value={String(value)}
         onChange={e => setValue(e.target.value)}
         onBlur={() => {
           setIsEditing(false);
@@ -565,7 +566,7 @@ const DetailModal: React.FC<{
       const parsed = JSON.parse(trackedItem.reminder_day);
       return { days: parsed.days || [], freq: parsed.frequency?.toString() || "1" };
     } catch(e) {
-      return { days: [trackedItem.reminder_day], freq: "1" };
+      return { days: [String(trackedItem.reminder_day)], freq: "1" };
     }
   };
 
@@ -659,7 +660,7 @@ const DetailModal: React.FC<{
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = localData.description || 'Description en cours de chargement...';
   const year = localData.year || 'Année inconnue';
-  const prodStatusLabel = mapStatusToLabel(localData.prod_status);
+  const prodStatusLabel = mapStatusToLabel(localData.prod_status, localData.source);
 
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]"
     : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white"
@@ -678,7 +679,7 @@ const DetailModal: React.FC<{
           <div className="flex justify-center mb-6 mt-4">
              <div className="w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)]">
               {cover ? <img src={cover} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
-              <div className="absolute top-2 left-2"><TypeBadge type={localData.type} /></div>
+              <div className="absolute top-2 left-2"><TypeBadge type={String(localData.type)} /></div>
              </div>
           </div>
 
@@ -734,9 +735,9 @@ const DetailModal: React.FC<{
                 <div className="flex justify-center p-4"><Loader2 className="animate-spin text-[var(--primary)]" /></div>
               ) : (
                 <CustomSelect
-                  value=""
-                  onChange={handleAddOrUpdate}
-                  options={STATUS_OPTIONS}
+                  value={""}
+                  onChange={(val: string) => handleAddOrUpdate(val)}
+                  options={STATUS_OPTIONS as SelectOption[]}
                   className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] !text-white border border-transparent shadow-lg shadow-[var(--shadow-color)] text-center justify-center"
                 />
               )}
@@ -751,13 +752,13 @@ const DetailModal: React.FC<{
                 <div className="flex-1">
                   <CustomSelect
                     value={String(trackedItem.status)}
-                    onChange={handleAddOrUpdate}
-                    options={STATUS_OPTIONS.filter(o => o.value !== "")} 
+                    onChange={(val: string) => handleAddOrUpdate(val)}
+                    options={STATUS_OPTIONS.filter(o => o.value !== "") as SelectOption[]} 
                     className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]"
                   />
                 </div>
                 <Button variant="ghost" className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title="Favori">
-                  <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} />
+                  <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : undefined} />
                 </Button>
                 <Button variant="danger" className="!p-3.5 shrink-0 rounded-xl h-full" onClick={handleRemove} title="Supprimer de la liste">
                   <Trash2 size={20} />
@@ -832,8 +833,8 @@ const DetailModal: React.FC<{
                        <div className="flex-1">
                          <CustomSelect
                             value={String(reminderFreq)}
-                            onChange={(val) => { setReminderFreq(val); saveExtras(); }}
-                            options={FREQUENCY_OPTIONS}
+                            onChange={(val: string) => { setReminderFreq(val); saveExtras(); }}
+                            options={FREQUENCY_OPTIONS as SelectOption[]}
                             placement="top"
                             className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]"
                           />
@@ -948,7 +949,7 @@ const DiscoverySearch: React.FC<{
                   {cover ? (
                     <img src={cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                  <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
+                  <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
                   
                   {/* Bouton Favori dans le carousel (Seulement si tracké) */}
                   {tracked && (
@@ -989,8 +990,8 @@ const DiscoverySearch: React.FC<{
           <div className="shrink-0 flex-1 sm:w-48">
              <CustomSelect
                 value={String(filter)}
-                onChange={setFilter}
-                options={FORMAT_OPTIONS}
+                onChange={(val: string) => setFilter(val)}
+                options={FORMAT_OPTIONS as SelectOption[]}
                 className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]"
               />
           </div>
@@ -1032,7 +1033,7 @@ const DiscoverySearch: React.FC<{
                   {media.cover ? (
                     <img src={media.cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                  <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
+                  <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
                   
                   {/* Bouton Favori dans la recherche (Seulement si tracké) */}
                   {tracked && (
@@ -1242,390 +1243,4 @@ const ProfileScreen: React.FC<{
         )}
 
         {/* CONTROLE DU THÈME (MOBILE UNIQUEMENT, VISIBLE AUSSI SUR PC MAIS PRATIQUE ICI) */}
-        <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-base)] rounded-2xl border border-[var(--border-color)] mb-8">
-          <span className="font-bold text-[var(--text-main)]">Thème de l'application</span>
-          <button onClick={toggleTheme} className="p-2.5 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl text-[var(--primary)] shadow-sm">
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-        </div>
-
-        <div className="bg-[var(--bg-base)] rounded-2xl p-6 mb-8 border border-[var(--border-color)]">
-
-          {/* Taux de complétion */}
-          <div className="mb-8">
-            <div className="flex justify-between items-end mb-3">
-              <h3 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">Taux de complétion</h3>
-              <span className="text-3xl font-black text-emerald-500 leading-none">{completionRate}%</span>
-            </div>
-            <div className="h-3 w-full bg-[var(--panel-bg)] rounded-full overflow-hidden border border-[var(--border-color)]">
-              <div className="h-full bg-emerald-500 rounded-full transition-all duration-1000" style={{ width: `${completionRate}%` }} />
-            </div>
-            <p className="text-xs text-[var(--text-muted)] mt-2 font-medium">{totalCompleted} œuvres terminées sur {totalAdded} ajoutées</p>
-          </div>
-
-          {/* Binge vs Lecture */}
-          <div>
-            <div className="flex justify-between items-end mb-3">
-              <h3 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">Écrans vs Lecture</h3>
-            </div>
-            <div className="flex h-4 w-full bg-[var(--panel-bg)] rounded-full overflow-hidden border border-[var(--border-color)] mb-3">
-              {totalInteractions === 0 ? (
-                <div className="h-full w-full bg-[var(--border-color)]" />
-              ) : (
-                <>
-                  <div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${watchRatio}%` }} />
-                  <div className="h-full bg-purple-500 transition-all duration-1000" style={{ width: `${readRatio}%` }} />
-                </>
-              )}
-            </div>
-            <div className="flex justify-between text-xs font-bold">
-              <div className="flex items-center gap-1.5 text-blue-500">
-                <Tv size={14} /> {watchRatio}% Binge-watching
-              </div>
-              <div className="flex items-center gap-1.5 text-purple-500">
-                 {readRatio}% Lecture <BookOpen size={14} />
-              </div>
-            </div>
-            <p className="text-center text-[10px] text-[var(--text-muted)] mt-4 font-medium italic">Basé sur vos {totalInteractions} interactions d'épisodes/pages.</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 mb-10">
-          <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-blue-500 text-white rounded-xl"><FolderHeart size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalAdded}</p>
-              <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mt-1">Ajoutés</p>
-            </div>
-          </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-emerald-500 text-white rounded-xl"><Check size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalCompleted}</p>
-              <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1">Terminés</p>
-            </div>
-          </div>
-          <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-rose-500 text-white rounded-xl"><Clock size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{watchTimeHours}<span className="text-sm">h</span></p>
-              <p className="text-xs font-bold text-rose-500 uppercase tracking-wider mt-1">Visionnage</p>
-            </div>
-          </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-amber-500 text-white rounded-xl"><PlayCircle size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalEpisodesWatched}</p>
-              <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mt-1">Ép./Chap.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* FUSEAU HORAIRE ET PARAMETRES */}
-        <div className="mb-6">
-           <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 block flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label>
-           <CustomSelect
-              value={String(userTz)}
-              onChange={handleTzChange}
-              options={timezones}
-              placement="top"
-              className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]"
-           />
-           <p className="text-[10px] text-[var(--text-muted)] mt-2 italic">Définit l'heure d'envoi matinale de vos emails de rappels.</p>
-        </div>
-
-        <div className="space-y-3 pt-6 border-t border-[var(--border-color)]">
-          <Button variant="secondary" className="w-full !py-3" onClick={onLogout}>
-            <LogOut size={18} /> Déconnexion
-          </Button>
-          <button onClick={onDelete} className="w-full py-3 text-xs font-bold text-[var(--text-muted)] hover:text-red-500 transition-colors">
-            Supprimer mon compte (Action irréversible)
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
-// COMPOSANT AUTHENTIFICATION
-// ============================================================================
-const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const handleAuth = async (type: 'login' | 'register') => {
-    setLoading(true); setError('');
-    try {
-      const { data, error: err } = type === 'login'
-        ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password });
-      if (err) setError(err.message);
-      else if (data.user) onLogin(data.user);
-    } catch (e: any) { setError(e.message || "Erreur critique de connexion"); }
-    finally { setLoading(false); }
-  };
-
-  return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-[var(--primary)] to-amber-500" />
-        <div className="text-center mb-10">
-          <div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
-            <AkashaLogo size={48} />
-          </div>
-          <h1 className="text-3xl font-black text-[var(--text-main)] tracking-tight uppercase">Akasha</h1>
-          <p className="text-[var(--text-muted)] font-medium mt-2">Votre mémoire culturelle.</p>
-        </div>
-        {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
-        <div className="space-y-4">
-          <Input type="email" placeholder="Adresse email" value={String(email)} onChange={e => setEmail(e.target.value)} />
-          <Input type="password" placeholder="Mot de passe" value={String(password)} onChange={e => setPassword(e.target.value)} />
-          <div className="pt-6 flex flex-col gap-3">
-            <Button className="w-full !py-3.5 text-base" onClick={() => handleAuth('login')} disabled={loading}>
-              {loading ? <Loader2 className="animate-spin" /> : 'Se connecter'}
-            </Button>
-            <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => handleAuth('register')} disabled={loading}>Créer un compte</Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ============================================================================
-// APPLICATION PRINCIPALE
-// ============================================================================
-export default function App() {
-  const [user, setUser] = useState<UserData | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile'>('dashboard');
-  const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'watching' | 'planning' | 'completed' | 'on_hold' | 'favorites'>('watching');
-  const [formatFilter, setFormatFilter] = useState<string>('all');
-  const [selectedMedia, setSelectedMedia] = useState<MediaItem | LibraryItem | null>(null);
-
-  const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
-
-  // ÉTAT DU THÈME SOMBRE/CLAIR
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-  const filteredLibrary = userLibrary.filter(item => {
-    const formatMatch = formatFilter === 'all' || item.type === formatFilter;
-    if (activeFilter === 'favorites') return item.is_favorite === true && formatMatch;
-    return item.status === activeFilter && formatMatch;
-  });
-
-  const activePlayerItem = useMemo(() => userLibrary.find(i => i.id === lastInteractedId) || null, [userLibrary, lastInteractedId]);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      setUser(session?.user ?? null);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const fetchLibrary = useCallback(async () => {
-    if (!user) return;
-    const { data, error } = await supabase.from('user_media').select('*').order('updated_at', { ascending: false });
-    if (error) console.error("Erreur DB:", error);
-    if (data) {
-      setUserLibrary(data as LibraryItem[]);
-      if (data.length > 0 && !lastInteractedId) setLastInteractedId(data[0].id);
-    }
-  }, [user, lastInteractedId]);
-
-  useEffect(() => { fetchLibrary(); }, [fetchLibrary]);
-
-  const updateProgress = async (item: LibraryItem, increment: number) => {
-    const newProgress = Math.max(0, item.progress + increment);
-    if (item.total_episodes && newProgress > item.total_episodes) return;
-
-    setLastInteractedId(item.id);
-    const newDate = new Date().toISOString();
-
-    setUserLibrary(prev => prev.map(libItem => libItem.id === item.id ? { ...libItem, progress: newProgress, updated_at: newDate } : libItem));
-    await supabase.from('user_media').update({ progress: newProgress, updated_at: newDate }).match({ id: item.id });
-  };
-
-  const handleSWRUpdate = (id: string, updates: Partial<LibraryItem>) => {
-    setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, ...updates } : libItem));
-  };
-
-  const handleToggleFavorite = async (id: string, currentFav: boolean) => {
-    const newFav = !currentFav;
-    handleSWRUpdate(id, { is_favorite: newFav });
-    await supabase.from('user_media').update({ is_favorite: newFav }).match({ id });
-  };
-
-  const handleDeleteAccount = async () => {
-    const confirm1 = window.confirm("ATTENTION: Cette action détruira toutes vos données.");
-    if (!confirm1) return;
-    const { error } = await supabase.rpc('delete_user');
-    if (error) alert("Créez le RPC 'delete_user' dans Supabase d'abord.");
-    else await supabase.auth.signOut();
-  };
-
-  const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
-
-  if (authLoading) return <div className={`min-h-screen ${theme} bg-[var(--bg-base)] flex items-center justify-center`}><GlobalStyles/><Loader2 className="animate-spin text-[var(--primary)]" size={48} /></div>;
-  if (!user) return <div className={theme}><GlobalStyles/><AuthScreen onLogin={setUser} /></div>;
-
-  const activeStatusConf = STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG];
-
-  return (
-    <div className={`${theme} min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans pb-28 sm:pb-12 flex flex-col relative transition-colors duration-300`}>
-      <GlobalStyles />
-
-      {/* NAVBAR AKASHA */}
-      <nav className="fixed bottom-4 inset-x-6 mx-auto sm:mx-0 max-w-[250px] sm:max-w-none sm:top-6 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 z-50 sm:w-auto px-6 py-3 sm:py-3 bg-[var(--panel-bg)]/95 backdrop-blur-xl border sm:border border-[var(--border-color)] rounded-3xl sm:rounded-full flex justify-between sm:justify-center items-center sm:gap-12 shadow-2xl">
-
-        <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]">
-           <AkashaLogo size={24} />
-           <span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span>
-        </div>
-
-        <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>
-          <Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} />
-        </button>
-        <button onClick={() => setCurrentTab('search')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'search' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>
-          <Search size={24} strokeWidth={currentTab === 'search' ? 3 : 2} />
-        </button>
-        <button onClick={() => setCurrentTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>
-          <User size={24} strokeWidth={currentTab === 'profile' ? 3 : 2} />
-        </button>
-        <div className="hidden sm:block w-px h-6 bg-[var(--border-color)] mx-2"></div>
-        <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title="Changer le thème">
-          {theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}
-        </button>
-      </nav>
-
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full">
-        {currentTab === 'dashboard' && (
-          <div className="animate-in fade-in duration-500">
-
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-              <div className="flex gap-1 overflow-x-auto w-full sm:w-auto custom-scrollbar px-1 pt-1">
-                {[
-                  { id: 'favorites', label: 'Favoris' },
-                  { id: 'watching', label: 'En cours' }, { id: 'planning', label: 'À voir' },
-                  { id: 'completed', label: 'Terminés' }, { id: 'on_hold', label: 'En pause' }
-                ].map(f => {
-                  const isActive = activeFilter === f.id;
-                  const count = userLibrary.filter(i => {
-                    const formatMatch = formatFilter === 'all' || i.type === formatFilter;
-                    if (f.id === 'favorites') return i.is_favorite === true && formatMatch;
-                    return i.status === f.id && formatMatch;
-                  }).length;
-                  const config = STATUS_CONFIG[f.id as keyof typeof STATUS_CONFIG];
-
-                  return (
-                    <button key={f.id} onClick={() => setActiveFilter(f.id as any)}
-                      className={`whitespace-nowrap px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all relative ${isActive ? config.tabActive : config.tabInactive}`}
-                    >
-                      {f.id === 'favorites' && <Heart size={14} className={`inline mr-1 ${isActive ? "fill-[var(--text-main)]" : ""}`} />}
-                      {f.label} <span className="ml-1.5 opacity-50 font-medium">({count})</span>
-                      {isActive && <div className={`absolute -bottom-[2px] left-0 right-0 h-[2px] ${config.containerBg}`} />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="shrink-0 w-full sm:w-48 z-10">
-                 <CustomSelect
-                    value={String(formatFilter)}
-                    onChange={setFormatFilter}
-                    options={FORMAT_OPTIONS}
-                    className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm"
-                  />
-              </div>
-            </div>
-
-            <div className={`p-4 sm:p-6 rounded-b-2xl rounded-tr-2xl border ${activeStatusConf.containerBg} ${activeStatusConf.containerBorder} transition-colors duration-300`}>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                {filteredLibrary.map(item => {
-                  const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
-
-                  return (
-                    <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
-
-                      <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
-                        {item.cover_url ? (
-                          <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                        ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                        <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
-                        
-                        <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
-                          <Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
-                        </button>
-
-                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
-                      </div>
-
-                      <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
-                        <div className="flex flex-col">
-                          <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3>
-                          <div className="w-fit" onClick={e => e.stopPropagation()}>
-                            <InlineEpisodeEdit item={item} onSave={async (id, newTotal) => {
-                              setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem));
-                              await supabase.from('user_media').update({ total_episodes: newTotal }).match({ id });
-                            }}/>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 w-full mt-auto" onClick={e => e.stopPropagation()}>
-                          <div className="flex-1 h-1.5 sm:h-2 bg-[var(--border-color)] rounded-full overflow-hidden">
-                            <div className="h-full bg-[var(--primary)] rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} />
-                          </div>
-                          <div className="flex flex-row gap-1.5 items-center shrink-0">
-                            <button onClick={() => updateProgress(item, -1)} disabled={item.progress <= 0} className="p-2 sm:p-2 bg-[var(--panel-bg)] hover:bg-[var(--border-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><Minus size={18} strokeWidth={3}/></button>
-                            <button onClick={() => updateProgress(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-10 h-10 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl text-white transition-transform active:scale-95 shadow-lg shadow-[var(--shadow-color)]"><Plus size={20} strokeWidth={3}/></button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-                {filteredLibrary.length === 0 && <div className="col-span-full py-20 text-center text-[var(--text-muted)] font-medium">Aucun média trouvé avec ces filtres.</div>}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {currentTab === 'search' && (
-          <DiscoverySearch userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />
-        )}
-
-        {currentTab === 'profile' && (
-          <ProfileScreen user={user} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />
-        )}
-      </main>
-
-      {/* LECTEUR PERSISTANT */}
-      {currentTab !== 'profile' && activePlayerItem && (
-        <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />
-      )}
-
-      {selectedMedia && (
-        <DetailModal
-          item={selectedMedia}
-          onClose={() => setSelectedMedia(null)}
-          trackedItem={
-            'status' in selectedMedia
-              ? userLibrary.find(i => i.id === selectedMedia.id)
-              : userLibrary.find(i => i.media_id === selectedMedia.id && i.source === selectedMedia.source)
-          }
-          onLibraryUpdate={handleSWRUpdate}
-          user={user}
-          fetchLibrary={fetchLibrary}
-        />
-      )}
-    </div>
-  );
-}
+        <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-
