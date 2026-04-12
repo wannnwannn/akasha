@@ -101,6 +101,7 @@ interface MediaItem {
   year: string | number;
   description: string;
   totalEpisodes?: number | null;
+  total_episodes?: number | null;
   isAiring?: boolean;
   genres?: string[];
   runtime?: number;
@@ -553,14 +554,12 @@ const DetailModal: React.FC<{
   const [isActing, setIsActing] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
-  // Parsing intelligent du format JSON dans reminder_day pour gérer plusieurs jours + fréquence
   const getInitialReminderState = () => {
     if (!trackedItem?.reminder_day) return { days: [] as string[], freq: "1" };
     try {
       const parsed = JSON.parse(trackedItem.reminder_day);
       return { days: parsed.days || [], freq: parsed.frequency?.toString() || "1" };
     } catch(e) {
-      // Fallback si c'est encore l'ancien format texte simple ("Lundi")
       return { days: [trackedItem.reminder_day], freq: "1" };
     }
   };
@@ -572,7 +571,6 @@ const DetailModal: React.FC<{
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [showReminder, setShowReminder] = useState(false);
 
-  // Nouveaux états locaux complexes pour le rappel
   const [reminderDays, setReminderDays] = useState<string[]>(initialReminder.days);
   const [reminderFreq, setReminderFreq] = useState<string>(initialReminder.freq);
   const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
@@ -581,7 +579,6 @@ const DetailModal: React.FC<{
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
-      // Force le chargement des détails profonds même si ce n'est pas dans la liste (pour choper le cast/statut)
       if (trackedItem && trackedItem.updated_at) {
         const lastUpdated = new Date(trackedItem.updated_at).getTime();
         if (Date.now() - lastUpdated < 24 * 60 * 60 * 1000) return;
@@ -597,24 +594,21 @@ const DetailModal: React.FC<{
       }
     };
     checkAndRevalidate();
-  }, [item.id, trackedItem?.id]); // Utiliser des IDs stables comme dépendances
+  }, [item.id, trackedItem?.id]);
 
-  // Gestion du multi-sélection des jours
   const toggleDay = (day: string) => {
     setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
   };
 
-  // Sauvegarde silencieuse des notes, liens et configuration complexe de rappel
   const saveExtras = async () => {
     if (!trackedItem) return;
 
-    // Sérialisation de l'objet complexe en JSON pour la base de données
     const reminderData = JSON.stringify({ days: reminderDays, frequency: parseInt(reminderFreq) });
 
     const updates = {
       notes,
       custom_link: customLink,
-      reminder_day: reminderData, // On enregistre la string JSON
+      reminder_day: reminderData,
       reminder_time: reminderTime
     };
 
@@ -670,14 +664,12 @@ const DetailModal: React.FC<{
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-y-auto" onClick={onClose}>
       <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 my-auto" onClick={e => e.stopPropagation()}>
 
-        {/* Bouton de fermeture absolu */}
         <button onClick={onClose} className="absolute top-4 left-4 z-20 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)]">
           <X size={20} strokeWidth={3} />
         </button>
 
         <div className="flex flex-col p-6 sm:p-8 overflow-y-auto max-h-[90vh] custom-scrollbar">
 
-          {/* Cover centrée (style maquette) */}
           <div className="flex justify-center mb-6 mt-4">
              <div className="w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)]">
               {cover ? <img src={cover} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
@@ -685,7 +677,6 @@ const DetailModal: React.FC<{
              </div>
           </div>
 
-          {/* Titre et Badges */}
           <div className="text-center mb-6">
             <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)] mb-3 leading-tight tracking-tight">{title}</h2>
 
@@ -705,7 +696,6 @@ const DetailModal: React.FC<{
               </span>
             </div>
 
-            {/* Studio / Réalisateur / Auteur */}
             {localData.creator && (
               <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {localData.creator}</p>
             )}
@@ -721,7 +711,6 @@ const DetailModal: React.FC<{
             )}
           </div>
 
-          {/* Description avec bouton "Voir plus" */}
           <div className="mb-6 bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)]">
             <div className={`text-sm text-[var(--text-muted)] leading-relaxed ${!showFullDesc && 'line-clamp-3'}`}>
               {description}
@@ -733,7 +722,6 @@ const DetailModal: React.FC<{
             )}
           </div>
 
-          {/* Actions (Si non tracké) */}
           {!trackedItem && (
             <div className="space-y-4">
               <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider text-center">Ajouter à ma liste</p>
@@ -750,7 +738,6 @@ const DetailModal: React.FC<{
             </div>
           )}
 
-          {/* Section Suivi (Si tracké) */}
           {trackedItem && (
             <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
               <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Statut de la série</p>
@@ -760,7 +747,7 @@ const DetailModal: React.FC<{
                   <CustomSelect
                     value={trackedItem.status}
                     onChange={handleAddOrUpdate}
-                    options={STATUS_OPTIONS.filter(o => o.value !== "")} // Retirer le placeholder
+                    options={STATUS_OPTIONS.filter(o => o.value !== "")}
                     className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]"
                   />
                 </div>
@@ -772,7 +759,6 @@ const DetailModal: React.FC<{
                 </Button>
               </div>
 
-              {/* Ligne Lien et Rappel */}
               <div className="flex gap-2 items-center pt-2">
                 <div className="flex-1 flex items-center gap-2">
                   {isEditingLink ? (
@@ -815,7 +801,6 @@ const DetailModal: React.FC<{
                 </button>
               </div>
 
-              {/* Panneau de Rappel (MULTI-JOURS ET FRÉQUENCE) */}
               {showReminder && (
                 <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl animate-in fade-in zoom-in-95 duration-200">
                   <p className="text-xs font-bold text-amber-500 mb-3 flex items-center gap-1.5">
@@ -823,7 +808,6 @@ const DetailModal: React.FC<{
                   </p>
 
                   <div className="flex flex-col gap-3">
-                    {/* Pilules de Jours Multiples */}
                     <div className="flex justify-between items-center gap-2 w-full">
                       {WEEK_DAYS.map(day => {
                         const isSelected = reminderDays.includes(day.value);
@@ -839,7 +823,6 @@ const DetailModal: React.FC<{
                       })}
                     </div>
 
-                    {/* Fréquence et Heure */}
                     <div className="flex gap-2">
                        <div className="flex-1">
                          <CustomSelect
@@ -865,7 +848,6 @@ const DetailModal: React.FC<{
                 </div>
               )}
 
-              {/* Bloc-note */}
               <div className="pt-2">
                 <textarea
                   placeholder="Bloc note (Enregistré automatiquement)..."
@@ -963,7 +945,6 @@ const DiscoverySearch: React.FC<{
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
 
-                  {/* Bouton Favori dans le carousel (Seulement si tracké) */}
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                       <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
@@ -1047,7 +1028,6 @@ const DiscoverySearch: React.FC<{
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
 
-                  {/* Bouton Favori dans la recherche (Seulement si tracké) */}
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                       <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
