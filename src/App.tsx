@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// Import via CDN pour l'aperçu.
 import { createClient } from '@supabase/supabase-js';
-//import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
-  PlayCircle, Loader2, Library, X, Minus, Edit2, RefreshCw, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, ChevronLeft, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ChevronDown, ChevronUp, ExternalLink, Globe, Heart, Download, Share, Smartphone
+  PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone
 } from 'lucide-react';
 
 // ============================================================================
@@ -88,10 +86,6 @@ const GlobalStyles = () => (
 const TMDB_API_KEY = '7dfd3c0011bfe4c3bd253da99abf4e4d';
 const SUPABASE_URL = 'https://ewdtspjgcuvwvjnooytf.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3ZHRzcGpnY3V2d3Zqbm9veXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjMxMzgsImV4cCI6MjA5MTI5OTEzOH0.fHTGoA8OFOhk7VusZFgCg7GBn0cgp-UrYeJjV2gxl10';
-
-if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_VRAIE_URL_SUPABASE') {
-  console.error("ARRÊT CRITIQUE : Tu n'as pas entré tes vraies clés Supabase.");
-}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -244,7 +238,6 @@ function useDebounce<T>(value: T, delay: number): T {
 // SERVICES API
 // ============================================================================
 const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
-  if (TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
   if (!res.ok) throw new Error("Erreur TMDB");
   const data = await res.json();
@@ -354,7 +347,7 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   }));
 };
 
-const mapStatusToLabel = (status: string | undefined, source: string) => {
+const mapStatusToLabel = (status: string | undefined, _source: string) => {
   if (!status) return "Statut inconnu";
   const s = status.toLowerCase();
 
@@ -397,7 +390,7 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
       const data = await res.json();
       return {
         description: data.data.Media.description?.replace(/<[^>]*>?/gm, ''),
-        total_episodes: data.data.Media.episodes || item.total_episodes,
+        total_episodes: data.data.Media.episodes || (item as any).total_episodes || (item as any).totalEpisodes,
         genres: data.data.Media.genres,
         runtime: data.data.Media.duration,
         prod_status: data.data.Media.status,
@@ -557,7 +550,6 @@ const DetailModal: React.FC<{
 }> = ({ item, onClose, trackedItem, onLibraryUpdate, user, fetchLibrary }) => {
 
   const [localData, setLocalData] = useState(item as LibraryItem);
-  const [isRevalidating, setIsRevalidating] = useState(false);
   const [isActing, setIsActing] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
@@ -595,7 +587,6 @@ const DetailModal: React.FC<{
         if (Date.now() - lastUpdated < 24 * 60 * 60 * 1000) return;
       }
 
-      setIsRevalidating(true);
       const freshData = await revalidateMediaDetails(item);
       if (freshData) {
         setLocalData(prev => ({ ...prev, ...freshData }));
@@ -604,7 +595,6 @@ const DetailModal: React.FC<{
           if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, freshData);
         }
       }
-      setIsRevalidating(false);
     };
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]); // Utiliser des IDs stables comme dépendances
@@ -829,7 +819,7 @@ const DetailModal: React.FC<{
               {showReminder && (
                 <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl animate-in fade-in zoom-in-95 duration-200">
                   <p className="text-xs font-bold text-amber-500 mb-3 flex items-center gap-1.5">
-                    <AlertTriangle size={14}/> {reminderDays.length > 0 ? 'Planifié.' : 'Sélectionnez vos jours'}
+                    <AlertTriangle size={14}/> {reminderDays.length > 0 ? 'Planifié. (Nécessite MAJ Backend pour JSON)' : 'Sélectionnez vos jours'}
                   </p>
 
                   <div className="flex flex-col gap-3">
@@ -899,8 +889,8 @@ const DetailModal: React.FC<{
 // COMPOSANT EXPLORER (SEARCH)
 // ============================================================================
 const DiscoverySearch: React.FC<{
-  user: UserData, userLibrary: LibraryItem[], fetchLibrary: () => void, setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
-}> = ({ user, userLibrary, fetchLibrary, setSelectedMedia, onToggleFavorite }) => {
+  userLibrary: LibraryItem[], setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
+}> = ({ userLibrary, setSelectedMedia, onToggleFavorite }) => {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 600);
   const [results, setResults] = useState<MediaItem[]>([]);
@@ -1621,7 +1611,7 @@ export default function App() {
         )}
 
         {currentTab === 'search' && (
-          <DiscoverySearch user={user} userLibrary={userLibrary} fetchLibrary={fetchLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />
+          <DiscoverySearch userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />
         )}
 
         {currentTab === 'profile' && (
