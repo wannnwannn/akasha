@@ -7,12 +7,11 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// STYLES GLOBAUX (VARIABLES DE THÈME & SCROLLBARS)
+// STYLES GLOBAUX
 // ============================================================================
 const GlobalStyles = () => (
   <style dangerouslySetInnerHTML={{ __html: `
     :root {
-      /* THÈME CLAIR (Par défaut) */
       --bg-base: #f0f2f5;
       --panel-bg: #ffffff;
       --panel-bg-alt: #f8fafc;
@@ -25,7 +24,6 @@ const GlobalStyles = () => (
     }
 
     .dark {
-      /* THÈME SOMBRE */
       --bg-base: #2a2a2a;
       --panel-bg: #333333;
       --panel-bg-alt: #1a1a1a;
@@ -42,56 +40,31 @@ const GlobalStyles = () => (
       color: var(--text-main);
     }
 
-    /* Scrollbar globale */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: var(--bg-base);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-    * {
-      scrollbar-width: thin;
-      scrollbar-color: var(--border-color) var(--bg-base);
-    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    * { scrollbar-width: thin; scrollbar-color: var(--border-color) var(--bg-base); }
 
-    /* Scrollbar horizontale personnalisée */
-    .custom-scrollbar::-webkit-scrollbar {
-      height: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: transparent;
-      margin-inline: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: var(--primary);
-    }
+    .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; margin-inline: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--primary); }
   `}} />
 );
 
 // ============================================================================
-// CONFIGURATION (SÉCURISÉE)
+// CONFIGURATION (SÉCURISÉE & STRICTE)
 // ============================================================================
-const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
+const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
 }
 
-const supabase = createClient(SUPABASE_URL || '', SUPABASE_ANON_KEY || '');
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -146,86 +119,38 @@ interface LibraryItem {
 
 interface UserData { id: string; email?: string; user_metadata?: { timezone?: string } }
 
-interface SelectOption {
-  value: string;
-  label: string;
-  disabled?: boolean;
-}
+interface SelectOption { value: string; label: string; disabled?: boolean; }
 
 // ============================================================================
 // CONFIGURATION DESIGN & STATUTS GLOBALE
 // ============================================================================
 const STATUS_CONFIG = {
-  favorites: {
-    label: 'Favoris',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-rose-500',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-rose-500 border-x border-rose-500',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-rose-500 border-t-2 border-transparent border-b border-b-rose-500'
-  },
-  watching: {
-    label: 'En cours',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--primary)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-[var(--primary)] border-x border-[var(--primary)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--primary)]'
-  },
-  planning: {
-    label: 'À voir',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--border-color)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-indigo-500 border-x border-[var(--border-color)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
-  },
-  completed: {
-    label: 'Terminé',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--border-color)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-emerald-500 border-x border-[var(--border-color)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
-  },
-  on_hold: {
-    label: 'En pause',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--border-color)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-amber-500 border-x border-[var(--border-color)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
-  },
+  favorites: { label: 'Favoris', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-rose-500', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-rose-500 border-x border-rose-500', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-rose-500 border-t-2 border-transparent border-b border-b-rose-500' },
+  watching: { label: 'En cours', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--primary)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-[var(--primary)] border-x border-[var(--primary)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--primary)]' },
+  planning: { label: 'À voir', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-indigo-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
+  completed: { label: 'Terminé', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-emerald-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
+  on_hold: { label: 'En pause', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-amber-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
 };
 
 const FORMAT_OPTIONS: SelectOption[] = [
-  { value: "all", label: "Tous les formats" },
-  { value: "movie", label: "Films" },
-  { value: "tv", label: "Séries" },
-  { value: "anime", label: "Animes" },
-  { value: "manga", label: "Mangas" },
-  { value: "webtoon", label: "Webtoons" },
-  { value: "book", label: "Livres" }
+  { value: "all", label: "Tous les formats" }, { value: "movie", label: "Films" }, { value: "tv", label: "Séries" },
+  { value: "anime", label: "Animes" }, { value: "manga", label: "Mangas" }, { value: "webtoon", label: "Webtoons" }, { value: "book", label: "Livres" }
 ];
 
 const STATUS_OPTIONS: SelectOption[] = [
   { value: "", label: "+ Ajouter à la liste...", disabled: true },
-  { value: "watching", label: "En cours" },
-  { value: "planning", label: "À voir" },
-  { value: "completed", label: "Terminé" },
-  { value: "on_hold", label: "En pause" }
+  { value: "watching", label: "En cours" }, { value: "planning", label: "À voir" },
+  { value: "completed", label: "Terminé" }, { value: "on_hold", label: "En pause" }
 ];
 
 const FREQUENCY_OPTIONS: SelectOption[] = [
-  { value: "1", label: "Toutes les semaines" },
-  { value: "2", label: "1 semaine sur 2" },
-  { value: "3", label: "1 semaine sur 3" },
-  { value: "4", label: "1 semaine sur 4" }
+  { value: "1", label: "Toutes les semaines" }, { value: "2", label: "1 semaine sur 2" },
+  { value: "3", label: "1 semaine sur 3" }, { value: "4", label: "1 semaine sur 4" }
 ];
 
 const WEEK_DAYS = [
-  { label: 'L', value: 'Lundi' },
-  { label: 'M', value: 'Mardi' },
-  { label: 'M', value: 'Mercredi' },
-  { label: 'J', value: 'Jeudi' },
-  { label: 'V', value: 'Vendredi' },
-  { label: 'S', value: 'Samedi' },
-  { label: 'D', value: 'Dimanche' }
+  { label: 'L', value: 'Lundi' }, { label: 'M', value: 'Mardi' }, { label: 'M', value: 'Mercredi' },
+  { label: 'J', value: 'Jeudi' }, { label: 'V', value: 'Vendredi' }, { label: 'S', value: 'Samedi' }, { label: 'D', value: 'Dimanche' }
 ];
 
 // ============================================================================
@@ -251,52 +176,29 @@ const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
   if (!res.ok) throw new Error("Erreur TMDB");
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(),
-    source: 'tmdb',
-    title: item.title || item.name,
-    cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type,
-    year: (item.release_date || item.first_air_date || '').split('-')[0],
-    description: item.overview || 'Aucune description disponible.',
-    totalEpisodes: item.media_type === 'movie' ? 1 : null,
-    isAiring: false,
-    isAdult: item.adult === true
+    id: item.id.toString(), source: 'tmdb', title: String(item.title || item.name || ''),
+    cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null, type: item.media_type,
+    year: String(item.release_date || item.first_air_date || '').split('-')[0], description: String(item.overview || 'Aucune description disponible.'),
+    totalEpisodes: item.media_type === 'movie' ? 1 : null, isAiring: false, isAdult: item.adult === true
   }));
 };
 
 const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaItem[]> => {
   const statusFilter = isUpcoming ? ', status: NOT_YET_RELEASED' : '';
   const sortFilter = isUpcoming ? ', sort: POPULARITY_DESC' : '';
-  const graphqlQuery = `
-    query ($search: String) {
-      Page(page: 1, perPage: 15) {
-        media(search: $search, type: ANIME${statusFilter}${sortFilter}) {
-          id title { romaji english native } coverImage { large } format startDate { year } description episodes status genres duration isAdult studios(isMain: true) { nodes { name } }
-        }
-      }
-    }
-  `;
+  const graphqlQuery = `query ($search: String) { Page(page: 1, perPage: 15) { media(search: $search, type: ANIME${statusFilter}${sortFilter}) { id title { romaji english native } coverImage { large } format startDate { year } description episodes status genres duration isAdult studios(isMain: true) { nodes { name } } } } }`;
   const res = await fetch('https://graphql.anilist.co', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ query: graphqlQuery, variables: query ? { search: query } : undefined })
   });
   if (!res.ok) throw new Error("Erreur AniList");
   const data = await res.json();
   return data.data.Page.media.map((item: any) => ({
-    id: item.id.toString(),
-    source: 'anilist',
-    title: item.title.english || item.title.romaji || item.title.native,
-    cover: item.coverImage.large,
-    type: 'anime',
-    year: item.startDate.year || 'N/A',
-    description: item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.',
-    totalEpisodes: item.episodes || null,
-    isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED',
-    genres: item.genres,
-    runtime: item.duration,
-    prod_status: item.status,
-    isAdult: item.isAdult === true,
+    id: item.id.toString(), source: 'anilist', title: String(item.title.english || item.title.romaji || item.title.native || ''),
+    cover: item.coverImage.large || null, type: 'anime', year: item.startDate.year || 'N/A',
+    description: String(item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.'),
+    totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED',
+    genres: item.genres || [], runtime: item.duration || 0, prod_status: item.status || '', isAdult: item.isAdult === true,
     creator: item.studios?.nodes?.[0]?.name || null
   }));
 };
@@ -306,40 +208,27 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   if (!res.ok) throw new Error("Erreur Shikimori");
   const data = await res.json();
   return data.map((item: any) => ({
-    id: item.id.toString(),
-    source: 'shikimori',
-    title: item.name || item.russian,
+    id: item.id.toString(), source: 'shikimori', title: String(item.name || item.russian || ''),
     cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
-    type: item.kind === 'manhwa' ? 'webtoon' : 'manga',
-    year: item.aired_on ? item.aired_on.split('-')[0] : 'N/A',
-    description: 'Recherche des détails en arrière-plan...',
-    totalEpisodes: item.volumes || item.chapters || null,
-    isAiring: item.status === 'ongoing',
-    isAdult: false
+    type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A',
+    description: 'Recherche des détails en arrière-plan...', totalEpisodes: item.volumes || item.chapters || null,
+    isAiring: item.status === 'ongoing', isAdult: false
   }));
 };
 
 const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
   const isISBN = /^[0-9-]+$/.test(query) && query.replace(/-/g, '').length >= 10;
   const searchQuery = isISBN ? `isbn=${query}` : `q=${encodeURIComponent(query)}`;
-
   const res = await fetch(`https://openlibrary.org/search.json?${searchQuery}&limit=10`);
   if (!res.ok) throw new Error("Erreur OpenLibrary");
   const data = await res.json();
-
   return data.docs.map((item: any) => ({
-    id: item.key,
-    source: 'openlibrary',
-    title: item.title,
+    id: String(item.key), source: 'openlibrary', title: String(item.title || ''),
     cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
-    type: 'book',
-    year: item.first_publish_year || 'N/A',
+    type: 'book', year: item.first_publish_year || 'N/A',
     description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
-    totalEpisodes: item.number_of_pages_median || null,
-    isAiring: false,
-    genres: item.subject ? item.subject.slice(0, 3) : [],
-    isAdult: false,
-    creator: item.author_name ? item.author_name[0] : null
+    totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [],
+    isAdult: false, creator: item.author_name ? item.author_name[0] : null
   }));
 };
 
@@ -349,63 +238,43 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   if (!res.ok) return [];
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(), source: 'tmdb', title: item.title || item.name,
+    id: item.id.toString(), source: 'tmdb', title: String(item.title || item.name || ''),
     cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type, year: (item.release_date || item.first_air_date || '').split('-')[0],
-    description: item.overview || '', totalEpisodes: item.media_type === 'movie' ? 1 : null,
-    isAdult: item.adult === true
+    type: item.media_type, year: String(item.release_date || item.first_air_date || '').split('-')[0],
+    description: String(item.overview || ''), totalEpisodes: item.media_type === 'movie' ? 1 : null, isAdult: item.adult === true
   }));
 };
 
-const mapStatusToLabel = (status: string | undefined) => {
+const mapStatusToLabel = (status: string | undefined): string => {
   if (!status) return "Statut inconnu";
-  const s = status.toLowerCase();
-
-  if (s === 'completed' || s === 'finished' || s === 'ended' || s === 'released') return "Terminée";
-  if (s === 'ongoing' || s === 'releasing' || s === 'returning series' || s === 'in production') return "En production";
-  if (s === 'planned' || s === 'post production' || s === 'not_yet_released') return "À venir";
+  const s = String(status).toLowerCase();
+  if (['completed', 'finished', 'ended', 'released'].includes(s)) return "Terminée";
+  if (['ongoing', 'releasing', 'returning series', 'in production'].includes(s)) return "En production";
+  if (['planned', 'post production', 'not_yet_released'].includes(s)) return "À venir";
   if (s === 'canceled') return "Annulée";
-
   return "Statut inconnu";
 };
 
 const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Partial<LibraryItem> | null> => {
   const targetId = 'media_id' in item ? item.media_id : item.id;
-
   try {
     if (item.source === 'tmdb' && TMDB_API_KEY) {
       const res = await fetch(`https://api.themoviedb.org/3/${item.type}/${targetId}?api_key=${TMDB_API_KEY}&language=fr-FR&append_to_response=credits`);
       if (!res.ok) return null;
       const data = await res.json();
-
       let creator = null;
       if (item.type === 'movie' && data.credits?.crew) {
         creator = data.credits.crew.find((c: any) => c.job === 'Director')?.name;
       } else if (item.type === 'tv' && data.created_by?.length > 0) {
         creator = data.created_by[0].name;
       }
-
-      return {
-        description: data.overview,
-        total_episodes: item.type === 'tv' ? data.number_of_episodes : 1,
-        genres: data.genres?.map((g: any) => g.name),
-        runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0),
-        prod_status: data.status,
-        creator: creator || item.creator
-      };
+      return { description: String(data.overview || ''), total_episodes: item.type === 'tv' ? data.number_of_episodes : 1, genres: data.genres?.map((g: any) => String(g.name)), runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0), prod_status: String(data.status || ''), creator: creator ? String(creator) : item.creator };
     }
     if (item.source === 'anilist') {
       const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `query ($id: Int) { Media(id: $id) { description episodes status genres duration studios(isMain: true) { nodes { name } } } }`, variables: { id: parseInt(targetId) } }) });
       if (!res.ok) return null;
       const data = await res.json();
-      return {
-        description: data.data.Media.description?.replace(/<[^>]*>?/gm, ''),
-        total_episodes: data.data.Media.episodes || (item as any).total_episodes || (item as any).totalEpisodes,
-        genres: data.data.Media.genres,
-        runtime: data.data.Media.duration,
-        prod_status: data.data.Media.status,
-        creator: data.data.Media.studios?.nodes?.[0]?.name || item.creator
-      };
+      return { description: String(data.data.Media.description?.replace(/<[^>]*>?/gm, '') || ''), total_episodes: data.data.Media.episodes || (item as any).total_episodes || (item as any).totalEpisodes, genres: data.data.Media.genres || [], runtime: data.data.Media.duration || 0, prod_status: String(data.data.Media.status || ''), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios.nodes[0].name) : item.creator };
     }
   } catch (e) {} return null;
 };
@@ -416,7 +285,7 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { icon?: any }> = ({ icon: Icon, ...props }) => (
   <div className="relative flex items-center w-full">
     {Icon && <Icon className="absolute left-4 text-[var(--text-muted)]" size={20} />}
-    <input className={`w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all placeholder:text-[var(--text-muted)] font-medium ${Icon ? 'pl-12' : ''}`} {...props as any} />
+    <input className={`w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all placeholder:text-[var(--text-muted)] font-medium ${Icon ? 'pl-12' : ''}`} {...props} />
   </div>
 );
 
@@ -427,60 +296,33 @@ const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant
     danger: "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/30",
     ghost: "hover:bg-[var(--panel-bg)] text-[var(--text-muted)] hover:text-[var(--text-main)]"
   };
-  return <button className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 ${variants[variant as keyof typeof variants]} ${className}`} {...props as any}>{children}</button>;
+  return <button className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 ${variants[variant]} ${className}`} {...props}>{children}</button>;
 };
 
-const CustomSelect: React.FC<{
-  value: string,
-  onChange: (val: string) => void,
-  options: SelectOption[],
-  className?: string,
-  placement?: 'bottom' | 'top'
-}> = ({ value, onChange, options, className = "", placement = 'bottom' }) => {
+const CustomSelect: React.FC<{ value: string, onChange: (val: string) => void, options: SelectOption[], className?: string, placement?: 'bottom' | 'top' }> = ({ value, onChange, options, className = "", placement = 'bottom' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
+    const handleClickOutside = (event: MouseEvent) => { if (selectRef.current && !selectRef.current.contains(event.target as Node)) setIsOpen(false); };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(o => o.value === value) || options[0];
+  const selectedOption = options.find(o => String(o.value) === String(value)) || options[0];
 
   return (
     <div className="relative w-full" ref={selectRef}>
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between w-full rounded-xl px-4 py-3.5 cursor-pointer font-bold text-sm transition-all select-none border border-[var(--border-color)] bg-[var(--panel-bg-alt)] ${className}`}
-      >
+      <div onClick={() => setIsOpen(!isOpen)} className={`flex items-center justify-between w-full rounded-xl px-4 py-3.5 cursor-pointer font-bold text-sm transition-all select-none border border-[var(--border-color)] bg-[var(--panel-bg-alt)] ${className}`}>
         <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label || String(value)}</span>
         <ChevronRight size={16} className={`text-[var(--text-muted)] transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
       </div>
-
       {isOpen && (
         <div className={`absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200`}>
           <div className="max-h-60 overflow-y-auto custom-scrollbar py-1">
-            {options.map((opt) => {
-              if (opt.disabled) return null;
-              return (
-                <div
-                  key={opt.value}
-                  onClick={() => { onChange(String(opt.value)); setIsOpen(false); }}
-                  className={`px-4 py-3 text-sm font-bold cursor-pointer transition-colors mx-1 rounded-lg ${
-                    value === opt.value
-                      ? 'text-[var(--primary)] bg-[var(--primary)]/10'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  {opt.label}
-                </div>
-              );
-            })}
+            {options.map((opt) => opt.disabled ? null : (
+              <div key={String(opt.value)} onClick={() => { onChange(String(opt.value)); setIsOpen(false); }} className={`px-4 py-3 text-sm font-bold cursor-pointer transition-colors mx-1 rounded-lg ${String(value) === String(opt.value) ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-[var(--text-muted)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)]'}`}>{opt.label}</div>
+            ))}
           </div>
         </div>
       )}
@@ -508,7 +350,7 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
     webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: 'Webtoon' },
     book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: 'Livre' }
   };
-  const current = config[type] || config.movie;
+  const current = config[String(type)] || config.movie;
   const Icon = current.icon;
   return <span className={`flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-1 rounded-md font-bold backdrop-blur-md ${current.color}`}><Icon size={12} strokeWidth={3} /> {current.label}</span>;
 };
@@ -552,7 +394,7 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
 };
 
 // ============================================================================
-// MODAL DE DÉTAILS (REFONTE VERTICALE SELON MAQUETTE)
+// MODAL DE DÉTAILS
 // ============================================================================
 const DetailModal: React.FC<{
   item: MediaItem | LibraryItem, onClose: () => void, trackedItem: LibraryItem | undefined,
@@ -592,13 +434,12 @@ const DetailModal: React.FC<{
         const lastUpdated = new Date(trackedItem.updated_at).getTime();
         if (Date.now() - lastUpdated < 24 * 60 * 60 * 1000) return;
       }
-
       const freshData = await revalidateMediaDetails(item);
       if (freshData) {
         setLocalData(prev => ({ ...prev, ...freshData }));
-        if (trackedItem) {
+        if (trackedItem && onLibraryUpdate) {
           await supabase.from('user_media').update(freshData).match({ id: trackedItem.id });
-          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, freshData);
+          onLibraryUpdate(trackedItem.id, freshData);
         }
       }
     };
@@ -611,16 +452,8 @@ const DetailModal: React.FC<{
 
   const saveExtras = async () => {
     if (!trackedItem) return;
-
     const reminderData = JSON.stringify({ days: reminderDays, frequency: parseInt(reminderFreq) });
-
-    const updates = {
-      notes,
-      custom_link: customLink,
-      reminder_day: reminderData,
-      reminder_time: reminderTime
-    };
-
+    const updates = { notes: String(notes), custom_link: String(customLink), reminder_day: String(reminderData), reminder_time: String(reminderTime) };
     await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
     if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
   };
@@ -659,10 +492,10 @@ const DetailModal: React.FC<{
     await supabase.from('user_media').update({ is_favorite: newFav }).match({ id: trackedItem.id });
   };
 
-  const title = localData.title;
+  const title = String(localData.title || "");
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
-  const description = localData.description || 'Description en cours de chargement...';
-  const year = localData.year || 'Année inconnue';
+  const description = String(localData.description || 'Description en cours de chargement...');
+  const year = String(localData.year || 'Année inconnue');
   const prodStatusLabel = mapStatusToLabel(localData.prod_status);
 
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]"
@@ -701,19 +534,19 @@ const DetailModal: React.FC<{
                 </span>
               )}
               <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">
-                {year} • {localData.source.toUpperCase()}
+                {year} • {String(localData.source || "").toUpperCase()}
               </span>
             </div>
 
             {localData.creator && (
-              <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {localData.creator}</p>
+              <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {String(localData.creator)}</p>
             )}
 
             {localData.genres && localData.genres.length > 0 && (
               <div className="flex flex-wrap justify-center gap-1.5 mb-4">
                 {localData.genres.map(genre => (
-                  <span key={genre} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">
-                    {genre}
+                  <span key={String(genre)} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">
+                    {String(genre)}
                   </span>
                 ))}
               </div>
@@ -761,7 +594,7 @@ const DetailModal: React.FC<{
                   />
                 </div>
                 <Button variant="ghost" className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title="Favori">
-                  <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : undefined} />
+                  <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} />
                 </Button>
                 <Button variant="danger" className="!p-3.5 shrink-0 rounded-xl h-full" onClick={handleRemove} title="Supprimer de la liste">
                   <Trash2 size={20} />
@@ -822,7 +655,7 @@ const DetailModal: React.FC<{
                         const isSelected = reminderDays.includes(day.value);
                         return (
                           <button
-                            key={day.value}
+                            key={String(day.value)}
                             onClick={() => { toggleDay(day.value); saveExtras(); }}
                             className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center transition-all border ${isSelected ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-lg shadow-[var(--shadow-color)] scale-110' : 'bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--primary)]'}`}
                           >
@@ -938,7 +771,7 @@ const DiscoverySearch: React.FC<{
     if (items.length === 0) return null;
     return (
       <div className="mb-10">
-        <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{title} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
+        <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{String(title)} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
         <div className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory">
           {items.map(media => {
             const cover = 'cover' in media ? media.cover : media.cover_url;
@@ -950,7 +783,7 @@ const DiscoverySearch: React.FC<{
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
                   {cover ? (
-                    <img src={cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
+                    <img src={cover || ""} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
@@ -968,8 +801,8 @@ const DiscoverySearch: React.FC<{
                   )}
                 </div>
                 <div className="p-3.5">
-                  <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{media.title}</h3>
-                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p>
+                  <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
+                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? String(media.year) : '?'}</p>
                 </div>
               </div>
             )
@@ -1033,7 +866,7 @@ const DiscoverySearch: React.FC<{
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
                   {media.cover ? (
-                    <img src={media.cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
+                    <img src={media.cover || ""} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
@@ -1052,8 +885,8 @@ const DiscoverySearch: React.FC<{
                 </div>
                 <div className="p-3.5 flex flex-col flex-grow justify-between">
                   <div>
-                    <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{media.title}</h3>
-                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{media.year}</p>
+                    <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
+                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p>
                   </div>
                   {tracked && (
                     <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold bg-[var(--primary)]/10 text-[var(--primary)] py-2 rounded-lg border border-[var(--primary)]/20">
@@ -1090,14 +923,14 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ background: `linear-gradient(90deg, var(--primary) ${progressPercent}%, transparent ${progressPercent}%)`}} />
 
         <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">
-          {item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}
+          {item.cover_url ? <img src={item.cover_url || ""} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}
         </div>
 
         <div className="flex-1 min-w-0 z-10">
           <p className="text-[10px] text-[var(--primary)] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
             <PlayCircle size={10} /> Reprendre
           </p>
-          <h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{item.title}</h4>
+          <h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{String(item.title)}</h4>
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-xs font-mono font-bold text-[var(--text-muted)]">{item.progress} / {item.total_episodes || '?'}</span>
             <div className="flex-1 h-1.5 bg-[var(--bg-base)] rounded-full overflow-hidden border border-[var(--border-color)]">
@@ -1144,16 +977,14 @@ const ProfileScreen: React.FC<{
   const watchRatio = totalInteractions > 0 ? Math.round((watchProgress / totalInteractions) * 100) : 0;
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
 
-  // SÉLECTEUR DE FUSEAU HORAIRE
   const timezones = useMemo(() => {
     try {
       // @ts-ignore
       if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) {
         // @ts-ignore
-        return Intl.supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
+        return Intl.supportedValuesOf('timeZone').map((tz: string) => ({ value: String(tz), label: String(tz).replace(/_/g, ' ') }));
       }
     } catch (e) {}
-    // Fallback si non supporté
     return [
       { value: 'Europe/Paris', label: 'Europe/Paris' },
       { value: 'America/New_York', label: 'America/New York' },
@@ -1169,7 +1000,6 @@ const ProfileScreen: React.FC<{
     await supabase.auth.updateUser({ data: { timezone: val } });
   };
 
-  // LOGIQUE PWA (AJOUTER À L'ÉCRAN D'ACCUEIL)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -1208,10 +1038,9 @@ const ProfileScreen: React.FC<{
             <User size={32} />
           </div>
           <h2 className="text-2xl font-black text-[var(--text-main)]">Profil</h2>
-          <p className="text-[var(--text-muted)] font-medium mt-1">{user.email}</p>
+          <p className="text-[var(--text-muted)] font-medium mt-1">{String(user.email || "")}</p>
         </div>
 
-        {/* SECTION PWA (APPLICATION MOBILE) */}
         {!isStandalone && (
           <div className="mb-8 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-3">
@@ -1248,7 +1077,6 @@ const ProfileScreen: React.FC<{
         </div>
 
         <div className="bg-[var(--bg-base)] rounded-2xl p-6 mb-8 border border-[var(--border-color)]">
-
           <div className="mb-8">
             <div className="flex justify-between items-end mb-3">
               <h3 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">Taux de complétion</h3>
@@ -1516,7 +1344,7 @@ export default function App() {
                   const config = STATUS_CONFIG[f.id as keyof typeof STATUS_CONFIG];
 
                   return (
-                    <button key={f.id} onClick={() => setActiveFilter(f.id as any)}
+                    <button key={String(f.id)} onClick={() => setActiveFilter(f.id as any)}
                       className={`whitespace-nowrap px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all relative ${isActive ? config.tabActive : config.tabInactive}`}
                     >
                       {f.id === 'favorites' && <Heart size={14} className={`inline mr-1 ${isActive ? "fill-[var(--text-main)]" : ""}`} />}
@@ -1543,10 +1371,10 @@ export default function App() {
                   const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
 
                   return (
-                    <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
+                    <div key={String(item.id)} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
                       <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
                         {item.cover_url ? (
-                          <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                          <img src={item.cover_url || ""} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                         ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                         <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={String(item.type)} /></div>
                         <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
@@ -1557,7 +1385,7 @@ export default function App() {
 
                       <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
                         <div className="flex flex-col">
-                          <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3>
+                          <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{String(item.title)}</h3>
                           <div className="w-fit" onClick={e => e.stopPropagation()}>
                             <InlineEpisodeEdit item={item} onSave={async (id, newTotal) => {
                               setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem));
@@ -1604,8 +1432,8 @@ export default function App() {
           onClose={() => setSelectedMedia(null)}
           trackedItem={
             'status' in selectedMedia
-              ? userLibrary.find(i => i.id === selectedMedia.id)
-              : userLibrary.find(i => i.media_id === selectedMedia.id && i.source === selectedMedia.source)
+              ? userLibrary.find(i => String(i.id) === String(selectedMedia.id))
+              : userLibrary.find(i => String(i.media_id) === String(selectedMedia.id) && String(i.source) === String(selectedMedia.source))
           }
           onLibraryUpdate={handleSWRUpdate}
           user={user || undefined}
