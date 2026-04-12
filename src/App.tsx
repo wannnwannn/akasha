@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from '@supabase/supabase-js';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
@@ -7,12 +7,11 @@ import {
 } from 'lucide-react';
 
 // ============================================================================
-// STYLES GLOBAUX (VARIABLES DE THÈME & SCROLLBARS)
+// STYLES GLOBAUX
 // ============================================================================
 const GlobalStyles = () => (
-  <style>{`
+  <style dangerouslySetInnerHTML={{ __html: `
     :root {
-      /* THÈME CLAIR (Par défaut) */
       --bg-base: #f0f2f5;
       --panel-bg: #ffffff;
       --panel-bg-alt: #f8fafc;
@@ -25,7 +24,6 @@ const GlobalStyles = () => (
     }
 
     .dark {
-      /* THÈME SOMBRE */
       --bg-base: #2a2a2a;
       --panel-bg: #333333;
       --panel-bg-alt: #1a1a1a;
@@ -42,50 +40,29 @@ const GlobalStyles = () => (
       color: var(--text-main);
     }
 
-    /* Scrollbar globale */
-    ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: var(--bg-base);
-    }
-    ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--text-muted);
-    }
-    * {
-      scrollbar-width: thin;
-      scrollbar-color: var(--border-color) var(--bg-base);
-    }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: var(--bg-base); }
+    ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+    * { scrollbar-width: thin; scrollbar-color: var(--border-color) var(--bg-base); }
 
-    /* Scrollbar horizontale personnalisée */
-    .custom-scrollbar::-webkit-scrollbar {
-      height: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-track {
-      background: transparent;
-      margin-inline: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 4px;
-    }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-      background: var(--primary);
-    }
-  `}</style>
+    .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; margin-inline: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+  `}} />
 );
 
 // ============================================================================
-// CONFIGURATION (PRODUCTION PURE)
+// CONFIGURATION (SÉCURISÉE & STRICTE)
 // ============================================================================
-const TMDB_API_KEY = '7dfd3c0011bfe4c3bd253da99abf4e4d';
-const SUPABASE_URL = 'https://ewdtspjgcuvwvjnooytf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3ZHRzcGpnY3V2d3Zqbm9veXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjMxMzgsImV4cCI6MjA5MTI5OTEzOH0.fHTGoA8OFOhk7VusZFgCg7GBn0cgp-UrYeJjV2gxl10';
+const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
+const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
+}
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -135,90 +112,45 @@ interface LibraryItem {
   reminder_day?: string;
   reminder_time?: string;
   is_favorite?: boolean;
+  isAiring?: boolean;
+  isAdult?: boolean;
+  totalEpisodes?: number | null;
 }
 
 interface UserData { id: string; email?: string; user_metadata?: { timezone?: string } }
 
-interface SelectOption {
-  value: string;
-  label: string;
-  disabled?: boolean;
-}
+interface SelectOption { value: string; label: string; disabled?: boolean; }
 
 // ============================================================================
 // CONFIGURATION DESIGN & STATUTS GLOBALE
 // ============================================================================
 const STATUS_CONFIG = {
-  favorites: {
-    label: 'Favoris',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-rose-500',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-rose-500 border-x border-rose-500',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-rose-500 border-t-2 border-transparent border-b border-b-rose-500'
-  },
-  watching: {
-    label: 'En cours',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--primary)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-[var(--primary)] border-x border-[var(--primary)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--primary)]'
-  },
-  planning: {
-    label: 'À voir',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--border-color)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-indigo-500 border-x border-[var(--border-color)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
-  },
-  completed: {
-    label: 'Terminé',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--border-color)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-emerald-500 border-x border-[var(--border-color)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
-  },
-  on_hold: {
-    label: 'En pause',
-    containerBg: 'bg-[var(--panel-bg)]',
-    containerBorder: 'border-[var(--border-color)]',
-    tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-amber-500 border-x border-[var(--border-color)]',
-    tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
-  },
+  favorites: { label: 'Favoris', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-rose-500', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-rose-500 border-x border-rose-500', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-rose-500 border-t-2 border-transparent border-b border-b-rose-500' },
+  watching: { label: 'En cours', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--primary)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-[var(--primary)] border-x border-[var(--primary)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--primary)]' },
+  planning: { label: 'À voir', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-indigo-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
+  completed: { label: 'Terminé', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-emerald-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
+  on_hold: { label: 'En pause', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-amber-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
 };
 
 const FORMAT_OPTIONS: SelectOption[] = [
-  { value: "all", label: "Tous les formats" },
-  { value: "movie", label: "Films" },
-  { value: "tv", label: "Séries" },
-  { value: "anime", label: "Animes" },
-  { value: "manga", label: "Mangas" },
-  { value: "webtoon", label: "Webtoons" },
-  { value: "book", label: "Livres" }
+  { value: "all", label: "Tous les formats" }, { value: "movie", label: "Films" }, { value: "tv", label: "Séries" },
+  { value: "anime", label: "Animes" }, { value: "manga", label: "Mangas" }, { value: "webtoon", label: "Webtoons" }, { value: "book", label: "Livres" }
 ];
 
 const STATUS_OPTIONS: SelectOption[] = [
   { value: "", label: "+ Ajouter à la liste...", disabled: true },
-  { value: "watching", label: "En cours" },
-  { value: "planning", label: "À voir" },
-  { value: "completed", label: "Terminé" },
-  { value: "on_hold", label: "En pause" }
+  { value: "watching", label: "En cours" }, { value: "planning", label: "À voir" },
+  { value: "completed", label: "Terminé" }, { value: "on_hold", label: "En pause" }
 ];
 
 const FREQUENCY_OPTIONS: SelectOption[] = [
-  { value: "1", label: "Toutes les semaines" },
-  { value: "2", label: "1 semaine sur 2" },
-  { value: "3", label: "1 semaine sur 3" },
-  { value: "4", label: "1 semaine sur 4" }
+  { value: "1", label: "Toutes les semaines" }, { value: "2", label: "1 semaine sur 2" },
+  { value: "3", label: "1 semaine sur 3" }, { value: "4", label: "1 semaine sur 4" }
 ];
 
 const WEEK_DAYS = [
-  { label: 'L', value: 'Lundi' },
-  { label: 'M', value: 'Mardi' },
-  { label: 'M', value: 'Mercredi' },
-  { label: 'J', value: 'Jeudi' },
-  { label: 'V', value: 'Vendredi' },
-  { label: 'S', value: 'Samedi' },
-  { label: 'D', value: 'Dimanche' }
+  { label: 'L', value: 'Lundi' }, { label: 'M', value: 'Mardi' }, { label: 'M', value: 'Mercredi' },
+  { label: 'J', value: 'Jeudi' }, { label: 'V', value: 'Vendredi' }, { label: 'S', value: 'Samedi' }, { label: 'D', value: 'Dimanche' }
 ];
 
 // ============================================================================
@@ -239,56 +171,34 @@ function useDebounce<T>(value: T, delay: number): T {
 // SERVICES API
 // ============================================================================
 const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
+  if (!TMDB_API_KEY) return [];
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
   if (!res.ok) throw new Error("Erreur TMDB");
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(),
-    source: 'tmdb',
-    title: item.title || item.name,
-    cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type,
-    year: (item.release_date || item.first_air_date || '').split('-')[0],
-    description: item.overview || 'Aucune description disponible.',
-    totalEpisodes: item.media_type === 'movie' ? 1 : null,
-    isAiring: false,
-    isAdult: item.adult === true
+    id: item.id.toString(), source: 'tmdb', title: String(item.title || item.name || ''),
+    cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null, type: item.media_type,
+    year: String(item.release_date || item.first_air_date || '').split('-')[0], description: String(item.overview || 'Aucune description disponible.'),
+    totalEpisodes: item.media_type === 'movie' ? 1 : null, isAiring: false, isAdult: item.adult === true
   }));
 };
 
 const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaItem[]> => {
   const statusFilter = isUpcoming ? ', status: NOT_YET_RELEASED' : '';
   const sortFilter = isUpcoming ? ', sort: POPULARITY_DESC' : '';
-  const graphqlQuery = `
-    query ($search: String) {
-      Page(page: 1, perPage: 15) {
-        media(search: $search, type: ANIME${statusFilter}${sortFilter}) {
-          id title { romaji english native } coverImage { large } format startDate { year } description episodes status genres duration isAdult studios(isMain: true) { nodes { name } }
-        }
-      }
-    }
-  `;
+  const graphqlQuery = `query ($search: String) { Page(page: 1, perPage: 15) { media(search: $search, type: ANIME${statusFilter}${sortFilter}) { id title { romaji english native } coverImage { large } format startDate { year } description episodes status genres duration isAdult studios(isMain: true) { nodes { name } } } } }`;
   const res = await fetch('https://graphql.anilist.co', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
     body: JSON.stringify({ query: graphqlQuery, variables: query ? { search: query } : undefined })
   });
   if (!res.ok) throw new Error("Erreur AniList");
   const data = await res.json();
   return data.data.Page.media.map((item: any) => ({
-    id: item.id.toString(),
-    source: 'anilist',
-    title: item.title.english || item.title.romaji || item.title.native,
-    cover: item.coverImage.large,
-    type: 'anime',
-    year: item.startDate.year || 'N/A',
-    description: item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.',
-    totalEpisodes: item.episodes || null,
-    isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED',
-    genres: item.genres,
-    runtime: item.duration,
-    prod_status: item.status,
-    isAdult: item.isAdult === true,
+    id: item.id.toString(), source: 'anilist', title: String(item.title.english || item.title.romaji || item.title.native || ''),
+    cover: item.coverImage.large || null, type: 'anime', year: item.startDate.year || 'N/A',
+    description: String(item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.'),
+    totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED',
+    genres: item.genres || [], runtime: item.duration || 0, prod_status: item.status || '', isAdult: item.isAdult === true,
     creator: item.studios?.nodes?.[0]?.name || null
   }));
 };
@@ -298,105 +208,73 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   if (!res.ok) throw new Error("Erreur Shikimori");
   const data = await res.json();
   return data.map((item: any) => ({
-    id: item.id.toString(),
-    source: 'shikimori',
-    title: item.name || item.russian,
+    id: item.id.toString(), source: 'shikimori', title: String(item.name || item.russian || ''),
     cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
-    type: item.kind === 'manhwa' ? 'webtoon' : 'manga',
-    year: item.aired_on ? item.aired_on.split('-')[0] : 'N/A',
-    description: 'Recherche des détails en arrière-plan...',
-    totalEpisodes: item.volumes || item.chapters || null,
-    isAiring: item.status === 'ongoing',
-    isAdult: false
+    type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A',
+    description: 'Recherche des détails en arrière-plan...', totalEpisodes: item.volumes || item.chapters || null,
+    isAiring: item.status === 'ongoing', isAdult: false
   }));
 };
 
 const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
   const isISBN = /^[0-9-]+$/.test(query) && query.replace(/-/g, '').length >= 10;
   const searchQuery = isISBN ? `isbn=${query}` : `q=${encodeURIComponent(query)}`;
-
   const res = await fetch(`https://openlibrary.org/search.json?${searchQuery}&limit=10`);
   if (!res.ok) throw new Error("Erreur OpenLibrary");
   const data = await res.json();
-
   return data.docs.map((item: any) => ({
-    id: item.key,
-    source: 'openlibrary',
-    title: item.title,
+    id: String(item.key), source: 'openlibrary', title: String(item.title || ''),
     cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
-    type: 'book',
-    year: item.first_publish_year || 'N/A',
+    type: 'book', year: item.first_publish_year || 'N/A',
     description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
-    totalEpisodes: item.number_of_pages_median || null,
-    isAiring: false,
-    genres: item.subject ? item.subject.slice(0, 3) : [],
-    isAdult: false,
-    creator: item.author_name ? item.author_name[0] : null
+    totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [],
+    isAdult: false, creator: item.author_name ? item.author_name[0] : null
   }));
 };
 
 const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
+  if (!TMDB_API_KEY) return [];
   const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}&language=fr-FR`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(), source: 'tmdb', title: item.title || item.name,
+    id: item.id.toString(), source: 'tmdb', title: String(item.title || item.name || ''),
     cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type, year: (item.release_date || item.first_air_date || '').split('-')[0],
-    description: item.overview || '', totalEpisodes: item.media_type === 'movie' ? 1 : null,
-    isAdult: item.adult === true
+    type: item.media_type, year: String(item.release_date || item.first_air_date || '').split('-')[0],
+    description: String(item.overview || ''), totalEpisodes: item.media_type === 'movie' ? 1 : null, isAdult: item.adult === true
   }));
 };
 
-const mapStatusToLabel = (status: string | undefined) => {
+const mapStatusToLabel = (status: string | undefined): string => {
   if (!status) return "Statut inconnu";
-  const s = status.toLowerCase();
-
-  if (s === 'completed' || s === 'finished' || s === 'ended' || s === 'released') return "Terminée";
-  if (s === 'ongoing' || s === 'releasing' || s === 'returning series' || s === 'in production') return "En production";
-  if (s === 'planned' || s === 'post production' || s === 'not_yet_released') return "À venir";
+  const s = String(status).toLowerCase();
+  if (['completed', 'finished', 'ended', 'released'].includes(s)) return "Terminée";
+  if (['ongoing', 'releasing', 'returning series', 'in production'].includes(s)) return "En production";
+  if (['planned', 'post production', 'not_yet_released'].includes(s)) return "À venir";
   if (s === 'canceled') return "Annulée";
-
   return "Statut inconnu";
 };
 
 const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Partial<LibraryItem> | null> => {
   const targetId = 'media_id' in item ? item.media_id : item.id;
-
   try {
-    if (item.source === 'tmdb') {
+    if (item.source === 'tmdb' && TMDB_API_KEY) {
       const res = await fetch(`https://api.themoviedb.org/3/${item.type}/${targetId}?api_key=${TMDB_API_KEY}&language=fr-FR&append_to_response=credits`);
       if (!res.ok) return null;
       const data = await res.json();
-
       let creator = null;
       if (item.type === 'movie' && data.credits?.crew) {
         creator = data.credits.crew.find((c: any) => c.job === 'Director')?.name;
       } else if (item.type === 'tv' && data.created_by?.length > 0) {
         creator = data.created_by[0].name;
       }
-
-      return {
-        description: data.overview,
-        total_episodes: item.type === 'tv' ? data.number_of_episodes : 1,
-        genres: data.genres?.map((g: any) => g.name),
-        runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0),
-        prod_status: data.status,
-        creator: creator || item.creator
-      };
+      return { description: String(data.overview || ''), total_episodes: item.type === 'tv' ? data.number_of_episodes : 1, genres: data.genres?.map((g: any) => String(g.name)), runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0), prod_status: String(data.status || ''), creator: creator ? String(creator) : item.creator };
     }
     if (item.source === 'anilist') {
       const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `query ($id: Int) { Media(id: $id) { description episodes status genres duration studios(isMain: true) { nodes { name } } } }`, variables: { id: parseInt(targetId) } }) });
       if (!res.ok) return null;
       const data = await res.json();
-      return {
-        description: data.data.Media.description?.replace(/<[^>]*>?/gm, ''),
-        total_episodes: data.data.Media.episodes || (item as any).total_episodes || (item as any).totalEpisodes,
-        genres: data.data.Media.genres,
-        runtime: data.data.Media.duration,
-        prod_status: data.data.Media.status,
-        creator: data.data.Media.studios?.nodes?.[0]?.name || item.creator
-      };
+      return { description: String(data.data.Media.description?.replace(/<[^>]*>?/gm, '') || ''), total_episodes: data.data.Media.episodes || (item as any).total_episodes || (item as any).totalEpisodes, genres: data.data.Media.genres || [], runtime: data.data.Media.duration || 0, prod_status: String(data.data.Media.status || ''), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios.nodes[0].name) : item.creator };
     }
   } catch (e) {} return null;
 };
@@ -421,57 +299,30 @@ const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant
   return <button className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all active:scale-95 disabled:opacity-50 ${variants[variant]} ${className}`} {...props}>{children}</button>;
 };
 
-const CustomSelect: React.FC<{
-  value: string,
-  onChange: (val: string) => void,
-  options: SelectOption[],
-  className?: string,
-  placement?: 'bottom' | 'top'
-}> = ({ value, onChange, options, className = "", placement = 'bottom' }) => {
+const CustomSelect: React.FC<{ value: string, onChange: (val: string) => void, options: SelectOption[], className?: string, placement?: 'bottom' | 'top' }> = ({ value, onChange, options, className = "", placement = 'bottom' }) => {
   const [isOpen, setIsOpen] = useState(false);
   const selectRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (selectRef.current && !selectRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
+    const handleClickOutside = (event: MouseEvent) => { if (selectRef.current && !selectRef.current.contains(event.target as Node)) setIsOpen(false); };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(o => o.value === value) || options[0];
+  const selectedOption = options.find(o => String(o.value) === String(value)) || options[0];
 
   return (
     <div className="relative w-full" ref={selectRef}>
-      <div
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between w-full rounded-xl px-4 py-3.5 cursor-pointer font-bold text-sm transition-all select-none border border-[var(--border-color)] bg-[var(--panel-bg-alt)] ${className}`}
-      >
-        <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label || value}</span>
+      <div onClick={() => setIsOpen(!isOpen)} className={`flex items-center justify-between w-full rounded-xl px-4 py-3.5 cursor-pointer font-bold text-sm transition-all select-none border border-[var(--border-color)] bg-[var(--panel-bg-alt)] ${className}`}>
+        <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label || String(value)}</span>
         <ChevronRight size={16} className={`text-[var(--text-muted)] transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
       </div>
-
       {isOpen && (
         <div className={`absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200`}>
           <div className="max-h-60 overflow-y-auto custom-scrollbar py-1">
-            {options.map((opt) => {
-              if (opt.disabled) return null;
-              return (
-                <div
-                  key={opt.value}
-                  onClick={() => { onChange(opt.value); setIsOpen(false); }}
-                  className={`px-4 py-3 text-sm font-bold cursor-pointer transition-colors mx-1 rounded-lg ${
-                    value === opt.value
-                      ? 'text-[var(--primary)] bg-[var(--primary)]/10'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)]'
-                  }`}
-                >
-                  {opt.label}
-                </div>
-              );
-            })}
+            {options.map((opt) => opt.disabled ? null : (
+              <div key={String(opt.value)} onClick={() => { onChange(String(opt.value)); setIsOpen(false); }} className={`px-4 py-3 text-sm font-bold cursor-pointer transition-colors mx-1 rounded-lg ${String(value) === String(opt.value) ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-[var(--text-muted)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)]'}`}>{opt.label}</div>
+            ))}
           </div>
         </div>
       )}
@@ -499,7 +350,7 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
     webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: 'Webtoon' },
     book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: 'Livre' }
   };
-  const current = config[type] || config.movie;
+  const current = config[String(type)] || config.movie;
   const Icon = current.icon;
   return <span className={`flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-1 rounded-md font-bold backdrop-blur-md ${current.color}`}><Icon size={12} strokeWidth={3} /> {current.label}</span>;
 };
@@ -529,7 +380,7 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
         type="number"
         min={item.progress}
         className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center"
-        value={value}
+        value={String(value)}
         onChange={e => setValue(e.target.value)}
         onBlur={() => {
           setIsEditing(false);
@@ -543,37 +394,37 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
 };
 
 // ============================================================================
-// MODAL DE DÉTAILS (REFONTE VERTICALE SELON MAQUETTE)
+// MODAL DE DÉTAILS
 // ============================================================================
 const DetailModal: React.FC<{
   item: MediaItem | LibraryItem, onClose: () => void, trackedItem: LibraryItem | undefined,
   onLibraryUpdate?: (id: string, updates: Partial<LibraryItem>) => void, user?: UserData, fetchLibrary?: () => void
 }> = ({ item, onClose, trackedItem, onLibraryUpdate, user, fetchLibrary }) => {
 
-  const [localData, setLocalData] = useState(item as LibraryItem);
-  const [isActing, setIsActing] = useState(false);
-  const [showFullDesc, setShowFullDesc] = useState(false);
+  const [localData, setLocalData] = useState<LibraryItem>(item as LibraryItem);
+  const [isActing, setIsActing] = useState<boolean>(false);
+  const [showFullDesc, setShowFullDesc] = useState<boolean>(false);
 
-  const getInitialReminderState = () => {
-    if (!trackedItem?.reminder_day) return { days: [] as string[], freq: "1" };
+  const getInitialReminderState = (): { days: string[], freq: string } => {
+    if (!trackedItem?.reminder_day) return { days: [], freq: "1" };
     try {
       const parsed = JSON.parse(trackedItem.reminder_day);
       return { days: parsed.days || [], freq: parsed.frequency?.toString() || "1" };
     } catch(e) {
-      return { days: [trackedItem.reminder_day], freq: "1" };
+      return { days: [String(trackedItem.reminder_day)], freq: "1" };
     }
   };
 
   const initialReminder = getInitialReminderState();
 
-  const [notes, setNotes] = useState(trackedItem?.notes || '');
-  const [customLink, setCustomLink] = useState(trackedItem?.custom_link || '');
-  const [isEditingLink, setIsEditingLink] = useState(false);
-  const [showReminder, setShowReminder] = useState(false);
+  const [notes, setNotes] = useState<string>(trackedItem?.notes || '');
+  const [customLink, setCustomLink] = useState<string>(trackedItem?.custom_link || '');
+  const [isEditingLink, setIsEditingLink] = useState<boolean>(false);
+  const [showReminder, setShowReminder] = useState<boolean>(false);
 
   const [reminderDays, setReminderDays] = useState<string[]>(initialReminder.days);
   const [reminderFreq, setReminderFreq] = useState<string>(initialReminder.freq);
-  const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
+  const [reminderTime, setReminderTime] = useState<string>(trackedItem?.reminder_time || '18:00');
 
   const normalizedTotal = (localData as any).total_episodes || (localData as any).totalEpisodes;
 
@@ -583,13 +434,12 @@ const DetailModal: React.FC<{
         const lastUpdated = new Date(trackedItem.updated_at).getTime();
         if (Date.now() - lastUpdated < 24 * 60 * 60 * 1000) return;
       }
-
       const freshData = await revalidateMediaDetails(item);
       if (freshData) {
         setLocalData(prev => ({ ...prev, ...freshData }));
-        if (trackedItem) {
+        if (trackedItem && onLibraryUpdate) {
           await supabase.from('user_media').update(freshData).match({ id: trackedItem.id });
-          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, freshData);
+          onLibraryUpdate(trackedItem.id, freshData);
         }
       }
     };
@@ -602,16 +452,8 @@ const DetailModal: React.FC<{
 
   const saveExtras = async () => {
     if (!trackedItem) return;
-
     const reminderData = JSON.stringify({ days: reminderDays, frequency: parseInt(reminderFreq) });
-
-    const updates = {
-      notes,
-      custom_link: customLink,
-      reminder_day: reminderData,
-      reminder_time: reminderTime
-    };
-
+    const updates = { notes: String(notes), custom_link: String(customLink), reminder_day: String(reminderData), reminder_time: String(reminderTime) };
     await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
     if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
   };
@@ -650,10 +492,10 @@ const DetailModal: React.FC<{
     await supabase.from('user_media').update({ is_favorite: newFav }).match({ id: trackedItem.id });
   };
 
-  const title = localData.title;
+  const title = String(localData.title || "");
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
-  const description = localData.description || 'Description en cours de chargement...';
-  const year = localData.year || 'Année inconnue';
+  const description = String(localData.description || 'Description en cours de chargement...');
+  const year = String(localData.year || 'Année inconnue');
   const prodStatusLabel = mapStatusToLabel(localData.prod_status);
 
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]"
@@ -673,7 +515,7 @@ const DetailModal: React.FC<{
           <div className="flex justify-center mb-6 mt-4">
              <div className="w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)]">
               {cover ? <img src={cover} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
-              <div className="absolute top-2 left-2"><TypeBadge type={localData.type} /></div>
+              <div className="absolute top-2 left-2"><TypeBadge type={String(localData.type)} /></div>
              </div>
           </div>
 
@@ -692,19 +534,19 @@ const DetailModal: React.FC<{
                 </span>
               )}
               <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">
-                {year} • {localData.source.toUpperCase()}
+                {year} • {String(localData.source || "").toUpperCase()}
               </span>
             </div>
 
             {localData.creator && (
-              <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {localData.creator}</p>
+              <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {String(localData.creator)}</p>
             )}
 
             {localData.genres && localData.genres.length > 0 && (
               <div className="flex flex-wrap justify-center gap-1.5 mb-4">
                 {localData.genres.map(genre => (
-                  <span key={genre} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">
-                    {genre}
+                  <span key={String(genre)} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">
+                    {String(genre)}
                   </span>
                 ))}
               </div>
@@ -730,8 +572,8 @@ const DetailModal: React.FC<{
               ) : (
                 <CustomSelect
                   value=""
-                  onChange={handleAddOrUpdate}
-                  options={STATUS_OPTIONS}
+                  onChange={(val: string) => handleAddOrUpdate(val)}
+                  options={STATUS_OPTIONS as SelectOption[]}
                   className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] !text-white border border-transparent shadow-lg shadow-[var(--shadow-color)] text-center justify-center"
                 />
               )}
@@ -745,9 +587,9 @@ const DetailModal: React.FC<{
               <div className="flex gap-2 w-full items-center">
                 <div className="flex-1">
                   <CustomSelect
-                    value={trackedItem.status}
-                    onChange={handleAddOrUpdate}
-                    options={STATUS_OPTIONS.filter(o => o.value !== "")}
+                    value={String(trackedItem.status)}
+                    onChange={(val: string) => handleAddOrUpdate(val)}
+                    options={STATUS_OPTIONS.filter(o => o.value !== "") as SelectOption[]}
                     className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]"
                   />
                 </div>
@@ -768,7 +610,7 @@ const DetailModal: React.FC<{
                         autoFocus
                         type="text"
                         placeholder="https://exemple.com/serie"
-                        value={customLink}
+                        value={String(customLink)}
                         onChange={(e) => setCustomLink(e.target.value)}
                         onBlur={() => { setIsEditingLink(false); saveExtras(); }}
                         className="w-full bg-[var(--bg-base)] border border-[var(--primary)] text-[var(--text-main)] text-sm rounded-xl py-3 pl-10 pr-4 focus:outline-none transition-all placeholder:text-[var(--primary)]/50 font-medium"
@@ -813,7 +655,7 @@ const DetailModal: React.FC<{
                         const isSelected = reminderDays.includes(day.value);
                         return (
                           <button
-                            key={day.value}
+                            key={String(day.value)}
                             onClick={() => { toggleDay(day.value); saveExtras(); }}
                             className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center transition-all border ${isSelected ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-lg shadow-[var(--shadow-color)] scale-110' : 'bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--primary)]'}`}
                           >
@@ -826,9 +668,9 @@ const DetailModal: React.FC<{
                     <div className="flex gap-2">
                        <div className="flex-1">
                          <CustomSelect
-                            value={reminderFreq}
-                            onChange={(val) => { setReminderFreq(val); saveExtras(); }}
-                            options={FREQUENCY_OPTIONS}
+                            value={String(reminderFreq)}
+                            onChange={(val: string) => { setReminderFreq(val); saveExtras(); }}
+                            options={FREQUENCY_OPTIONS as SelectOption[]}
                             placement="top"
                             className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]"
                           />
@@ -837,9 +679,9 @@ const DetailModal: React.FC<{
                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                          <input
                             type="time"
-                            value={reminderTime}
+                            value={String(reminderTime)}
                             onChange={e => setReminderTime(e.target.value)}
-                            onBlur={saveExtras}
+                            onBlur={() => saveExtras()}
                             className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-[var(--primary)] transition-colors"
                          />
                        </div>
@@ -851,9 +693,9 @@ const DetailModal: React.FC<{
               <div className="pt-2">
                 <textarea
                   placeholder="Bloc note (Enregistré automatiquement)..."
-                  value={notes}
+                  value={String(notes)}
                   onChange={(e) => setNotes(e.target.value)}
-                  onBlur={saveExtras}
+                  onBlur={() => saveExtras()}
                   className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar"
                 />
               </div>
@@ -929,7 +771,7 @@ const DiscoverySearch: React.FC<{
     if (items.length === 0) return null;
     return (
       <div className="mb-10">
-        <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{title} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
+        <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{String(title)} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
         <div className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory">
           {items.map(media => {
             const cover = 'cover' in media ? media.cover : media.cover_url;
@@ -941,9 +783,9 @@ const DiscoverySearch: React.FC<{
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
                   {cover ? (
-                    <img src={cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
+                    <img src={cover || ""} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                  <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
+                  <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
@@ -951,7 +793,7 @@ const DiscoverySearch: React.FC<{
                     </button>
                   )}
 
-                  {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
+                  {'isAiring' in media && media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
                   {needsBlur && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div>
@@ -959,8 +801,8 @@ const DiscoverySearch: React.FC<{
                   )}
                 </div>
                 <div className="p-3.5">
-                  <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{media.title}</h3>
-                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p>
+                  <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
+                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? String(media.year) : '?'}</p>
                 </div>
               </div>
             )
@@ -976,15 +818,15 @@ const DiscoverySearch: React.FC<{
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="sticky top-0 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 sm:top-2">
         <div className="flex-grow">
-          <Input icon={Search} placeholder="Films, Animes, Livres..." value={query} onChange={e => setQuery(e.target.value)} autoFocus />
+          <Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus />
         </div>
 
         <div className="flex gap-3">
           <div className="shrink-0 flex-1 sm:w-48">
              <CustomSelect
-                value={filter}
-                onChange={setFilter}
-                options={FORMAT_OPTIONS}
+                value={String(filter)}
+                onChange={(val: string) => setFilter(val)}
+                options={FORMAT_OPTIONS as SelectOption[]}
                 className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]"
               />
           </div>
@@ -1024,9 +866,9 @@ const DiscoverySearch: React.FC<{
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
                   {media.cover ? (
-                    <img src={media.cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
+                    <img src={media.cover || ""} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                  <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
+                  <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
@@ -1034,7 +876,7 @@ const DiscoverySearch: React.FC<{
                     </button>
                   )}
 
-                  {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
+                  {'isAiring' in media && media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
                   {needsBlur && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div>
@@ -1043,8 +885,8 @@ const DiscoverySearch: React.FC<{
                 </div>
                 <div className="p-3.5 flex flex-col flex-grow justify-between">
                   <div>
-                    <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{media.title}</h3>
-                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{media.year}</p>
+                    <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
+                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p>
                   </div>
                   {tracked && (
                     <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold bg-[var(--primary)]/10 text-[var(--primary)] py-2 rounded-lg border border-[var(--primary)]/20">
@@ -1081,14 +923,14 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ background: `linear-gradient(90deg, var(--primary) ${progressPercent}%, transparent ${progressPercent}%)`}} />
 
         <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">
-          {item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}
+          {item.cover_url ? <img src={item.cover_url || ""} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}
         </div>
 
         <div className="flex-1 min-w-0 z-10">
           <p className="text-[10px] text-[var(--primary)] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1">
             <PlayCircle size={10} /> Reprendre
           </p>
-          <h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{item.title}</h4>
+          <h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{String(item.title)}</h4>
           <div className="flex items-center gap-2 mt-1.5">
             <span className="text-xs font-mono font-bold text-[var(--text-muted)]">{item.progress} / {item.total_episodes || '?'}</span>
             <div className="flex-1 h-1.5 bg-[var(--bg-base)] rounded-full overflow-hidden border border-[var(--border-color)]">
@@ -1135,16 +977,14 @@ const ProfileScreen: React.FC<{
   const watchRatio = totalInteractions > 0 ? Math.round((watchProgress / totalInteractions) * 100) : 0;
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
 
-  // SÉLECTEUR DE FUSEAU HORAIRE
   const timezones = useMemo(() => {
     try {
-      // @ts-ignore: Pris en charge par les navigateurs modernes
+      // @ts-ignore
       if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) {
         // @ts-ignore
-        return Intl.supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
+        return Intl.supportedValuesOf('timeZone').map((tz: string) => ({ value: String(tz), label: String(tz).replace(/_/g, ' ') }));
       }
     } catch (e) {}
-    // Fallback si non supporté
     return [
       { value: 'Europe/Paris', label: 'Europe/Paris' },
       { value: 'America/New_York', label: 'America/New York' },
@@ -1153,25 +993,21 @@ const ProfileScreen: React.FC<{
     ];
   }, []);
 
-  const [userTz, setUserTz] = useState(user.user_metadata?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris');
+  const [userTz, setUserTz] = useState<string>(user.user_metadata?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris');
 
   const handleTzChange = async (val: string) => {
     setUserTz(val);
     await supabase.auth.updateUser({ data: { timezone: val } });
   };
 
-  // LOGIQUE PWA (AJOUTER À L'ÉCRAN D'ACCUEIL)
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
-    // Vérifie si on est déjà en mode "App"
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
       setIsStandalone(true);
     }
-
-    // Détection stricte d'iOS pour l'affichage du tutoriel manuel
     const userAgent = window.navigator.userAgent.toLowerCase();
     setIsIOS(/iphone|ipad|ipod/.test(userAgent));
 
@@ -1202,10 +1038,9 @@ const ProfileScreen: React.FC<{
             <User size={32} />
           </div>
           <h2 className="text-2xl font-black text-[var(--text-main)]">Profil</h2>
-          <p className="text-[var(--text-muted)] font-medium mt-1">{user.email}</p>
+          <p className="text-[var(--text-muted)] font-medium mt-1">{String(user.email || "")}</p>
         </div>
 
-        {/* SECTION PWA (APPLICATION MOBILE) */}
         {!isStandalone && (
           <div className="mb-8 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5">
             <div className="flex items-center gap-3 mb-3">
@@ -1234,7 +1069,6 @@ const ProfileScreen: React.FC<{
           </div>
         )}
 
-        {/* CONTROLE DU THÈME (MOBILE UNIQUEMENT, VISIBLE AUSSI SUR PC MAIS PRATIQUE ICI) */}
         <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-base)] rounded-2xl border border-[var(--border-color)] mb-8">
           <span className="font-bold text-[var(--text-main)]">Thème de l'application</span>
           <button onClick={toggleTheme} className="p-2.5 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl text-[var(--primary)] shadow-sm">
@@ -1243,8 +1077,6 @@ const ProfileScreen: React.FC<{
         </div>
 
         <div className="bg-[var(--bg-base)] rounded-2xl p-6 mb-8 border border-[var(--border-color)]">
-
-          {/* Taux de complétion */}
           <div className="mb-8">
             <div className="flex justify-between items-end mb-3">
               <h3 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">Taux de complétion</h3>
@@ -1256,7 +1088,6 @@ const ProfileScreen: React.FC<{
             <p className="text-xs text-[var(--text-muted)] mt-2 font-medium">{totalCompleted} œuvres terminées sur {totalAdded} ajoutées</p>
           </div>
 
-          {/* Binge vs Lecture */}
           <div>
             <div className="flex justify-between items-end mb-3">
               <h3 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">Écrans vs Lecture</h3>
@@ -1314,11 +1145,10 @@ const ProfileScreen: React.FC<{
           </div>
         </div>
 
-        {/* FUSEAU HORAIRE ET PARAMETRES */}
         <div className="mb-6">
-           <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 block flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label>
+           <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label>
            <CustomSelect
-              value={userTz}
+              value={String(userTz)}
               onChange={handleTzChange}
               options={timezones}
               placement="top"
@@ -1374,8 +1204,8 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         </div>
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
         <div className="space-y-4">
-          <Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} />
-          <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
+          <Input type="email" placeholder="Adresse email" value={String(email)} onChange={e => setEmail(e.target.value)} />
+          <Input type="password" placeholder="Mot de passe" value={String(password)} onChange={e => setPassword(e.target.value)} />
           <div className="pt-6 flex flex-col gap-3">
             <Button className="w-full !py-3.5 text-base" onClick={() => handleAuth('login')} disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Se connecter'}
@@ -1402,7 +1232,6 @@ export default function App() {
 
   const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
 
-  // ÉTAT DU THÈME SOMBRE/CLAIR
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   const filteredLibrary = userLibrary.filter(item => {
@@ -1476,14 +1305,11 @@ export default function App() {
     <div className={`${theme} min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans pb-28 sm:pb-12 flex flex-col relative transition-colors duration-300`}>
       <GlobalStyles />
 
-      {/* NAVBAR AKASHA */}
       <nav className="fixed bottom-4 inset-x-6 mx-auto sm:mx-0 max-w-[250px] sm:max-w-none sm:top-6 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 z-50 sm:w-auto px-6 py-3 sm:py-3 bg-[var(--panel-bg)]/95 backdrop-blur-xl border sm:border border-[var(--border-color)] rounded-3xl sm:rounded-full flex justify-between sm:justify-center items-center sm:gap-12 shadow-2xl">
-
         <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]">
            <AkashaLogo size={24} />
            <span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span>
         </div>
-
         <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>
           <Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} />
         </button>
@@ -1502,7 +1328,6 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full">
         {currentTab === 'dashboard' && (
           <div className="animate-in fade-in duration-500">
-
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
               <div className="flex gap-1 overflow-x-auto w-full sm:w-auto custom-scrollbar px-1 pt-1">
                 {[
@@ -1519,7 +1344,7 @@ export default function App() {
                   const config = STATUS_CONFIG[f.id as keyof typeof STATUS_CONFIG];
 
                   return (
-                    <button key={f.id} onClick={() => setActiveFilter(f.id as any)}
+                    <button key={String(f.id)} onClick={() => setActiveFilter(f.id as any)}
                       className={`whitespace-nowrap px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all relative ${isActive ? config.tabActive : config.tabInactive}`}
                     >
                       {f.id === 'favorites' && <Heart size={14} className={`inline mr-1 ${isActive ? "fill-[var(--text-main)]" : ""}`} />}
@@ -1532,7 +1357,7 @@ export default function App() {
 
               <div className="shrink-0 w-full sm:w-48 z-10">
                  <CustomSelect
-                    value={formatFilter}
+                    value={String(formatFilter)}
                     onChange={setFormatFilter}
                     options={FORMAT_OPTIONS}
                     className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm"
@@ -1546,24 +1371,21 @@ export default function App() {
                   const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
 
                   return (
-                    <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
-
+                    <div key={String(item.id)} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
                       <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
                         {item.cover_url ? (
-                          <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                          <img src={item.cover_url || ""} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                         ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                        <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
-
+                        <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={String(item.type)} /></div>
                         <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                           <Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
                         </button>
-
                         <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
                       </div>
 
                       <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
                         <div className="flex flex-col">
-                          <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3>
+                          <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{String(item.title)}</h3>
                           <div className="w-fit" onClick={e => e.stopPropagation()}>
                             <InlineEpisodeEdit item={item} onSave={async (id, newTotal) => {
                               setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem));
@@ -1600,7 +1422,6 @@ export default function App() {
         )}
       </main>
 
-      {/* LECTEUR PERSISTANT */}
       {currentTab !== 'profile' && activePlayerItem && (
         <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />
       )}
@@ -1611,11 +1432,11 @@ export default function App() {
           onClose={() => setSelectedMedia(null)}
           trackedItem={
             'status' in selectedMedia
-              ? userLibrary.find(i => i.id === selectedMedia.id)
-              : userLibrary.find(i => i.media_id === selectedMedia.id && i.source === selectedMedia.source)
+              ? userLibrary.find(i => String(i.id) === String(selectedMedia.id))
+              : userLibrary.find(i => String(i.media_id) === String(selectedMedia.id) && String(i.source) === String(selectedMedia.source))
           }
           onLibraryUpdate={handleSWRUpdate}
-          user={user}
+          user={user || undefined}
           fetchLibrary={fetchLibrary}
         />
       )}
