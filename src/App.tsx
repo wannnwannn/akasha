@@ -136,7 +136,7 @@ interface LibraryItem {
   reminder_time?: string; 
   is_favorite?: boolean;
   
-  // Alignement strict avec MediaItem pour satisfaire TypeScript
+  // Alignement strict
   isAiring?: boolean;
   isAdult?: boolean;
   totalEpisodes?: number | null;
@@ -750,7 +750,7 @@ const DetailModal: React.FC<{
               <div className="flex gap-2 w-full items-center">
                 <div className="flex-1">
                   <CustomSelect
-                    value={trackedItem.status}
+                    value={String(trackedItem.status)}
                     onChange={handleAddOrUpdate}
                     options={STATUS_OPTIONS.filter(o => o.value !== "")} 
                     className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]"
@@ -773,7 +773,7 @@ const DetailModal: React.FC<{
                         autoFocus
                         type="text"
                         placeholder="https://exemple.com/serie"
-                        value={customLink}
+                        value={String(customLink)}
                         onChange={(e) => setCustomLink(e.target.value)}
                         onBlur={() => { setIsEditingLink(false); saveExtras(); }}
                         className="w-full bg-[var(--bg-base)] border border-[var(--primary)] text-[var(--text-main)] text-sm rounded-xl py-3 pl-10 pr-4 focus:outline-none transition-all placeholder:text-[var(--primary)]/50 font-medium"
@@ -831,7 +831,7 @@ const DetailModal: React.FC<{
                     <div className="flex gap-2">
                        <div className="flex-1">
                          <CustomSelect
-                            value={reminderFreq}
+                            value={String(reminderFreq)}
                             onChange={(val) => { setReminderFreq(val); saveExtras(); }}
                             options={FREQUENCY_OPTIONS}
                             placement="top"
@@ -842,9 +842,9 @@ const DetailModal: React.FC<{
                          <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
                          <input
                             type="time"
-                            value={reminderTime}
+                            value={String(reminderTime)}
                             onChange={e => setReminderTime(e.target.value)}
-                            onBlur={saveExtras}
+                            onBlur={() => saveExtras()}
                             className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-[var(--primary)] transition-colors"
                          />
                        </div>
@@ -856,9 +856,9 @@ const DetailModal: React.FC<{
               <div className="pt-2">
                 <textarea
                   placeholder="Bloc note (Enregistré automatiquement)..."
-                  value={notes}
+                  value={String(notes)}
                   onChange={(e) => setNotes(e.target.value)}
-                  onBlur={saveExtras}
+                  onBlur={() => saveExtras()}
                   className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar"
                 />
               </div>
@@ -950,6 +950,7 @@ const DiscoverySearch: React.FC<{
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
                   
+                  {/* Bouton Favori dans le carousel (Seulement si tracké) */}
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                       <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
@@ -981,13 +982,13 @@ const DiscoverySearch: React.FC<{
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="sticky top-0 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 sm:top-2">
         <div className="flex-grow">
-          <Input icon={Search} placeholder="Films, Animes, Livres..." value={query} onChange={e => setQuery(e.target.value)} autoFocus />
+          <Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus />
         </div>
 
         <div className="flex gap-3">
           <div className="shrink-0 flex-1 sm:w-48">
              <CustomSelect
-                value={filter}
+                value={String(filter)}
                 onChange={setFilter}
                 options={FORMAT_OPTIONS}
                 className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]"
@@ -1324,7 +1325,7 @@ const ProfileScreen: React.FC<{
         <div className="mb-6">
            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 block flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label>
            <CustomSelect
-              value={userTz}
+              value={String(userTz)}
               onChange={handleTzChange}
               options={timezones}
               placement="top"
@@ -1380,8 +1381,8 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         </div>
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
         <div className="space-y-4">
-          <Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} />
-          <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
+          <Input type="email" placeholder="Adresse email" value={String(email)} onChange={e => setEmail(e.target.value)} />
+          <Input type="password" placeholder="Mot de passe" value={String(password)} onChange={e => setPassword(e.target.value)} />
           <div className="pt-6 flex flex-col gap-3">
             <Button className="w-full !py-3.5 text-base" onClick={() => handleAuth('login')} disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Se connecter'}
@@ -1538,7 +1539,7 @@ export default function App() {
 
               <div className="shrink-0 w-full sm:w-48 z-10">
                  <CustomSelect
-                    value={formatFilter}
+                    value={String(formatFilter)}
                     onChange={setFormatFilter}
                     options={FORMAT_OPTIONS}
                     className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm"
