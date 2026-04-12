@@ -270,7 +270,7 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   const res = await fetch('https://graphql.anilist.co', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-    body: JSON.stringify({ query: graphqlQuery, variables: query ? { search: query } : {} })
+    body: JSON.stringify({ query: graphqlQuery, variables: query ? { search: query } : undefined })
   });
   if (!res.ok) throw new Error("Erreur AniList");
   const data = await res.json();
@@ -577,7 +577,7 @@ const DetailModal: React.FC<{
   const [reminderFreq, setReminderFreq] = useState<string>(initialReminder.freq);
   const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
 
-  const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : (localData as any).totalEpisodes;
+  const normalizedTotal = (localData as any).total_episodes || (localData as any).totalEpisodes;
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
@@ -970,6 +970,7 @@ const DiscoverySearch: React.FC<{
                     </button>
                   )}
 
+                  {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
                   {needsBlur && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                       <div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div>
