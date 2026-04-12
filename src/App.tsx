@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // Import via CDN pour l'aperçu.
-// En local, utilisez : import { createClient } from '@supabase/supabase-js';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient } from '@supabase/supabase-js';
+//import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, RefreshCw, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, ChevronLeft, Sun, Moon, Flame,
