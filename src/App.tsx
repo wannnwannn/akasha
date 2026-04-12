@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import {
+import { 
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
   Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone
@@ -26,7 +26,7 @@ const GlobalStyles = () => (
 
     .dark {
       /* THÈME SOMBRE */
-      --bg-base: #2a2a2a;
+      --bg-base: #2a2a2a; 
       --panel-bg: #333333;
       --panel-bg-alt: #1a1a1a;
       --text-main: #ffffff;
@@ -48,7 +48,7 @@ const GlobalStyles = () => (
       height: 8px;
     }
     ::-webkit-scrollbar-track {
-      background: var(--bg-base);
+      background: var(--bg-base); 
     }
     ::-webkit-scrollbar-thumb {
       background: var(--border-color);
@@ -107,7 +107,7 @@ interface MediaItem {
   runtime?: number;
   prod_status?: string;
   isAdult?: boolean;
-  creator?: string;
+  creator?: string; 
 }
 
 interface LibraryItem {
@@ -123,17 +123,17 @@ interface LibraryItem {
   total_episodes: number | null;
   rating: number | null;
   created_at: string;
-  updated_at: string;
+  updated_at: string; 
   description?: string;
   year?: string;
   genres?: string[];
   runtime?: number;
   prod_status?: string;
   creator?: string;
-  custom_link?: string;
-  notes?: string;
-  reminder_day?: string;
-  reminder_time?: string;
+  custom_link?: string; 
+  notes?: string;       
+  reminder_day?: string; 
+  reminder_time?: string; 
   is_favorite?: boolean;
 }
 
@@ -149,37 +149,37 @@ interface SelectOption {
 // CONFIGURATION DESIGN & STATUTS GLOBALE
 // ============================================================================
 const STATUS_CONFIG = {
-  favorites: {
-    label: 'Favoris',
-    containerBg: 'bg-[var(--panel-bg)]',
+  favorites: { 
+    label: 'Favoris', 
+    containerBg: 'bg-[var(--panel-bg)]', 
     containerBorder: 'border-rose-500',
     tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-rose-500 border-x border-rose-500',
     tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-rose-500 border-t-2 border-transparent border-b border-b-rose-500'
   },
-  watching: {
-    label: 'En cours',
-    containerBg: 'bg-[var(--panel-bg)]',
+  watching: { 
+    label: 'En cours', 
+    containerBg: 'bg-[var(--panel-bg)]', 
     containerBorder: 'border-[var(--primary)]',
     tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-[var(--primary)] border-x border-[var(--primary)]',
     tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--primary)]'
   },
-  planning: {
-    label: 'À voir',
-    containerBg: 'bg-[var(--panel-bg)]',
+  planning: { 
+    label: 'À voir', 
+    containerBg: 'bg-[var(--panel-bg)]', 
     containerBorder: 'border-[var(--border-color)]',
     tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-indigo-500 border-x border-[var(--border-color)]',
     tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
   },
-  completed: {
-    label: 'Terminé',
-    containerBg: 'bg-[var(--panel-bg)]',
+  completed: { 
+    label: 'Terminé', 
+    containerBg: 'bg-[var(--panel-bg)]', 
     containerBorder: 'border-[var(--border-color)]',
     tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-emerald-500 border-x border-[var(--border-color)]',
     tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
   },
-  on_hold: {
-    label: 'En pause',
-    containerBg: 'bg-[var(--panel-bg)]',
+  on_hold: { 
+    label: 'En pause', 
+    containerBg: 'bg-[var(--panel-bg)]', 
     containerBorder: 'border-[var(--border-color)]',
     tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-amber-500 border-x border-[var(--border-color)]',
     tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]'
@@ -547,11 +547,11 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
 // ============================================================================
 const DetailModal: React.FC<{
   item: MediaItem | LibraryItem, onClose: () => void, trackedItem: LibraryItem | undefined,
-  onLibraryUpdate?: (id: string, updates: Partial<LibraryItem>) => void, user?: UserData, fetchLibrary?: () => void
+  onLibraryUpdate?: (id: string, updates: Partial<LibraryItem>) => void, user?: UserData, fetchLibrary?: () => void 
 }> = ({ item, onClose, trackedItem, onLibraryUpdate, user, fetchLibrary }) => {
 
   const [localData, setLocalData] = useState(item as LibraryItem);
-  const [isActing, setIsActing] = useState(false);
+  const [isActing, setIsActing] = useState(false); 
   const [showFullDesc, setShowFullDesc] = useState(false);
 
   const getInitialReminderState = () => {
@@ -594,7 +594,7 @@ const DetailModal: React.FC<{
       }
     };
     checkAndRevalidate();
-  }, [item.id, trackedItem?.id]);
+  }, [item.id, trackedItem?.id]); 
 
   const toggleDay = (day: string) => {
     setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
@@ -602,16 +602,16 @@ const DetailModal: React.FC<{
 
   const saveExtras = async () => {
     if (!trackedItem) return;
-
+    
     const reminderData = JSON.stringify({ days: reminderDays, frequency: parseInt(reminderFreq) });
-
-    const updates = {
-      notes,
-      custom_link: customLink,
-      reminder_day: reminderData,
-      reminder_time: reminderTime
+    
+    const updates = { 
+      notes, 
+      custom_link: customLink, 
+      reminder_day: reminderData, 
+      reminder_time: reminderTime 
     };
-
+    
     await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
     if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
   };
@@ -747,7 +747,7 @@ const DetailModal: React.FC<{
                   <CustomSelect
                     value={trackedItem.status}
                     onChange={handleAddOrUpdate}
-                    options={STATUS_OPTIONS.filter(o => o.value !== "")}
+                    options={STATUS_OPTIONS.filter(o => o.value !== "")} 
                     className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]"
                   />
                 </div>
@@ -944,7 +944,7 @@ const DiscoverySearch: React.FC<{
                     <img src={cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
-
+                  
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                       <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
@@ -1027,7 +1027,7 @@ const DiscoverySearch: React.FC<{
                     <img src={media.cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
-
+                  
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                       <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
@@ -1179,7 +1179,7 @@ const ProfileScreen: React.FC<{
       e.preventDefault();
       setDeferredPrompt(e);
     };
-
+    
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
@@ -1215,7 +1215,7 @@ const ProfileScreen: React.FC<{
             <p className="text-sm text-[var(--text-muted)] mb-4">
               Installez Akasha sur votre écran d'accueil pour une expérience en plein écran et préparer l'arrivée des notifications Push.
             </p>
-
+            
             {deferredPrompt ? (
               <Button onClick={handleInstallClick} className="w-full !py-3 bg-blue-600 hover:bg-blue-700">
                 <Download size={18} /> Installer l'application
@@ -1553,7 +1553,7 @@ export default function App() {
                           <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                         ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                         <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
-
+                        
                         <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                           <Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
                         </button>
