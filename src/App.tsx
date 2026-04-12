@@ -347,7 +347,7 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   }));
 };
 
-const mapStatusToLabel = (status: string | undefined, _source: string) => {
+const mapStatusToLabel = (status: string | undefined) => {
   if (!status) return "Statut inconnu";
   const s = status.toLowerCase();
 
@@ -660,7 +660,7 @@ const DetailModal: React.FC<{
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = localData.description || 'Description en cours de chargement...';
   const year = localData.year || 'Année inconnue';
-  const prodStatusLabel = mapStatusToLabel(localData.prod_status, localData.source);
+  const prodStatusLabel = mapStatusToLabel(localData.prod_status);
 
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]"
     : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white"
@@ -1437,7 +1437,7 @@ export default function App() {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
