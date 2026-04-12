@@ -244,7 +244,6 @@ function useDebounce<T>(value: T, delay: number): T {
 // SERVICES API
 // ============================================================================
 const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
-  if (TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
   if (!res.ok) throw new Error("Erreur TMDB");
   const data = await res.json();
@@ -354,7 +353,7 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   }));
 };
 
-const mapStatusToLabel = (status: string | undefined, source: string) => {
+const mapStatusToLabel = (status: string | undefined) => {
   if (!status) return "Statut inconnu";
   const s = status.toLowerCase();
 
@@ -660,7 +659,7 @@ const DetailModal: React.FC<{
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = localData.description || 'Description en cours de chargement...';
   const year = localData.year || 'Année inconnue';
-  const prodStatusLabel = mapStatusToLabel(localData.prod_status, localData.source);
+  const prodStatusLabel = mapStatusToLabel(localData.prod_status);
 
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]"
     : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white"
@@ -735,7 +734,7 @@ const DetailModal: React.FC<{
                 <div className="flex justify-center p-4"><Loader2 className="animate-spin text-[var(--primary)]" /></div>
               ) : (
                 <CustomSelect
-                  value={""}
+                  value=""
                   onChange={(val: string) => handleAddOrUpdate(val)}
                   options={STATUS_OPTIONS as SelectOption[]}
                   className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] !text-white border border-transparent shadow-lg shadow-[var(--shadow-color)] text-center justify-center"
@@ -1623,7 +1622,7 @@ export default function App() {
               : userLibrary.find(i => i.media_id === selectedMedia.id && i.source === selectedMedia.source)
           }
           onLibraryUpdate={handleSWRUpdate}
-          user={user}
+          user={user || undefined}
           fetchLibrary={fetchLibrary}
         />
       )}
