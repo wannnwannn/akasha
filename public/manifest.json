@@ -1,0 +1,21 @@
+{
+  "name": "Akasha Tracker",
+  "short_name": "Akasha",
+  "description": "Votre mémoire culturelle.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#ce4257",
+  "icons": [
+    {
+      "src": "https://via.placeholder.com/192x192/ce4257/ffffff?text=A",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://via.placeholder.com/512x512/ce4257/ffffff?text=A",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

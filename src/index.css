@@ -1,0 +1,4 @@
+/* Tailwind v4 n'utilise plus les directives @tailwind, mais un import direct */
+@import "tailwindcss";
+
+/* Tu pourras ajouter ton CSS personnalisé en dessous si besoin */
