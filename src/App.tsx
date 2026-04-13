@@ -56,9 +56,9 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
-const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
-const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+const TMDB_API_KEY = String((import.meta as any).env?.VITE_TMDB_API_KEY || '7dfd3c0011bfe4c3bd253da99abf4e4d');
+const SUPABASE_URL = String((import.meta as any).env?.VITE_SUPABASE_URL || 'https://ewdtspjgcuvwvjnooytf.supabase.co');
+const SUPABASE_ANON_KEY = String((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3ZHRzcGpnY3V2d3Zqbm9veXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjMxMzgsImV4cCI6MjA5MTI5OTEzOH0.fHTGoA8OFOhk7VusZFgCg7GBn0cgp-UrYeJjV2gxl10');
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
@@ -678,7 +678,7 @@ const DetailModal: React.FC<{
                 <CustomSelect
                   value=""
                   onChange={(val: string) => handleAddOrUpdate(val)}
-                  options={STATUS_OPTIONS}
+                  options={STATUS_OPTIONS as SelectOption[]}
                   className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] !text-white border border-transparent shadow-lg shadow-[var(--shadow-color)] text-center justify-center"
                 />
               )}
@@ -694,7 +694,7 @@ const DetailModal: React.FC<{
                   <CustomSelect
                     value={String(trackedItem.status)}
                     onChange={(val: string) => handleAddOrUpdate(val)}
-                    options={STATUS_OPTIONS.filter(o => o.value !== "")}
+                    options={STATUS_OPTIONS.filter(o => o.value !== "") as SelectOption[]}
                     className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]"
                   />
                 </div>
@@ -775,7 +775,7 @@ const DetailModal: React.FC<{
                          <CustomSelect
                             value={String(reminderFreq)}
                             onChange={(val: string) => { setReminderFreq(val); saveExtras(); }}
-                            options={FREQUENCY_OPTIONS}
+                            options={FREQUENCY_OPTIONS as SelectOption[]}
                             placement="top"
                             className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]"
                           />
@@ -818,7 +818,7 @@ const DetailModal: React.FC<{
 // COMPOSANT EXPLORER (SEARCH)
 // ============================================================================
 const DiscoverySearch: React.FC<{
-  userLibrary: LibraryItem[], setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
+  user: UserData, userLibrary: LibraryItem[], fetchLibrary: () => void, setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
 }> = ({ userLibrary, setSelectedMedia, onToggleFavorite }) => {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 600);
@@ -859,7 +859,7 @@ const DiscoverySearch: React.FC<{
         const [tmdbRes, aniRes, shikiRes, olRes] = await Promise.allSettled([
           fetchTMDB(debouncedQuery), fetchAniList(debouncedQuery), fetchShikimori(debouncedQuery), fetchOpenLibrary(debouncedQuery)
         ]);
-        let combined: MediaItem[] = [];
+        const combined: MediaItem[] = [];
         if (tmdbRes.status === 'fulfilled') combined.push(...tmdbRes.value);
         if (aniRes.status === 'fulfilled') combined.push(...aniRes.value);
         if (shikiRes.status === 'fulfilled') combined.push(...shikiRes.value);
@@ -921,7 +921,7 @@ const DiscoverySearch: React.FC<{
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="sticky top-0 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 sm:top-2">
+      <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0">
         <div className="flex-grow">
           <Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus />
         </div>
@@ -931,7 +931,7 @@ const DiscoverySearch: React.FC<{
              <CustomSelect
                 value={String(filter)}
                 onChange={(val: string) => setFilter(val)}
-                options={FORMAT_OPTIONS}
+                options={FORMAT_OPTIONS as SelectOption[]}
                 className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]"
               />
           </div>
@@ -1090,7 +1090,6 @@ const ProfileScreen: React.FC<{
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
 
   const timezones = useMemo(() => {
-    // Vérification sécurisée sans ts-ignore massif
     if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
       return (Intl as any).supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
     }
@@ -1141,7 +1140,7 @@ const ProfileScreen: React.FC<{
 
   return (
     <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 sm:pb-0 pt-6">
-      <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-6 sm:p-10 shadow-2xl">
+      <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-4 sm:p-10 shadow-2xl">
         <div className="text-center mb-10">
           <div className="w-20 h-20 bg-[var(--bg-base)] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[var(--border-color)] shadow-xl text-[var(--primary)]">
             <User size={32} />
@@ -1223,33 +1222,33 @@ const ProfileScreen: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-10">
-          <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-blue-500 text-white rounded-xl"><FolderHeart size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalAdded}</p>
-              <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mt-1">Ajoutés</p>
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-10">
+          <div className="bg-blue-500/10 border border-blue-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-blue-500 text-white rounded-lg sm:rounded-xl"><FolderHeart className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0">
+              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalAdded}</p>
+              <p className="text-[9px] sm:text-xs font-bold text-blue-500 uppercase tracking-wider mt-1 truncate">Ajoutés</p>
             </div>
           </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-emerald-500 text-white rounded-xl"><Check size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalCompleted}</p>
-              <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1">Terminés</p>
+          <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl"><Check className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0">
+              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalCompleted}</p>
+              <p className="text-[9px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1 truncate">Terminés</p>
             </div>
           </div>
-          <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-rose-500 text-white rounded-xl"><Clock size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{watchTimeHours}<span className="text-sm">h</span></p>
-              <p className="text-xs font-bold text-rose-500 uppercase tracking-wider mt-1">Visionnage</p>
+          <div className="bg-rose-500/10 border border-rose-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-rose-500 text-white rounded-lg sm:rounded-xl"><Clock className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0">
+              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{watchTimeHours}<span className="text-xs sm:text-sm">h</span></p>
+              <p className="text-[9px] sm:text-xs font-bold text-rose-500 uppercase tracking-wider mt-1 truncate">Visionnage</p>
             </div>
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-4">
-            <div className="p-3 bg-amber-500 text-white rounded-xl"><PlayCircle size={24}/></div>
-            <div>
-              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalEpisodesWatched}</p>
-              <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mt-1">Ép./Chap.</p>
+          <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
+            <div className="p-2 sm:p-3 bg-amber-500 text-white rounded-lg sm:rounded-xl"><PlayCircle className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0">
+              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalEpisodesWatched}</p>
+              <p className="text-[9px] sm:text-xs font-bold text-amber-500 uppercase tracking-wider mt-1 truncate">Ép./Chap.</p>
             </div>
           </div>
         </div>
@@ -1526,11 +1525,11 @@ export default function App() {
         )}
 
         {currentTab === 'search' && (
-          <DiscoverySearch userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />
+          <DiscoverySearch user={user as any} userLibrary={userLibrary} fetchLibrary={fetchLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />
         )}
 
         {currentTab === 'profile' && (
-          <ProfileScreen user={user} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />
+          <ProfileScreen user={user as any} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />
         )}
       </main>
 
