@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// Import via CDN pour l'aperçu.
+// POUR VERCEL : Si la compilation échoue à cause de l'import réseau,
+// décommente la ligne ci-dessous et supprime celle avec "esm.sh"
 import { createClient } from '@supabase/supabase-js';
-//import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
+//import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
@@ -418,7 +419,8 @@ const DetailModal: React.FC<{
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]);
 
-  // FONCTION DE SAUVEGARDE RÉÉCRITE POUR ÉVITER LE PIÈGE DE L'ÉTAT ASYNCHRONE DE REACT
+  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
 
@@ -1025,7 +1027,14 @@ export default function App() {
 
   const fetchLibrary = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase.from('user_media').select('*').order('updated_at', { ascending: false });
+
+    // ⚠️ SÉCURITÉ (LA CEINTURE) : On force Supabase à ne renvoyer QUE les données de l'utilisateur actif
+    const { data, error } = await supabase
+      .from('user_media')
+      .select('*')
+      .eq('user_id', user.id) // <--- LA CORRECTION EST ICI
+      .order('updated_at', { ascending: false });
+
     if (error) console.error("Erreur DB:", error);
     if (data) { setUserLibrary(data as LibraryItem[]); if (data.length > 0 && !lastInteractedId) setLastInteractedId(data[0].id); }
   }, [user, lastInteractedId]);
