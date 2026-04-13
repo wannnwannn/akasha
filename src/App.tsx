@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // Import via CDN pour l'aperçu.
 // En local, utilisez : import { createClient } from '@supabase/supabase-js';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
@@ -58,10 +58,10 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-const TMDB_API_KEY = '7dfd3c0011bfe4c3bd253da99abf4e4d';
-const SUPABASE_URL = 'https://ewdtspjgcuvwvjnooytf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3ZHRzcGpnY3V2d3Zqbm9veXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjMxMzgsImV4cCI6MjA5MTI5OTEzOH0.fHTGoA8OFOhk7VusZFgCg7GBn0cgp-UrYeJjV2gxl10';
-const VAPID_PUBLIC_KEY = ''; // Laissé vide intentionnellement pour l'aperçu
+const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
+const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 
 if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_VRAIE_URL_SUPABASE') {
   console.error("ARRÊT CRITIQUE : Tu n'as pas entré tes vraies clés Supabase.");
