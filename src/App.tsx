@@ -61,8 +61,6 @@ const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 
-
-
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
 }
@@ -777,11 +775,11 @@ const DetailModal: React.FC<{
 
                   <div className="flex flex-col gap-3">
                     <div className="flex justify-between items-center gap-2 w-full">
-                      {WEEK_DAYS.map(day => {
+                      {WEEK_DAYS.map((day, idx) => {
                         const isSelected = reminderDays.includes(day.value);
                         return (
                           <button
-                            key={String(day.value)}
+                            key={`${day.value}-${idx}`}
                             onClick={() => { toggleDay(day.value); saveExtras(); }}
                             className={`w-9 h-9 rounded-full text-xs font-bold flex items-center justify-center transition-all border ${isSelected ? 'bg-[var(--primary)] border-[var(--primary)] text-white shadow-lg shadow-[var(--shadow-color)] scale-110' : 'bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--primary)]'}`}
                           >
@@ -1110,8 +1108,10 @@ const ProfileScreen: React.FC<{
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
 
   const timezones = useMemo(() => {
-    if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
-      return (Intl as any).supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
+    // Workaround strict tsconfig issue for Intl.supportedValuesOf
+    const IntlWithSupportedValues = Intl as unknown as { supportedValuesOf?: (key: string) => string[] };
+    if (typeof Intl !== 'undefined' && typeof IntlWithSupportedValues.supportedValuesOf === 'function') {
+      return IntlWithSupportedValues.supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
     }
     return [
       { value: 'Europe/Paris', label: 'Europe/Paris' },
@@ -1134,11 +1134,12 @@ const ProfileScreen: React.FC<{
   const [isStandalone, setIsStandalone] = useState(false);
 
   // LOGIQUE NOTIFICATIONS PUSH
-  const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
+  type PushStatus = 'default' | 'granted' | 'denied' | 'unsupported';
+  const [pushStatus, setPushStatus] = useState<PushStatus>('default');
   const [isPushLoading, setIsPushLoading] = useState(false);
 
   useEffect(() => {
-    if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
+    if (window.matchMedia('(display-mode: standalone)').matches || ('standalone' in window.navigator && (window.navigator as any).standalone)) {
       setIsStandalone(true);
     }
     const userAgent = window.navigator.userAgent.toLowerCase();
@@ -1155,7 +1156,7 @@ const ProfileScreen: React.FC<{
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setPushStatus('unsupported');
     } else {
-      setPushStatus(Notification.permission as any);
+      setPushStatus(Notification.permission as PushStatus);
     }
 
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -1179,7 +1180,7 @@ const ProfileScreen: React.FC<{
     try {
       alert("Étape 1: Demande de permission au téléphone...");
       const permission = await Notification.requestPermission();
-      setPushStatus(permission as any);
+      setPushStatus(permission as PushStatus);
       alert(`Étape 2: Permission répondue -> ${permission}`);
 
       if (permission === 'granted') {
@@ -1212,8 +1213,8 @@ const ProfileScreen: React.FC<{
         }
         alert("SUCCÈS TOTAL : La base de données a reçu le jeton !");
       }
-    } catch (e: any) {
-      alert(`CRASH FATAL : ${e.message}`);
+    } catch (e: unknown) {
+      alert(`CRASH FATAL : ${e instanceof Error ? e.message : 'Erreur inconnue'}`);
     } finally {
       setIsPushLoading(false);
     }
@@ -1400,7 +1401,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         : await supabase.auth.signUp({ email, password });
       if (err) setError(err.message);
       else if (data.user) onLogin(data.user);
-    } catch (e: any) { setError(e.message || "Erreur critique de connexion"); }
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Erreur critique de connexion"); }
     finally { setLoading(false); }
   };
 
@@ -1434,12 +1435,14 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
 // ============================================================================
 // APPLICATION PRINCIPALE
 // ============================================================================
+type ValidStatus = 'watching' | 'planning' | 'completed' | 'on_hold' | 'favorites';
+
 export default function App() {
   const [user, setUser] = useState<UserData | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'watching' | 'planning' | 'completed' | 'on_hold' | 'favorites'>('watching');
+  const [activeFilter, setActiveFilter] = useState<ValidStatus>('watching');
   const [formatFilter, setFormatFilter] = useState<string>('all');
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | LibraryItem | null>(null);
 
@@ -1461,7 +1464,7 @@ export default function App() {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
@@ -1562,7 +1565,7 @@ export default function App() {
                   const config = STATUS_CONFIG[f.id as keyof typeof STATUS_CONFIG];
 
                   return (
-                    <button key={f.id} onClick={() => setActiveFilter(f.id as any)}
+                    <button key={f.id} onClick={() => setActiveFilter(f.id as ValidStatus)}
                       className={`whitespace-nowrap px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all relative ${isActive ? config.tabActive : config.tabInactive}`}
                     >
                       {f.id === 'favorites' && <Heart size={14} className={`inline mr-1 ${isActive ? "fill-[var(--text-main)]" : ""}`} />}
@@ -1635,11 +1638,11 @@ export default function App() {
         )}
 
         {currentTab === 'search' && (
-          <DiscoverySearch user={user as any} userLibrary={userLibrary} fetchLibrary={fetchLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />
+          <DiscoverySearch user={user!} userLibrary={userLibrary} fetchLibrary={fetchLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />
         )}
 
         {currentTab === 'profile' && (
-          <ProfileScreen user={user as any} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />
+          <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />
         )}
       </main>
 
