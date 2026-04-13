@@ -57,10 +57,10 @@ const GlobalStyles = () => (
 // CONFIGURATION
 // ============================================================================
 
-const TMDB_API_KEY = String((import.meta as any).env?.VITE_TMDB_API_KEY;
-const SUPABASE_URL = String((import.meta as any).env?.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = String((import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
-const VAPID_PUBLIC_KEY = String((import.meta as any).env?.VITE_VAPID_PUBLIC_KEY;
+const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
+const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
+const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
+const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
