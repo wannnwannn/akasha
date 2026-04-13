@@ -2,11 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 // Import via CDN pour l'aperçu.
 // En local, utilisez : import { createClient } from '@supabase/supabase-js';
 import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
-
-
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
-  PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
+  PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
   Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff
 } from 'lucide-react';
 
@@ -182,8 +180,8 @@ const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
   if (!res.ok) return [];
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(), source: 'tmdb', title: item.title || item.name, cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type, year: (item.release_date || item.first_air_date || '').split('-')[0], description: item.overview || 'Aucune description disponible.',
+    id: String(item.id), source: 'tmdb', title: String(item.title || item.name), cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+    type: item.media_type, year: String(item.release_date || item.first_air_date || '').split('-')[0], description: String(item.overview || 'Aucune description disponible.'),
     totalEpisodes: item.media_type === 'movie' ? 1 : null, isAiring: false, isAdult: item.adult === true
   }));
 };
@@ -195,9 +193,9 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   if (!res.ok) return [];
   const data = await res.json();
   return data.data.Page.media.map((item: any) => ({
-    id: item.id.toString(), source: 'anilist', title: item.title.english || item.title.romaji || item.title.native, cover: item.coverImage.large,
-    type: 'anime', year: item.startDate.year || 'N/A', description: item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.',
-    totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED', genres: item.genres, runtime: item.duration, prod_status: item.status, isAdult: item.isAdult === true, creator: item.studios?.nodes?.[0]?.name || null
+    id: String(item.id), source: 'anilist', title: String(item.title.english || item.title.romaji || item.title.native), cover: item.coverImage.large,
+    type: 'anime', year: String(item.startDate.year || 'N/A'), description: String(item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.'),
+    totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED', genres: item.genres, runtime: item.duration, prod_status: String(item.status), isAdult: item.isAdult === true, creator: item.studios?.nodes?.[0]?.name || null
   }));
 };
 
@@ -206,8 +204,8 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   if (!res.ok) return [];
   const data = await res.json();
   return data.map((item: any) => ({
-    id: item.id.toString(), source: 'shikimori', title: item.name || item.russian, cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
-    type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? item.aired_on.split('-')[0] : 'N/A', description: 'Recherche des détails en arrière-plan...',
+    id: String(item.id), source: 'shikimori', title: String(item.name || item.russian), cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
+    type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A', description: 'Recherche des détails en arrière-plan...',
     totalEpisodes: item.volumes || item.chapters || null, isAiring: item.status === 'ongoing', isAdult: false
   }));
 };
@@ -218,8 +216,8 @@ const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
   if (!res.ok) return [];
   const data = await res.json();
   return data.docs.map((item: any) => ({
-    id: item.key, source: 'openlibrary', title: item.title, cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
-    type: 'book', year: item.first_publish_year || 'N/A', description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
+    id: String(item.key), source: 'openlibrary', title: String(item.title), cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
+    type: 'book', year: String(item.first_publish_year || 'N/A'), description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
     totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [], isAdult: false, creator: item.author_name ? item.author_name[0] : null
   }));
 };
@@ -230,8 +228,8 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   if (!res.ok) return [];
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(), source: 'tmdb', title: item.title || item.name, cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type, year: (item.release_date || item.first_air_date || '').split('-')[0], description: item.overview || '', totalEpisodes: item.media_type === 'movie' ? 1 : null, isAdult: item.adult === true
+    id: String(item.id), source: 'tmdb', title: String(item.title || item.name), cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+    type: item.media_type, year: String(item.release_date || item.first_air_date || '').split('-')[0], description: String(item.overview || ''), totalEpisodes: item.media_type === 'movie' ? 1 : null, isAdult: item.adult === true
   }));
 };
 
@@ -255,13 +253,13 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
       let creator = null;
       if (item.type === 'movie' && data.credits?.crew) creator = data.credits.crew.find((c: any) => c.job === 'Director')?.name;
       else if (item.type === 'tv' && data.created_by?.length > 0) creator = data.created_by[0].name;
-      return { description: data.overview, total_episodes: item.type === 'tv' ? data.number_of_episodes : 1, genres: data.genres?.map((g: any) => g.name), runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0), prod_status: data.status, creator: creator || item.creator };
+      return { description: String(data.overview), total_episodes: item.type === 'tv' ? data.number_of_episodes : 1, genres: data.genres?.map((g: any) => String(g.name)), runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0), prod_status: String(data.status), creator: creator ? String(creator) : String(item.creator || '') };
     }
     if (item.source === 'anilist') {
       const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `query ($id: Int) { Media(id: $id) { description episodes status genres duration studios(isMain: true) { nodes { name } } } }`, variables: { id: parseInt(targetId) } }) });
       if (!res.ok) return null;
       const data = await res.json();
-      return { description: data.data.Media.description?.replace(/<[^>]*>?/gm, ''), total_episodes: data.data.Media.episodes || item.total_episodes, genres: data.data.Media.genres, runtime: data.data.Media.duration, prod_status: data.data.Media.status, creator: data.data.Media.studios?.nodes?.[0]?.name || item.creator };
+      return { description: String(data.data.Media.description?.replace(/<[^>]*>?/gm, '')), total_episodes: data.data.Media.episodes || item.total_episodes, genres: data.data.Media.genres, runtime: data.data.Media.duration, prod_status: String(data.data.Media.status), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios?.nodes?.[0]?.name) : String(item.creator || '') };
     }
   } catch (e) {} return null;
 };
@@ -340,7 +338,7 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
   };
   const current = config[type] || config.movie;
   const Icon = current.icon;
-  return <span className={`flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-1 rounded-md font-bold backdrop-blur-md ${current.color}`}><Icon size={12} strokeWidth={3} /> {current.label}</span>;
+  return <span className={`flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-1 rounded-md font-bold backdrop-blur-md ${String(current.color)}`}><Icon size={12} strokeWidth={3} /> {current.label}</span>;
 };
 
 const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, total: number | null) => void }> = ({ item, onSave }) => {
@@ -359,7 +357,7 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
   return (
     <div className="flex items-center gap-1 py-1" onClick={e => e.stopPropagation()}>
       <span className="text-xs font-mono text-[var(--text-muted)]">{item.progress} /</span>
-      <input autoFocus type="number" min={item.progress} className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center" value={String(value)} onChange={e => setValue(e.target.value)} onBlur={() => { setIsEditing(false); onSave(item.id, isNaN(parseInt(value, 10)) ? null : parseInt(value, 10)); }} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+      <input autoFocus type="number" min={item.progress} className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center" value={String(value)} onChange={e => setValue(e.target.value)} onBlur={() => { setIsEditing(false); onSave(item.id, isNaN(parseInt(String(value), 10)) ? null : parseInt(String(value), 10)); }} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
     </div>
   );
 };
@@ -380,10 +378,10 @@ const DetailModal: React.FC<{
     if (!trackedItem?.reminder_day) return { type: 'weekly' as 'weekly'|'exact', days: [] as string[], freq: "1", exactDate: '' };
     try {
       const parsed = JSON.parse(trackedItem.reminder_day);
-      if (parsed.date) return { type: 'exact' as const, days: [], freq: "1", exactDate: parsed.date };
+      if (parsed.date) return { type: 'exact' as const, days: [], freq: "1", exactDate: String(parsed.date) };
       return { type: 'weekly' as const, days: parsed.days || [], freq: parsed.frequency?.toString() || "1", exactDate: '' };
     } catch(e) {
-      return { type: 'weekly' as const, days: [trackedItem.reminder_day || ''], freq: "1", exactDate: '' };
+      return { type: 'weekly' as const, days: [String(trackedItem.reminder_day || '')], freq: "1", exactDate: '' };
     }
   };
 
@@ -465,11 +463,11 @@ const DetailModal: React.FC<{
     await supabase.from('user_media').update({ is_favorite: newFav }).match({ id: trackedItem.id });
   };
 
-  const title = localData.title;
+  const title = String(localData.title || "");
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
-  const description = localData.description || 'Description en cours de chargement...';
-  const year = localData.year || 'Année inconnue';
-  const prodStatusLabel = mapStatusToLabel(localData.prod_status);
+  const description = String(localData.description || 'Description en cours de chargement...');
+  const year = String(localData.year || 'Année inconnue');
+  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status));
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
@@ -480,7 +478,7 @@ const DetailModal: React.FC<{
         <div className="flex flex-col p-6 sm:p-8 overflow-y-auto max-h-[90vh] custom-scrollbar">
           <div className="flex justify-center mb-6 mt-4">
              <div className="w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)]">
-              {cover ? <img src={cover} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
+              {cover ? <img src={String(cover)} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
               <div className="absolute top-2 left-2"><TypeBadge type={String(localData.type)} /></div>
              </div>
           </div>
@@ -488,20 +486,20 @@ const DetailModal: React.FC<{
           <div className="text-center mb-6">
             <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)] mb-3 leading-tight tracking-tight">{title}</h2>
             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-              {localData.type !== 'book' && <span className={`text-[10px] uppercase tracking-widest font-black px-2.5 py-1 rounded-md ${statusColor}`}>{prodStatusLabel}</span>}
-              {normalizedTotal && <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">{normalizedTotal} {localData.type === 'book' ? 'pages' : 'ép'} {localData.runtime ? <span className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2"><Clock size={12}/> {localData.runtime}m</span> : ''}</span>}
+              {localData.type !== 'book' && <span className={`text-[10px] uppercase tracking-widest font-black px-2.5 py-1 rounded-md ${String(statusColor)}`}>{prodStatusLabel}</span>}
+              {normalizedTotal && <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">{String(normalizedTotal)} {localData.type === 'book' ? 'pages' : 'ép'} {localData.runtime ? <span className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2"><Clock size={12}/> {String(localData.runtime)}m</span> : ''}</span>}
               <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">{year} • {String(localData.source).toUpperCase()}</span>
             </div>
-            {localData.creator && <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {localData.creator}</p>}
+            {localData.creator && <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {String(localData.creator)}</p>}
             {localData.genres && localData.genres.length > 0 && (
               <div className="flex flex-wrap justify-center gap-1.5 mb-4">
-                {localData.genres.map(genre => <span key={genre} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">{genre}</span>)}
+                {localData.genres.map(genre => <span key={String(genre)} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">{String(genre)}</span>)}
               </div>
             )}
           </div>
 
           <div className="mb-6 bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)]">
-            <div className={`text-sm text-[var(--text-muted)] leading-relaxed ${!showFullDesc && 'line-clamp-3'}`}>{description}</div>
+            <div className={`text-sm text-[var(--text-muted)] leading-relaxed ${!showFullDesc ? 'line-clamp-3' : ''}`}>{description}</div>
             {description.length > 150 && <button onClick={() => setShowFullDesc(!showFullDesc)} className="text-xs font-bold text-[var(--primary)] hover:text-[var(--primary-hover)] mt-2 transition-colors">{showFullDesc ? 'Voir moins' : '... Voir plus'}</button>}
           </div>
 
@@ -526,7 +524,7 @@ const DetailModal: React.FC<{
                   {isEditingLink ? (
                     <div className="relative flex-1 flex items-center">
                       <LinkIcon className="absolute left-3 text-[var(--text-muted)]" size={16} />
-                      <input autoFocus type="text" placeholder="https://exemple.com/serie" value={customLink} onChange={(e) => setCustomLink(e.target.value)} onBlur={() => { setIsEditingLink(false); saveExtras(); }} className="w-full bg-[var(--bg-base)] border border-[var(--primary)] text-[var(--text-main)] text-sm rounded-xl py-3 pl-10 pr-4 focus:outline-none transition-all placeholder:text-[var(--primary)]/50 font-medium" onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+                      <input autoFocus type="text" placeholder="https://exemple.com/serie" value={String(customLink)} onChange={(e) => setCustomLink(e.target.value)} onBlur={() => { setIsEditingLink(false); saveExtras(); }} className="w-full bg-[var(--bg-base)] border border-[var(--primary)] text-[var(--text-main)] text-sm rounded-xl py-3 pl-10 pr-4 focus:outline-none transition-all placeholder:text-[var(--primary)]/50 font-medium" onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
                     </div>
                   ) : (
                     <div className="flex-1 flex items-center gap-2">
@@ -558,10 +556,10 @@ const DetailModal: React.FC<{
                           })}
                         </div>
                         <div className="flex gap-2">
-                           <div className="flex-1"><CustomSelect value={reminderFreq} onChange={(val) => { setReminderFreq(val); saveExtras(); }} options={FREQUENCY_OPTIONS} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)] focus:border-amber-500" /></div>
+                           <div className="flex-1"><CustomSelect value={String(reminderFreq)} onChange={(val) => { setReminderFreq(val); saveExtras(); }} options={FREQUENCY_OPTIONS} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)] focus:border-amber-500" /></div>
                            <div className="relative shrink-0 w-28">
                              <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                             <input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
+                             <input type="time" value={String(reminderTime)} onChange={e => setReminderTime(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
                            </div>
                         </div>
                       </>
@@ -569,11 +567,11 @@ const DetailModal: React.FC<{
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                          <input type="date" value={reminderExactDate} onChange={e => setReminderExactDate(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
+                          <input type="date" value={String(reminderExactDate)} onChange={e => setReminderExactDate(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
                         </div>
                         <div className="relative shrink-0 w-28">
                            <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                           <input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
+                           <input type="time" value={String(reminderTime)} onChange={e => setReminderTime(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
                          </div>
                       </div>
                     )}
@@ -588,7 +586,7 @@ const DetailModal: React.FC<{
               )}
 
               <div className="pt-2">
-                <textarea placeholder="Bloc note (Enregistré automatiquement)..." value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" />
+                <textarea placeholder="Bloc note (Enregistré automatiquement)..." value={String(notes)} onChange={(e) => setNotes(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" />
               </div>
 
             </div>
@@ -639,13 +637,13 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
           <div key={item.id} onClick={() => onSelect(item)} className="group cursor-pointer bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-amber-500/50 rounded-2xl p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md">
 
             <div className="w-16 sm:w-20 aspect-[2/3] shrink-0 relative bg-[var(--bg-base)] rounded-lg overflow-hidden border border-[var(--border-color)] shadow-sm">
-              {item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={24} />}
+              {item.cover_url ? <img src={String(item.cover_url)} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={24} />}
             </div>
 
             <div className="flex flex-col min-w-0 flex-grow justify-center">
-              <TypeBadge type={item.type} />
-              <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-1 mt-1.5">{item.title}</h3>
-              <p className="text-xs text-[var(--text-muted)] font-medium mt-1 truncate max-w-[200px]">{item.description || 'Appuyez pour voir les détails'}</p>
+              <TypeBadge type={String(item.type)} />
+              <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-1 mt-1.5">{String(item.title)}</h3>
+              <p className="text-xs text-[var(--text-muted)] font-medium mt-1 truncate max-w-[200px]">{String(item.description) || 'Appuyez pour voir les détails'}</p>
             </div>
 
             <div className="flex flex-col items-end shrink-0 pl-4 border-l border-[var(--border-color)]">
@@ -671,7 +669,7 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 // COMPOSANT EXPLORER (SEARCH)
 // ============================================================================
 const DiscoverySearch: React.FC<{
-  user: UserData, userLibrary: LibraryItem[], fetchLibrary: () => void, setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
+  userLibrary: LibraryItem[], fetchLibrary: () => void, setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
 }> = ({ userLibrary, setSelectedMedia, onToggleFavorite }) => {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 600);
@@ -727,7 +725,7 @@ const DiscoverySearch: React.FC<{
     if (items.length === 0) return null;
     return (
       <div className="mb-10">
-        <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{title} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
+        <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{String(title)} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
         <div className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory">
           {items.map(media => {
             const cover = 'cover' in media ? media.cover : media.cover_url;
@@ -738,13 +736,13 @@ const DiscoverySearch: React.FC<{
             return (
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
-                  {cover ? <img src={cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                  <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
+                  {cover ? <img src={String(cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                  <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
                   {tracked && <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>}
                   {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
                   {needsBlur && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div></div>}
                 </div>
-                <div className="p-3.5"><h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{media.title}</h3><p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p></div>
+                <div className="p-3.5"><h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3><p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p></div>
               </div>
             )
           })}
@@ -758,9 +756,9 @@ const DiscoverySearch: React.FC<{
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex-grow"><Input icon={Search} placeholder="Films, Animes, Livres..." value={query} onChange={e => setQuery(e.target.value)} autoFocus /></div>
+        <div className="flex-grow"><Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus /></div>
         <div className="flex gap-3">
-          <div className="shrink-0 flex-1 sm:w-48"><CustomSelect value={filter} onChange={setFilter} options={FORMAT_OPTIONS} className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]" /></div>
+          <div className="shrink-0 flex-1 sm:w-48"><CustomSelect value={String(filter)} onChange={setFilter} options={FORMAT_OPTIONS} className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]" /></div>
           <div onClick={() => setLocalShowNSFW(!localShowNSFW)} className="flex items-center justify-center gap-3 shrink-0 bg-[var(--panel-bg)] border border-[var(--border-color)] px-4 rounded-xl cursor-pointer hover:bg-[var(--bg-base)] transition-colors" title="Afficher le contenu pour adultes">
             <EyeOff size={20} className={localShowNSFW ? "text-rose-500" : "text-[var(--text-muted)]"} />
             <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${localShowNSFW ? 'bg-rose-500' : 'bg-[var(--text-muted)]'}`}><span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${localShowNSFW ? 'translate-x-5' : 'translate-x-1'}`} /></div>
@@ -789,14 +787,14 @@ const DiscoverySearch: React.FC<{
             return (
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
-                  {media.cover ? <img src={media.cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                  <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
+                  {media.cover ? <img src={String(media.cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                  <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
                   {tracked && <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>}
                   {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
                   {needsBlur && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div></div>}
                 </div>
                 <div className="p-3.5 flex flex-col flex-grow justify-between">
-                  <div><h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{media.title}</h3><p className="text-xs text-[var(--text-muted)] font-medium mt-1">{media.year}</p></div>
+                  <div><h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3><p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p></div>
                   {tracked && <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold bg-[var(--primary)]/10 text-[var(--primary)] py-2 rounded-lg border border-[var(--primary)]/20"><Check size={14} strokeWidth={3}/> Suivi</div>}
                 </div>
               </div>
@@ -822,8 +820,8 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
     <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-40 animate-in slide-in-from-bottom-10 fade-in duration-300">
       <div className="bg-[var(--panel-bg)]/95 backdrop-blur-xl border border-[var(--border-color)] shadow-2xl shadow-[var(--shadow-color)] rounded-2xl overflow-hidden flex items-center p-3 gap-4 relative">
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ background: `linear-gradient(90deg, var(--primary) ${progressPercent}%, transparent ${progressPercent}%)`}} />
-        <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">{item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}</div>
-        <div className="flex-1 min-w-0 z-10"><p className="text-[10px] text-[var(--primary)] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1"><PlayCircle size={10} /> Reprendre</p><h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{item.title}</h4><div className="flex items-center gap-2 mt-1.5"><span className="text-xs font-mono font-bold text-[var(--text-muted)]">{item.progress} / {item.total_episodes || '?'}</span><div className="flex-1 h-1.5 bg-[var(--bg-base)] rounded-full overflow-hidden border border-[var(--border-color)]"><div className="h-full bg-[var(--primary)] rounded-full" style={{ width: `${progressPercent}%` }} /></div></div></div>
+        <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">{item.cover_url ? <img src={String(item.cover_url)} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}</div>
+        <div className="flex-1 min-w-0 z-10"><p className="text-[10px] text-[var(--primary)] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1"><PlayCircle size={10} /> Reprendre</p><h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{String(item.title)}</h4><div className="flex items-center gap-2 mt-1.5"><span className="text-xs font-mono font-bold text-[var(--text-muted)]">{item.progress} / {item.total_episodes || '?'}</span><div className="flex-1 h-1.5 bg-[var(--bg-base)] rounded-full overflow-hidden border border-[var(--border-color)]"><div className="h-full bg-[var(--primary)] rounded-full" style={{ width: `${progressPercent}%` }} /></div></div></div>
         <div className="flex items-center gap-1.5 shrink-0 z-10"><button onClick={() => onUpdate(item, -1)} disabled={item.progress <= 0} className="w-10 h-10 flex items-center justify-center bg-[var(--bg-base)] hover:bg-[var(--border-color)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl disabled:opacity-50 transition-colors"><Minus size={18} strokeWidth={3}/></button><button onClick={() => onUpdate(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-12 h-12 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-xl shadow-lg shadow-[var(--shadow-color)] disabled:opacity-50 transition-transform active:scale-95"><Plus size={24} strokeWidth={3}/></button></div>
       </div>
     </div>
@@ -991,7 +989,7 @@ export default function App() {
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
     supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user ?? null); setAuthLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => { setUser(session?.user ?? null); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => { setUser(session?.user ?? null); });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -1077,7 +1075,7 @@ export default function App() {
                     return (
                       <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
                         <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
-                          {item.cover_url ? <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                          {item.cover_url ? <img src={String(item.cover_url)} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                           <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
                           <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>
                           <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
