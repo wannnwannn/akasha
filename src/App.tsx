@@ -61,7 +61,6 @@ const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 
-
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
 }
@@ -1170,49 +1169,35 @@ const ProfileScreen: React.FC<{
 
   const handleSubscribePush = async () => {
     if (pushStatus === 'unsupported' || !VAPID_PUBLIC_KEY) {
-      alert(`Erreur 1: Navigateur non supporté ou Clé VAPID manquante. (Clé présente ? ${!!VAPID_PUBLIC_KEY})`);
+      console.warn("Notifications non supportées ou clé VAPID manquante.");
       return;
     }
 
     setIsPushLoading(true);
     try {
-      alert("Étape 1: Demande de permission au téléphone...");
       const permission = await Notification.requestPermission();
       setPushStatus(permission as any);
-      alert(`Étape 2: Permission répondue -> ${permission}`);
 
       if (permission === 'granted') {
-        alert("Étape 3: Vérification du Service Worker (sw.js)...");
-        
         const swRegistration = await navigator.serviceWorker.getRegistration();
-        if (!swRegistration) {
-           alert("ALERTE ROUGE : Aucun Service Worker trouvé. As-tu bien mis sw.js dans le dossier public et redéployé sur Vercel ?");
-           throw new Error("Service Worker manquant");
-        }
+        if (!swRegistration) throw new Error("Service Worker introuvable.");
 
         const registration = await navigator.serviceWorker.ready;
-        alert("Étape 4: Service worker prêt. Création du jeton cryptographique avec Apple/Google...");
         
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
-        
-        alert("Étape 5: Jeton généré ! Envoi vers Supabase...");
 
         const { error } = await supabase.from('push_subscriptions').upsert({
           user_id: user.id,
           subscription: subscription.toJSON()
         }, { onConflict: 'user_id, subscription' });
 
-        if (error) {
-           alert(`ALERTE SUPABASE : ${error.message} (Vérifie ta commande SQL et tes RLS)`);
-           throw error;
-        }
-        alert("SUCCÈS TOTAL : La base de données a reçu le jeton !");
+        if (error) throw error;
       }
     } catch (e: any) {
-      alert(`CRASH FATAL : ${e.message}`);
+      console.error("Échec de l'activation Push :", e.message);
     } finally {
       setIsPushLoading(false);
     }
