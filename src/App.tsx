@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// POUR VERCEL : Si la compilation échoue à cause de l'import réseau,
-// décommente la ligne ci-dessous et supprime celle avec "esm.sh"
+// IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
+// import { createClient } from '@supabase/supabase-js';
+// import HCaptcha from '@hcaptcha/react-hcaptcha';
+
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
-//import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+
 import {
-  Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
+  Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown
 } from 'lucide-react';
 
 // ============================================================================
@@ -60,14 +62,13 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
+// Note: Remplacées par les variables brutes ici pour l'aperçu Canvas.
+// Dans Vercel, utilisez bien "import.meta.env.VITE_TMDB_API_KEY" etc.
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
-
-// NOUVEAU: Clé publique hCaptcha (Remplacer sur Vercel par import.meta.env.VITE_HCAPTCHA_SITE_KEY)
 const HCAPTCHA_SITE_KEY = String(import.meta.env.VITE_HCAPTCHA_SITE_KEY || '');
-
 
 if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_VRAIE_URL_SUPABASE') {
   console.error("ARRÊT CRITIQUE : Tu n'as pas entré tes vraies clés Supabase.");
@@ -181,7 +182,7 @@ function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: 
 // SERVICES API (Raccourcis)
 // ============================================================================
 const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
-  if (TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
+  if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
   if (!res.ok) return [];
   const data = await res.json();
@@ -229,7 +230,7 @@ const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
 };
 
 const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
-  if (!TMDB_API_KEY) return [];
+  if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
   const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}&language=fr-FR`);
   if (!res.ok) return [];
   const data = await res.json();
@@ -373,8 +374,8 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
 // ============================================================================
 const DetailModal: React.FC<{
   item: MediaItem | LibraryItem, onClose: () => void, trackedItem: LibraryItem | undefined,
-  onLibraryUpdate?: (id: string, updates: Partial<LibraryItem>) => void, user?: UserData, fetchLibrary?: () => void
-}> = ({ item, onClose, trackedItem, onLibraryUpdate, user, fetchLibrary }) => {
+  onLibraryUpdate?: (id: string, updates: Partial<LibraryItem>) => void, user?: UserData, fetchLibrary?: () => void, userLibrary?: LibraryItem[]
+}> = ({ item, onClose, trackedItem, onLibraryUpdate, user, fetchLibrary, userLibrary = [] }) => {
 
   const [localData, setLocalData] = useState(item as LibraryItem);
   const [isActing, setIsActing] = useState(false);
@@ -424,7 +425,7 @@ const DetailModal: React.FC<{
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]);
 
-  //const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
 
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
@@ -484,6 +485,22 @@ const DetailModal: React.FC<{
     await supabase.from('user_media').update({ is_favorite: newFav }).match({ id: trackedItem.id });
   };
 
+  const handleAddToRanking = async () => {
+    if (!trackedItem || !onLibraryUpdate) return;
+    const sameTypeItems = userLibrary.filter(i => i.type === trackedItem.type && i.rating !== null);
+    const maxRank = sameTypeItems.length > 0 ? Math.max(...sameTypeItems.map(i => i.rating || 0)) : 0;
+    const newRank = maxRank + 1;
+
+    onLibraryUpdate(trackedItem.id, { rating: newRank });
+    await supabase.from('user_media').update({ rating: newRank }).match({ id: trackedItem.id });
+  };
+
+  const handleRemoveFromRanking = async () => {
+    if (!trackedItem || !onLibraryUpdate) return;
+    onLibraryUpdate(trackedItem.id, { rating: null });
+    await supabase.from('user_media').update({ rating: null }).match({ id: trackedItem.id });
+  };
+
   const title = String(localData.title || "");
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = String(localData.description || 'Description en cours de chargement...');
@@ -536,6 +553,17 @@ const DetailModal: React.FC<{
               <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Statut de la série</p>
               <div className="flex gap-2 w-full items-center">
                 <div className="flex-1"><CustomSelect value={String(trackedItem.status)} onChange={handleAddOrUpdate} options={STATUS_OPTIONS.filter(o => o.value !== "")} className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]" /></div>
+
+                {/* Nouveau bouton de Classement (Trophy) juste à côté des favoris */}
+                <Button
+                  variant="ghost"
+                  className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
+                  onClick={trackedItem.rating !== null ? handleRemoveFromRanking : handleAddToRanking}
+                  title={trackedItem.rating !== null ? "Retirer du classement" : "Ajouter au classement"}
+                >
+                  <Trophy size={20} className={trackedItem.rating !== null ? "fill-amber-500 text-amber-500" : ""} />
+                </Button>
+
                 <Button variant="ghost" className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title="Favori"><Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} /></Button>
                 <Button variant="danger" className="!p-3.5 shrink-0 rounded-xl h-full" onClick={handleRemove} title="Supprimer de la liste"><Trash2 size={20} /></Button>
               </div>
@@ -694,6 +722,131 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
           </div>
         );
       })}
+    </div>
+  );
+};
+
+// ============================================================================
+// COMPOSANT CLASSEMENT (NOUVEAU)
+// ============================================================================
+const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, updates: Partial<LibraryItem>) => void, onSelect: (m: LibraryItem) => void }> = ({ items, onUpdate, onSelect }) => {
+  const [filterType, setFilterType] = useState<string>('anime'); // Par défaut on affiche un type précis pour que le classement ait du sens
+  const [isSwapping, setIsSwapping] = useState(false);
+
+  // On récupère uniquement les éléments classés (ayant un rating) et on filtre par type
+  const rankedItems = useMemo(() => {
+    return items
+      .filter(item => item.rating !== null && (filterType === 'all' || item.type === filterType))
+      .sort((a, b) => (a.rating || 0) - (b.rating || 0));
+  }, [items, filterType]);
+
+  const handleMove = async (e: React.MouseEvent, index: number, direction: 'up' | 'down') => {
+    e.stopPropagation();
+    if (isSwapping) return;
+
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === rankedItems.length - 1) return;
+
+    setIsSwapping(true);
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    const currentItem = rankedItems[index];
+    const targetItem = rankedItems[targetIndex];
+
+    // Échange des valeurs de classement (rating)
+    const newCurrentRating = targetItem.rating;
+    const newTargetRating = currentItem.rating;
+
+    // Mise à jour optimiste du state local
+    onUpdate(currentItem.id, { rating: newCurrentRating });
+    onUpdate(targetItem.id, { rating: newTargetRating });
+
+    // Mise à jour de la base de données
+    await Promise.all([
+      supabase.from('user_media').update({ rating: newCurrentRating }).match({ id: currentItem.id }),
+      supabase.from('user_media').update({ rating: newTargetRating }).match({ id: targetItem.id })
+    ]);
+
+    setIsSwapping(false);
+  };
+
+  const getRankStyle = (index: number) => {
+    if (index === 0) return 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white border-yellow-500';
+    if (index === 1) return 'bg-gradient-to-br from-gray-300 to-gray-400 text-gray-900 border-gray-400';
+    if (index === 2) return 'bg-gradient-to-br from-amber-700 to-amber-900 text-white border-amber-800';
+    return 'bg-[var(--panel-bg-alt)] border-[var(--border-color)] text-[var(--text-main)]';
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* HEADER CLASSEMENT */}
+      <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
+            <Trophy className="text-amber-500" /> Mon Classement
+          </h2>
+          <p className="text-sm text-[var(--text-muted)] mt-1">Organisez vos œuvres préférées.</p>
+        </div>
+        <div className="w-full sm:w-64">
+           <CustomSelect value={filterType} onChange={setFilterType} options={FORMAT_OPTIONS} className="bg-[var(--panel-bg)] border border-[var(--border-color)]" />
+        </div>
+      </div>
+
+      {rankedItems.length === 0 ? (
+        <div className="text-center py-20 text-[var(--text-muted)] animate-in fade-in">
+          <Trophy className="mx-auto mb-6 opacity-30" size={64} />
+          <h2 className="text-xl font-black text-[var(--text-main)] mb-2">Aucun classement pour ce format</h2>
+          <p className="text-sm font-medium max-w-md mx-auto">Ouvrez les détails d'une œuvre de votre bibliothèque et cliquez sur l'icône trophée pour l'ajouter ici.</p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {rankedItems.map((item, index) => {
+            const rankStyle = getRankStyle(index);
+            const rankNumber = String(index + 1).padStart(2, '0');
+
+            return (
+              <div key={item.id} onClick={() => onSelect(item)} className={`group cursor-pointer rounded-2xl overflow-hidden border hover:shadow-lg transition-all flex items-stretch h-28 sm:h-32 ${rankStyle} ${index > 2 ? 'hover:border-[var(--primary)]' : ''}`}>
+
+                {/* GROS NUMÉRO */}
+                <div className="w-20 sm:w-28 shrink-0 flex items-center justify-center border-r border-black/10">
+                  <span className="text-4xl sm:text-5xl font-black tracking-tighter opacity-90">{rankNumber}</span>
+                </div>
+
+                {/* CONTENU (COVER + TEXT) */}
+                <div className="flex-1 flex items-center gap-4 bg-[var(--panel-bg)] text-[var(--text-main)]">
+                  <div className="h-full aspect-[2/3] shrink-0 bg-[var(--bg-base)] border-r border-[var(--border-color)]">
+                    {item.cover_url ? <img src={String(item.cover_url)} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={24} />}
+                  </div>
+                  <div className="flex flex-col min-w-0 pr-4 py-2">
+                    <TypeBadge type={String(item.type)} />
+                    <h3 className="font-bold text-sm sm:text-base line-clamp-2 mt-1">{String(item.title)}</h3>
+                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(item.year || 'N/A')}</p>
+                  </div>
+                </div>
+
+                {/* BOUTONS UP/DOWN */}
+                <div className="w-16 sm:w-20 shrink-0 bg-[var(--panel-bg-alt)] border-l border-[var(--border-color)] flex flex-col items-center justify-center p-2 gap-2" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={(e) => handleMove(e, index, 'up')}
+                    disabled={index === 0 || isSwapping}
+                    className="w-full flex-1 flex items-center justify-center bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-emerald-500 hover:text-emerald-500 text-[var(--text-muted)] disabled:opacity-30 disabled:hover:border-[var(--border-color)] disabled:hover:text-[var(--text-muted)] rounded-lg transition-colors"
+                  >
+                    <ChevronUp strokeWidth={3} />
+                  </button>
+                  <button
+                    onClick={(e) => handleMove(e, index, 'down')}
+                    disabled={index === rankedItems.length - 1 || isSwapping}
+                    className="w-full flex-1 flex items-center justify-center bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-red-500 hover:text-red-500 text-[var(--text-muted)] disabled:opacity-30 disabled:hover:border-[var(--border-color)] disabled:hover:text-[var(--text-muted)] rounded-lg transition-colors"
+                  >
+                    <ChevronDown strokeWidth={3} />
+                  </button>
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
@@ -865,7 +1018,7 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
 // ============================================================================
 // COMPOSANT PROFIL
 // ============================================================================
-const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme }) => {
+const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking }) => {
   const totalAdded = library.length;
   const totalCompleted = library.filter(i => i.status === 'completed').length;
   const totalEpisodesWatched = library.reduce((acc, item) => acc + (item.progress || 0), 0);
@@ -927,7 +1080,17 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   return (
     <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 sm:pb-0 pt-6">
       <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-4 sm:p-10 shadow-2xl">
-        <div className="text-center mb-10"><div className="w-20 h-20 bg-[var(--bg-base)] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[var(--border-color)] shadow-xl text-[var(--primary)]"><User size={32} /></div><h2 className="text-2xl font-black text-[var(--text-main)]">Profil</h2><p className="text-[var(--text-muted)] font-medium mt-1">{String(user.email || "")}</p></div>
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 bg-[var(--bg-base)] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[var(--border-color)] shadow-xl text-[var(--primary)]">
+            <User size={32} />
+          </div>
+          <h2 className="text-2xl font-black text-[var(--text-main)]">Profil</h2>
+          <p className="text-[var(--text-muted)] font-medium mt-1 mb-4">{String(user.email || "")}</p>
+
+          <Button onClick={onOpenRanking} className="mx-auto !px-6 !py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-lg shadow-orange-500/20">
+            <Trophy size={18}/> Mon classement
+          </Button>
+        </div>
 
         <div className="mb-8 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 space-y-4">
           <div className="flex items-center gap-3"><Smartphone className="text-blue-500" size={24} /><h3 className="font-bold text-[var(--text-main)] text-lg">Application & Alertes</h3></div>
@@ -1065,7 +1228,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
 export default function App() {
   const [user, setUser] = useState<UserData | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile'>('dashboard');
+  const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile' | 'ranking'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
   const [activeFilter, setActiveFilter] = useState<'watching'|'planning'|'completed'|'on_hold'|'favorites'|'reminders'>('watching');
   const [formatFilter, setFormatFilter] = useState<string>('all');
@@ -1096,7 +1259,7 @@ export default function App() {
     const { data, error } = await supabase
       .from('user_media')
       .select('*')
-      .eq('user_id', user.id) // <--- LA CORRECTION EST ICI
+      .eq('user_id', user.id)
       .order('updated_at', { ascending: false });
 
     if (error) console.error("Erreur DB:", error);
@@ -1132,6 +1295,7 @@ export default function App() {
         <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} /></button>
         <button onClick={() => setCurrentTab('search')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'search' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><Search size={24} strokeWidth={currentTab === 'search' ? 3 : 2} /></button>
         <button onClick={() => setCurrentTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><User size={24} strokeWidth={currentTab === 'profile' ? 3 : 2} /></button>
+        {currentTab === 'ranking' && <div className="hidden sm:flex flex-col items-center gap-1 text-[var(--primary)] scale-110 transition-all"><Trophy size={24} strokeWidth={3}/></div>}
         <div className="hidden sm:block w-px h-6 bg-[var(--border-color)] mx-2"></div>
         <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title="Changer le thème">{theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}</button>
       </nav>
@@ -1198,10 +1362,11 @@ export default function App() {
         )}
 
         {currentTab === 'search' && <DiscoverySearch userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
-        {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />}
+        {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} />}
+        {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />}
       </main>
 
-      {currentTab !== 'profile' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
+      {currentTab !== 'profile' && currentTab !== 'ranking' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
 
       {selectedMedia && (
         <DetailModal
@@ -1211,6 +1376,7 @@ export default function App() {
           onLibraryUpdate={handleSWRUpdate}
           user={user || undefined}
           fetchLibrary={fetchLibrary}
+          userLibrary={userLibrary}
         />
       )}
     </div>
