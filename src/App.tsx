@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // Import via CDN pour l'aperçu.
 // En local, utilisez : import { createClient } from '@supabase/supabase-js';
-import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
+import { createClient, type User } from '@supabase/supabase-js';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
-  PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ChevronDown, ChevronUp, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff
+  PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, FolderHeart, Sun, Moon, Flame,
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff
 } from 'lucide-react';
 
 // ============================================================================
@@ -167,7 +167,7 @@ function getNextOccurrence(reminderJsonStr: string | undefined, timeStr: string 
       nextDate.setHours(hours, minutes, 0, 0);
       return nextDate;
     }
-  } catch(e) { }
+  } catch(e) { /* ignore parse error */ }
   return null;
 }
 
@@ -179,7 +179,7 @@ const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
   if (!res.ok) return [];
   const data = await res.json();
-  return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
+  return data.results.filter((item: Record<string, unknown>) => item.media_type === 'movie' || item.media_type === 'tv').map((item: Record<string, any>) => ({
     id: item.id.toString(), source: 'tmdb', title: item.title || item.name, cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
     type: item.media_type, year: (item.release_date || item.first_air_date || '').split('-')[0], description: item.overview || 'Aucune description disponible.',
     totalEpisodes: item.media_type === 'movie' ? 1 : null, isAiring: false, isAdult: item.adult === true
@@ -192,7 +192,7 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query: `query ($search: String) { Page(page: 1, perPage: 15) { media(search: $search, type: ANIME${statusFilter}${sortFilter}) { id title { romaji english native } coverImage { large } format startDate { year } description episodes status genres duration isAdult studios(isMain: true) { nodes { name } } } } }`, variables: query ? { search: query } : {} }) });
   if (!res.ok) return [];
   const data = await res.json();
-  return data.data.Page.media.map((item: any) => ({
+  return data.data.Page.media.map((item: Record<string, any>) => ({
     id: item.id.toString(), source: 'anilist', title: item.title.english || item.title.romaji || item.title.native, cover: item.coverImage.large,
     type: 'anime', year: item.startDate.year || 'N/A', description: item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.',
     totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED', genres: item.genres, runtime: item.duration, prod_status: item.status, isAdult: item.isAdult === true, creator: item.studios?.nodes?.[0]?.name || null
@@ -203,7 +203,7 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   const res = await fetch(`https://shikimori.one/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
   if (!res.ok) return [];
   const data = await res.json();
-  return data.map((item: any) => ({
+  return data.map((item: Record<string, any>) => ({
     id: item.id.toString(), source: 'shikimori', title: item.name || item.russian, cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
     type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? item.aired_on.split('-')[0] : 'N/A', description: 'Recherche des détails en arrière-plan...',
     totalEpisodes: item.volumes || item.chapters || null, isAiring: item.status === 'ongoing', isAdult: false
@@ -215,7 +215,7 @@ const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
   const res = await fetch(`https://openlibrary.org/search.json?${isISBN ? `isbn=${query}` : `q=${encodeURIComponent(query)}`}&limit=10`);
   if (!res.ok) return [];
   const data = await res.json();
-  return data.docs.map((item: any) => ({
+  return data.docs.map((item: Record<string, any>) => ({
     id: item.key, source: 'openlibrary', title: item.title, cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
     type: 'book', year: item.first_publish_year || 'N/A', description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
     totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [], isAdult: false, creator: item.author_name ? item.author_name[0] : null
@@ -227,7 +227,7 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}&language=fr-FR`);
   if (!res.ok) return [];
   const data = await res.json();
-  return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
+  return data.results.filter((item: Record<string, unknown>) => item.media_type === 'movie' || item.media_type === 'tv').map((item: Record<string, any>) => ({
     id: item.id.toString(), source: 'tmdb', title: item.title || item.name, cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
     type: item.media_type, year: (item.release_date || item.first_air_date || '').split('-')[0], description: item.overview || '', totalEpisodes: item.media_type === 'movie' ? 1 : null, isAdult: item.adult === true
   }));
@@ -251,9 +251,9 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
       if (!res.ok) return null;
       const data = await res.json();
       let creator = null;
-      if (item.type === 'movie' && data.credits?.crew) creator = data.credits.crew.find((c: any) => c.job === 'Director')?.name;
+      if (item.type === 'movie' && data.credits?.crew) creator = data.credits.crew.find((c: Record<string, any>) => c.job === 'Director')?.name;
       else if (item.type === 'tv' && data.created_by?.length > 0) creator = data.created_by[0].name;
-      return { description: data.overview, total_episodes: item.type === 'tv' ? data.number_of_episodes : 1, genres: data.genres?.map((g: any) => g.name), runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0), prod_status: data.status, creator: creator || item.creator };
+      return { description: data.overview, total_episodes: item.type === 'tv' ? data.number_of_episodes : 1, genres: data.genres?.map((g: Record<string, any>) => g.name), runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0), prod_status: data.status, creator: creator || item.creator };
     }
     if (item.source === 'anilist') {
       const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `query ($id: Int) { Media(id: $id) { description episodes status genres duration studios(isMain: true) { nodes { name } } } }`, variables: { id: parseInt(targetId) } }) });
@@ -261,7 +261,7 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
       const data = await res.json();
       return { description: data.data.Media.description?.replace(/<[^>]*>?/gm, ''), total_episodes: data.data.Media.episodes || item.total_episodes, genres: data.data.Media.genres, runtime: data.data.Media.duration, prod_status: data.data.Media.status, creator: data.data.Media.studios?.nodes?.[0]?.name || item.creator };
     }
-  } catch (e) {} return null;
+  } catch (e) { /* ignore */ } return null;
 };
 
 // ============================================================================
@@ -398,7 +398,7 @@ const DetailModal: React.FC<{
   const [reminderExactDate, setReminderExactDate] = useState<string>(initialReminder.exactDate);
   const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
 
-  const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : (localData as any).totalEpisodes;
+  const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : localData.totalEpisodes;
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
@@ -416,7 +416,7 @@ const DetailModal: React.FC<{
       }
     };
     checkAndRevalidate();
-  }, [item.id, trackedItem?.id]);
+  }, [item.id, trackedItem?.id, onLibraryUpdate]);
 
   const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
 
@@ -439,9 +439,9 @@ const DetailModal: React.FC<{
     setIsActing(true);
     if (trackedItem) {
       await supabase.from('user_media').update({ status, updated_at: new Date().toISOString() }).match({ id: trackedItem.id });
-      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { status: status as any, updated_at: new Date().toISOString() });
+      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { status: status as 'watching' | 'planning' | 'completed' | 'on_hold', updated_at: new Date().toISOString() });
     } else {
-      await supabase.from('user_media').insert([{ user_id: user.id, media_id: item.id, source: item.source, title: item.title, cover_url: 'cover' in item ? item.cover : item.cover_url, type: item.type, status: status, description: item.description, year: item.year?.toString(), total_episodes: (item as any).totalEpisodes || null }]);
+      await supabase.from('user_media').insert([{ user_id: user.id, media_id: item.id, source: item.source, title: item.title, cover_url: 'cover' in item ? item.cover : (item as any).cover_url, type: item.type, status: status, description: item.description, year: item.year?.toString(), total_episodes: ('totalEpisodes' in item) ? item.totalEpisodes : null }]);
     }
     fetchLibrary();
     setIsActing(false);
@@ -602,7 +602,6 @@ const DetailModal: React.FC<{
 // ============================================================================
 const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, updates: Partial<LibraryItem>) => void, onSelect: (m: LibraryItem) => void }> = ({ items, onUpdate, onSelect }) => {
 
-  // Calcul de la prochaine date d'occurrence pour le tri
   const itemsWithDates = items.map(item => {
     const nextDate = getNextOccurrence(item.reminder_day, item.reminder_time);
     return { ...item, _nextDate: nextDate };
@@ -637,7 +636,7 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
           <div key={item.id} onClick={() => onSelect(item)} className="group cursor-pointer bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-amber-500/50 rounded-2xl p-4 flex items-center gap-4 transition-all shadow-sm hover:shadow-md">
 
             <div className="w-16 sm:w-20 aspect-[2/3] shrink-0 relative bg-[var(--bg-base)] rounded-lg overflow-hidden border border-[var(--border-color)] shadow-sm">
-              {item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={24} />}
+              {item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" alt="cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={24} />}
             </div>
 
             <div className="flex flex-col min-w-0 flex-grow justify-center">
@@ -692,8 +691,8 @@ const DiscoverySearch: React.FC<{
         const upcs = await fetchAniList('', true); setUpcoming(upcs);
         const { data } = await supabase.from('user_media').select('*').order('created_at', { ascending: false }).limit(15);
         if (data) {
-          const unique = data.filter((v: any, i: number, a: any[]) => a.findIndex((t: any) => (t.media_id === v.media_id)) === i);
-          setCommunity(unique);
+          const unique = data.filter((v: Record<string, any>, i: number, a: Record<string, any>[]) => a.findIndex((t: Record<string, any>) => (t.media_id === v.media_id)) === i);
+          setCommunity(unique as LibraryItem[]);
         }
       } catch (e) { console.error(e); }
       finally { setLoadingFeeds(false); }
@@ -708,7 +707,7 @@ const DiscoverySearch: React.FC<{
       if (apiCache.has(debouncedQuery)) { setResults(apiCache.get(debouncedQuery)!); setLoading(false); return; }
       try {
         const [tmdbRes, aniRes, shikiRes, olRes] = await Promise.allSettled([ fetchTMDB(debouncedQuery), fetchAniList(debouncedQuery), fetchShikimori(debouncedQuery), fetchOpenLibrary(debouncedQuery) ]);
-        let combined: MediaItem[] = [];
+        const combined: MediaItem[] = [];
         if (tmdbRes.status === 'fulfilled') combined.push(...tmdbRes.value);
         if (aniRes.status === 'fulfilled') combined.push(...aniRes.value);
         if (shikiRes.status === 'fulfilled') combined.push(...shikiRes.value);
@@ -728,7 +727,7 @@ const DiscoverySearch: React.FC<{
         <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{title} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
         <div className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory">
           {items.map(media => {
-            const cover = 'cover' in media ? media.cover : media.cover_url;
+            const cover = 'cover' in media ? media.cover : (media as any).cover_url;
             const isExplicit = ('isAdult' in media && media.isAdult) || media.source === 'shikimori';
             const needsBlur = !localShowNSFW && isExplicit;
             const tracked = userLibrary.find(item => item.media_id === media.id && item.source === media.source);
@@ -736,7 +735,7 @@ const DiscoverySearch: React.FC<{
             return (
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
-                  {cover ? <img src={cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                  {cover ? <img src={cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} alt="cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
                   {tracked && <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>}
                   {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
@@ -785,7 +784,7 @@ const DiscoverySearch: React.FC<{
             return (
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
-                  {media.cover ? <img src={media.cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                  {media.cover ? <img src={media.cover} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} alt="cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={media.type} /></div>
                   {tracked && <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>}
                   {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
@@ -818,7 +817,7 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
     <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-40 animate-in slide-in-from-bottom-10 fade-in duration-300">
       <div className="bg-[var(--panel-bg)]/95 backdrop-blur-xl border border-[var(--border-color)] shadow-2xl shadow-[var(--shadow-color)] rounded-2xl overflow-hidden flex items-center p-3 gap-4 relative">
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ background: `linear-gradient(90deg, var(--primary) ${progressPercent}%, transparent ${progressPercent}%)`}} />
-        <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">{item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}</div>
+        <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">{item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" alt="cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}</div>
         <div className="flex-1 min-w-0 z-10"><p className="text-[10px] text-[var(--primary)] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1"><PlayCircle size={10} /> Reprendre</p><h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{item.title}</h4><div className="flex items-center gap-2 mt-1.5"><span className="text-xs font-mono font-bold text-[var(--text-muted)]">{item.progress} / {item.total_episodes || '?'}</span><div className="flex-1 h-1.5 bg-[var(--bg-base)] rounded-full overflow-hidden border border-[var(--border-color)]"><div className="h-full bg-[var(--primary)] rounded-full" style={{ width: `${progressPercent}%` }} /></div></div></div>
         <div className="flex items-center gap-1.5 shrink-0 z-10"><button onClick={() => onUpdate(item, -1)} disabled={item.progress <= 0} className="w-10 h-10 flex items-center justify-center bg-[var(--bg-base)] hover:bg-[var(--border-color)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl disabled:opacity-50 transition-colors"><Minus size={18} strokeWidth={3}/></button><button onClick={() => onUpdate(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-12 h-12 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-xl shadow-lg shadow-[var(--shadow-color)] disabled:opacity-50 transition-transform active:scale-95"><Plus size={24} strokeWidth={3}/></button></div>
       </div>
@@ -843,7 +842,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
 
   const timezones = useMemo(() => {
-    try { if (typeof Intl !== 'undefined' && (Intl as any).supportedValuesOf) return (Intl as any).supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') })); } catch (e) {}
+    try { if (typeof Intl !== 'undefined' && (Intl as any).supportedValuesOf) return (Intl as any).supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') })); } catch (e) { /* ignore */ }
     return [{ value: 'Europe/Paris', label: 'Europe/Paris' }, { value: 'America/New_York', label: 'America/New York' }, { value: 'Asia/Tokyo', label: 'Asia/Tokyo' }, { value: 'UTC', label: 'UTC' }];
   }, []);
   const [userTz, setUserTz] = useState(user.user_metadata?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris');
@@ -882,7 +881,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
         const { error } = await supabase.from('push_subscriptions').upsert({ user_id: user.id, subscription: subscription.toJSON() }, { onConflict: 'user_id, subscription' });
         if (error) throw error;
       }
-    } catch (e: any) { console.error("Échec de l'activation Push :", e.message); } finally { setIsPushLoading(false); }
+    } catch (e) { const err = e as Error; console.error("Échec de l'activation Push :", err.message); } finally { setIsPushLoading(false); }
   };
 
   return (
@@ -946,8 +945,8 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
   const handleAuth = async (type: 'login' | 'register') => {
     setLoading(true); setError('');
     try { const { data, error: err } = type === 'login' ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password });
-      if (err) setError(err.message); else if (data.user) onLogin(data.user);
-    } catch (e: any) { setError(e.message || "Erreur critique de connexion"); } finally { setLoading(false); }
+      if (err) setError(err.message); else if (data.user) onLogin(data.user as unknown as UserData);
+    } catch (e) { const err = e as Error; setError(err.message || "Erreur critique de connexion"); } finally { setLoading(false); }
   };
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
@@ -986,14 +985,14 @@ export default function App() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
-    supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user ?? null); setAuthLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user ?? null); });
+    supabase.auth.getSession().then(({ data: { session } }) => { setUser((session?.user as unknown as UserData) ?? null); setAuthLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setUser((session?.user as unknown as UserData) ?? null); });
     return () => subscription.unsubscribe();
   }, []);
 
   const fetchLibrary = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase.from('user_media').select('*').order('updated_at', { ascending: false });
+    const { data } = await supabase.from('user_media').select('*').order('updated_at', { ascending: false });
     if (data) { setUserLibrary(data as LibraryItem[]); if (data.length > 0 && !lastInteractedId) setLastInteractedId(data[0].id); }
   }, [user, lastInteractedId]);
 
@@ -1072,7 +1071,7 @@ export default function App() {
                     return (
                       <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
                         <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
-                          {item.cover_url ? <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                          {item.cover_url ? <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                           <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
                           <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>
                           <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
