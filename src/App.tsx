@@ -61,6 +61,8 @@ const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 
+
+
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
 }
@@ -1324,41 +1326,42 @@ const ProfileScreen: React.FC<{
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-10">
-          <div className="bg-blue-500/10 border border-blue-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
-            <div className="p-2 sm:p-3 bg-blue-500 text-white rounded-lg sm:rounded-xl shrink-0"><FolderHeart className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0 flex-1">
-              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalAdded}</p>
-              <p className="text-[10px] sm:text-xs font-bold text-blue-500 uppercase tracking-wider mt-1 truncate">Ajoutés</p>
+        <div className="grid grid-cols-2 gap-4 mb-10">
+          <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-2xl flex items-center gap-4">
+            <div className="p-3 bg-blue-500 text-white rounded-xl"><FolderHeart size={24}/></div>
+            <div>
+              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalAdded}</p>
+              <p className="text-xs font-bold text-blue-500 uppercase tracking-wider mt-1">Ajoutés</p>
             </div>
           </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
-            <div className="p-2 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl shrink-0"><Check className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0 flex-1">
-              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalCompleted}</p>
-              <p className="text-[10px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1 truncate">Terminés</p>
+          <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl flex items-center gap-4">
+            <div className="p-3 bg-emerald-500 text-white rounded-xl"><Check size={24}/></div>
+            <div>
+              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalCompleted}</p>
+              <p className="text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1">Terminés</p>
             </div>
           </div>
-          <div className="bg-rose-500/10 border border-rose-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
-            <div className="p-2 sm:p-3 bg-rose-500 text-white rounded-lg sm:rounded-xl shrink-0"><Clock className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0 flex-1">
-              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{watchTimeHours}<span className="text-xs sm:text-sm">h</span></p>
-              <p className="text-[10px] sm:text-xs font-bold text-rose-500 uppercase tracking-wider mt-1 truncate">Visionnage</p>
+          <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-2xl flex items-center gap-4">
+            <div className="p-3 bg-rose-500 text-white rounded-xl"><Clock size={24}/></div>
+            <div>
+              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{watchTimeHours}<span className="text-sm">h</span></p>
+              <p className="text-xs font-bold text-rose-500 uppercase tracking-wider mt-1">Visionnage</p>
             </div>
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
-            <div className="p-2 sm:p-3 bg-amber-500 text-white rounded-lg sm:rounded-xl shrink-0"><PlayCircle className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0 flex-1">
-              <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalEpisodesWatched}</p>
-              <p className="text-[10px] sm:text-xs font-bold text-amber-500 uppercase tracking-wider mt-1 truncate">Ép./Chap.</p>
+          <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center gap-4">
+            <div className="p-3 bg-amber-500 text-white rounded-xl"><PlayCircle size={24}/></div>
+            <div>
+              <p className="text-2xl font-black text-[var(--text-main)] leading-none">{totalEpisodesWatched}</p>
+              <p className="text-xs font-bold text-amber-500 uppercase tracking-wider mt-1">Ép./Chap.</p>
             </div>
           </div>
         </div>
 
+        {/* FUSEAU HORAIRE ET PARAMETRES */}
         <div className="mb-6">
-           <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label>
+           <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 block flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label>
            <CustomSelect
-              value={String(userTz)}
+              value={userTz}
               onChange={handleTzChange}
               options={timezones}
               placement="top"
@@ -1397,10 +1400,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         : await supabase.auth.signUp({ email, password });
       if (err) setError(err.message);
       else if (data.user) onLogin(data.user);
-    } catch (e: unknown) {
-      const err = e as Error;
-      setError(err.message || "Erreur critique de connexion");
-    }
+    } catch (e: any) { setError(e.message || "Erreur critique de connexion"); }
     finally { setLoading(false); }
   };
 
@@ -1417,8 +1417,8 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         </div>
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
         <div className="space-y-4">
-          <Input type="email" placeholder="Adresse email" value={String(email)} onChange={e => setEmail(e.target.value)} />
-          <Input type="password" placeholder="Mot de passe" value={String(password)} onChange={e => setPassword(e.target.value)} />
+          <Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} />
+          <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
           <div className="pt-6 flex flex-col gap-3">
             <Button className="w-full !py-3.5 text-base" onClick={() => handleAuth('login')} disabled={loading}>
               {loading ? <Loader2 className="animate-spin" /> : 'Se connecter'}
@@ -1445,6 +1445,7 @@ export default function App() {
 
   const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
 
+  // ÉTAT DU THÈME SOMBRE/CLAIR
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   const filteredLibrary = userLibrary.filter(item => {
@@ -1460,7 +1461,7 @@ export default function App() {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
@@ -1518,11 +1519,14 @@ export default function App() {
     <div className={`${theme} min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans pb-28 sm:pb-12 flex flex-col relative transition-colors duration-300`}>
       <GlobalStyles />
 
+      {/* NAVBAR AKASHA */}
       <nav className="fixed bottom-4 inset-x-6 mx-auto sm:mx-0 max-w-[250px] sm:max-w-none sm:top-6 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 z-50 sm:w-auto px-6 py-3 sm:py-3 bg-[var(--panel-bg)]/95 backdrop-blur-xl border sm:border border-[var(--border-color)] rounded-3xl sm:rounded-full flex justify-between sm:justify-center items-center sm:gap-12 shadow-2xl">
+
         <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]">
            <AkashaLogo size={24} />
            <span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span>
         </div>
+
         <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}>
           <Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} />
         </button>
@@ -1541,6 +1545,7 @@ export default function App() {
       <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full">
         {currentTab === 'dashboard' && (
           <div className="animate-in fade-in duration-500">
+
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
               <div className="flex gap-1 overflow-x-auto w-full sm:w-auto custom-scrollbar px-1 pt-1">
                 {[
@@ -1557,7 +1562,7 @@ export default function App() {
                   const config = STATUS_CONFIG[f.id as keyof typeof STATUS_CONFIG];
 
                   return (
-                    <button key={String(f.id)} onClick={() => setActiveFilter(f.id as any)}
+                    <button key={f.id} onClick={() => setActiveFilter(f.id as any)}
                       className={`whitespace-nowrap px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all relative ${isActive ? config.tabActive : config.tabInactive}`}
                     >
                       {f.id === 'favorites' && <Heart size={14} className={`inline mr-1 ${isActive ? "fill-[var(--text-main)]" : ""}`} />}
@@ -1570,7 +1575,7 @@ export default function App() {
 
               <div className="shrink-0 w-full sm:w-48 z-10">
                  <CustomSelect
-                    value={String(formatFilter)}
+                    value={formatFilter}
                     onChange={setFormatFilter}
                     options={FORMAT_OPTIONS}
                     className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm"
@@ -1584,21 +1589,24 @@ export default function App() {
                   const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
 
                   return (
-                    <div key={String(item.id)} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
+                    <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
+
                       <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
                         {item.cover_url ? (
-                          <img src={item.cover_url || ""} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                          <img src={item.cover_url} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                         ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                        <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={String(item.type)} /></div>
+                        <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
+                        
                         <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                           <Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
                         </button>
+
                         <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
                       </div>
 
                       <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
                         <div className="flex flex-col">
-                          <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{String(item.title)}</h3>
+                          <h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3>
                           <div className="w-fit" onClick={e => e.stopPropagation()}>
                             <InlineEpisodeEdit item={item} onSave={async (id, newTotal) => {
                               setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem));
@@ -1635,6 +1643,7 @@ export default function App() {
         )}
       </main>
 
+      {/* LECTEUR PERSISTANT */}
       {currentTab !== 'profile' && activePlayerItem && (
         <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />
       )}
