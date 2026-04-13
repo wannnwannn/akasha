@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 // POUR VERCEL : Si la compilation échoue à cause de l'import réseau,
 // décommente la ligne ci-dessous et supprime celle avec "esm.sh"
 import { createClient } from '@supabase/supabase-js';
+import HCaptcha from '@hcaptcha/react-hcaptcha';
 //import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
@@ -63,6 +64,10 @@ const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
+
+// NOUVEAU: Clé publique hCaptcha (Remplacer sur Vercel par import.meta.env.VITE_HCAPTCHA_SITE_KEY)
+const HCAPTCHA_SITE_KEY = String(import.meta.env.VITE_HCAPTCHA_SITE_KEY || '');
+
 
 if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_VRAIE_URL_SUPABASE') {
   console.error("ARRÊT CRITIQUE : Tu n'as pas entré tes vraies clés Supabase.");
@@ -976,20 +981,74 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 // COMPOSANT AUTHENTIFICATION
 // ============================================================================
 const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) => {
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [loading, setLoading] = useState(false); const [error, setError] = useState('');
-  const handleAuth = async (type: 'login' | 'register') => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<any>(null);
+
+  const handleAuth = async () => {
     setLoading(true); setError('');
-    try { const { data, error: err } = type === 'login' ? await supabase.auth.signInWithPassword({ email, password }) : await supabase.auth.signUp({ email, password });
-      if (err) setError(err.message); else if (data.user) onLogin(data.user);
-    } catch (e: any) { setError(e.message || "Erreur critique de connexion"); } finally { setLoading(false); }
+    try {
+      if (isRegistering) {
+        if (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001') {
+          setError("Veuillez valider le Captcha pour vous inscrire.");
+          setLoading(false);
+          return;
+        }
+        const { data, error: err } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { captchaToken: captchaToken || undefined }
+        });
+        if (err) setError(err.message);
+        else if (data.user) onLogin(data.user);
+      } else {
+        const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) setError(err.message);
+        else if (data.user) onLogin(data.user);
+      }
+    } catch (e: any) {
+      setError(e.message || "Erreur critique de connexion");
+    } finally {
+      setLoading(false);
+      if (captchaRef.current) captchaRef.current.resetCaptcha();
+      setCaptchaToken(null);
+    }
   };
+
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-[var(--primary)] to-amber-500" />
         <div className="text-center mb-10"><div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"><AkashaLogo size={48} /></div><h1 className="text-3xl font-black text-[var(--text-main)] tracking-tight uppercase">Akasha</h1><p className="text-[var(--text-muted)] font-medium mt-2">Votre mémoire culturelle.</p></div>
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
-        <div className="space-y-4"><Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} /><Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} /><div className="pt-6 flex flex-col gap-3"><Button className="w-full !py-3.5 text-base" onClick={() => handleAuth('login')} disabled={loading}>{loading ? <Loader2 className="animate-spin" /> : 'Se connecter'}</Button><Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => handleAuth('register')} disabled={loading}>Créer un compte</Button></div></div>
+        <div className="space-y-4">
+          <Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} />
+          <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
+
+          {isRegistering && HCAPTCHA_SITE_KEY && (
+            <div className="flex justify-center pt-2">
+              <HCaptcha
+                sitekey={HCAPTCHA_SITE_KEY}
+                onVerify={(token: string) => setCaptchaToken(token)}
+                ref={captchaRef}
+                theme="dark"
+              />
+            </div>
+          )}
+
+          <div className="pt-6 flex flex-col gap-3">
+            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001')}>
+              {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? 'Créer mon compte' : 'Se connecter')}
+            </Button>
+            <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); }} disabled={loading}>
+              {isRegistering ? 'J\'ai déjà un compte' : 'Créer un compte'}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );
