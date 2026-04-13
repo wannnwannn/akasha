@@ -1140,7 +1140,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   );
 };
 
-/ ============================================================================
+// ============================================================================
 // COMPOSANT AUTHENTIFICATION
 // ============================================================================
 const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) => {
