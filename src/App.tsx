@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // Import via CDN pour l'aperçu.
-// En local, utilisez : import { createClient } from '@supabase/supabase-js';
-import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+//import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
