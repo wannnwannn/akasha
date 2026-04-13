@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createClient, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
