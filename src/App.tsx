@@ -56,7 +56,6 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
@@ -1170,34 +1169,49 @@ const ProfileScreen: React.FC<{
 
   const handleSubscribePush = async () => {
     if (pushStatus === 'unsupported' || !VAPID_PUBLIC_KEY) {
-      alert("Votre navigateur ne supporte pas les notifications ou la clé VAPID est manquante.");
+      alert(`Erreur 1: Navigateur non supporté ou Clé VAPID manquante. (Clé présente ? ${!!VAPID_PUBLIC_KEY})`);
       return;
     }
 
     setIsPushLoading(true);
     try {
+      alert("Étape 1: Demande de permission au téléphone...");
       const permission = await Notification.requestPermission();
       setPushStatus(permission as any);
+      alert(`Étape 2: Permission répondue -> ${permission}`);
 
       if (permission === 'granted') {
+        alert("Étape 3: Vérification du Service Worker (sw.js)...");
+        
+        const swRegistration = await navigator.serviceWorker.getRegistration();
+        if (!swRegistration) {
+           alert("ALERTE ROUGE : Aucun Service Worker trouvé. As-tu bien mis sw.js dans le dossier public et redéployé sur Vercel ?");
+           throw new Error("Service Worker manquant");
+        }
+
         const registration = await navigator.serviceWorker.ready;
+        alert("Étape 4: Service worker prêt. Création du jeton cryptographique avec Apple/Google...");
+        
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
         });
+        
+        alert("Étape 5: Jeton généré ! Envoi vers Supabase...");
 
-        // Envoyer la souscription à Supabase
         const { error } = await supabase.from('push_subscriptions').upsert({
           user_id: user.id,
           subscription: subscription.toJSON()
         }, { onConflict: 'user_id, subscription' });
 
-        if (error) throw error;
-        alert("Notifications activées avec succès !");
+        if (error) {
+           alert(`ALERTE SUPABASE : ${error.message} (Vérifie ta commande SQL et tes RLS)`);
+           throw error;
+        }
+        alert("SUCCÈS TOTAL : La base de données a reçu le jeton !");
       }
     } catch (e: any) {
-      console.error("Erreur Push:", e);
-      alert(`Erreur d'activation : ${e.message}`);
+      alert(`CRASH FATAL : ${e.message}`);
     } finally {
       setIsPushLoading(false);
     }
@@ -1220,7 +1234,7 @@ const ProfileScreen: React.FC<{
             <Smartphone className="text-blue-500" size={24} />
             <h3 className="font-bold text-[var(--text-main)] text-lg">Application & Alertes</h3>
           </div>
-
+          
           {!isStandalone ? (
             <>
               <p className="text-sm text-[var(--text-muted)]">Installez Akasha sur votre écran d'accueil pour une expérience optimale et pour débloquer les notifications Push.</p>
@@ -1247,7 +1261,7 @@ const ProfileScreen: React.FC<{
                  <BellRing size={16} className="text-blue-500"/> Alertes des sorties
                </p>
                <p className="text-xs text-[var(--text-muted)] mb-4">Recevez une notification silencieuse sur votre téléphone lorsqu'un épisode ou chapitre prévu est disponible.</p>
-
+               
                {pushStatus === 'granted' ? (
                  <div className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-500 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20">
                    <Check size={18} /> Notifications Activées
