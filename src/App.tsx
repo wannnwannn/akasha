@@ -1204,7 +1204,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
                   onClick={() => {
                     const mail = email || "[MON ADRESSE EMAIL]";
                     // ATTENTION: Remplacer par ta vraie adresse email personnelle ou de support
-                    window.location.href = `mailto:contactwanspace@gmail.com@gmail.com?subject=Akasha%20-%20Mot%20de%20passe%20oublié&body=Bonjour,%20j'ai%20oublié%20mon%20mot%20de%20passe.%20Mon%20compte%20est%20:%20${mail}`;
+                    window.location.href = `mailto:contactwanspace@gmail.com?subject=Akasha%20-%20Mot%20de%20passe%20oublié&body=Bonjour,%20j'ai%20oublié%20mon%20mot%20de%20passe.%20Mon%20compte%20est%20:%20${mail}`;
                   }}
                   className="text-[11px] font-bold text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
                 >
