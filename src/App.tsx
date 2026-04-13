@@ -992,12 +992,13 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
   const handleAuth = async () => {
     setLoading(true); setError('');
     try {
+      if (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001') {
+        setError("Veuillez valider le Captcha pour continuer.");
+        setLoading(false);
+        return;
+      }
+
       if (isRegistering) {
-        if (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001') {
-          setError("Veuillez valider le Captcha pour vous inscrire.");
-          setLoading(false);
-          return;
-        }
         const { data, error: err } = await supabase.auth.signUp({
           email,
           password,
@@ -1006,7 +1007,11 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         if (err) setError(err.message);
         else if (data.user) onLogin(data.user);
       } else {
-        const { data, error: err } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error: err } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+          options: { captchaToken: captchaToken || undefined }
+        });
         if (err) setError(err.message);
         else if (data.user) onLogin(data.user);
       }
@@ -1029,7 +1034,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
           <Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} />
           <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
 
-          {isRegistering && HCAPTCHA_SITE_KEY && (
+          {HCAPTCHA_SITE_KEY && (
             <div className="flex justify-center pt-2">
               <HCaptcha
                 sitekey={HCAPTCHA_SITE_KEY}
@@ -1041,10 +1046,10 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
           )}
 
           <div className="pt-6 flex flex-col gap-3">
-            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001')}>
+            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001')}>
               {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? 'Créer mon compte' : 'Se connecter')}
             </Button>
-            <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); }} disabled={loading}>
+            <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); if(captchaRef.current) captchaRef.current.resetCaptcha(); }} disabled={loading}>
               {isRegistering ? 'J\'ai déjà un compte' : 'Créer un compte'}
             </Button>
           </div>
