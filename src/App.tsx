@@ -38,6 +38,7 @@ const GlobalStyles = () => (
     ::-webkit-scrollbar-track { background: var(--bg-base); }
     ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
     * { scrollbar-width: thin; scrollbar-color: var(--border-color) var(--bg-base); }
+    .custom-scrollbar::-webkit-scrollbar { height: 4px; }
   `}</style>
 );
 
@@ -61,7 +62,7 @@ function urlBase64ToUint8Array(base64String: string) {
 }
 
 // ============================================================================
-// TYPES
+// TYPES & INTERFACES
 // ============================================================================
 interface MediaItem {
   id: string; source: string; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
@@ -134,7 +135,7 @@ function getNextOccurrence(reminderJsonStr: string | null | undefined, timeStr: 
       nextDate.setHours(hours, minutes, 0, 0);
       return nextDate;
     }
-  } catch(e) { /* ignore parse error */ }
+  } catch(e) { }
   return null;
 }
 
@@ -166,7 +167,14 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   }));
 };
 
-// ... Les autres fonctions fetch (Shikimori, OpenLibrary, Trending) restent identiques mais attention au typage MediaItem
+const mapStatusToLabel = (status: string | undefined) => {
+  if (!status) return "Statut inconnu";
+  const s = status.toLowerCase();
+  if (['completed', 'finished', 'ended', 'released'].includes(s)) return "Terminée";
+  if (['ongoing', 'releasing', 'returning series', 'in production'].includes(s)) return "En production";
+  if (['planned', 'post production', 'not_yet_released'].includes(s)) return "À venir";
+  return "Statut inconnu";
+};
 
 const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Partial<LibraryItem> | null> => {
   const targetId = 'media_id' in item ? item.media_id : item.id;
@@ -184,18 +192,18 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
 };
 
 // ============================================================================
-// UI ATOMIQUES
+// UI COMPONENTS
 // ============================================================================
 const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { icon?: any }> = ({ icon: Icon, ...props }) => (
   <div className="relative flex items-center w-full">
     {Icon && <Icon className="absolute left-4 text-[var(--text-muted)]" size={20} />}
-    <input className={`w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all ${Icon ? 'pl-12' : ''}`} {...props} />
+    <input className={`w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all placeholder:text-[var(--text-muted)] font-medium ${Icon ? 'pl-12' : ''}`} {...props} />
   </div>
 );
 
 const Button: React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary'|'secondary'|'danger'|'ghost' }> = ({ children, variant = 'primary', className = '', ...props }) => {
   const variants = {
-    primary: "bg-[var(--primary)] text-white shadow-lg",
+    primary: "bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white shadow-lg",
     secondary: "bg-[var(--bg-base)] text-[var(--text-main)] border border-[var(--border-color)]",
     danger: "bg-red-500/10 text-red-500 border border-red-500/30",
     ghost: "text-[var(--text-muted)] hover:text-[var(--text-main)]"
@@ -212,7 +220,7 @@ const CustomSelect: React.FC<{ value: string, onChange: (val: string) => void, o
     <div className="relative w-full" ref={selectRef}>
       <div onClick={() => setIsOpen(!isOpen)} className={`flex items-center justify-between w-full rounded-xl px-4 py-3.5 cursor-pointer font-bold text-sm border border-[var(--border-color)] bg-[var(--panel-bg-alt)] ${className}`}>
         <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label}</span>
-        <ChevronRight size={16} className={`text-[var(--text-muted)] transition-transform ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
+        <ChevronRight size={16} className={`text-[var(--text-muted)] transition-transform duration-200 ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
       </div>
       {isOpen && (
         <div className={`absolute z-50 left-0 right-0 ${placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2'} bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden`}>
@@ -227,7 +235,19 @@ const CustomSelect: React.FC<{ value: string, onChange: (val: string) => void, o
   );
 };
 
-// ... AkashaLogo et TypeBadge restent identiques
+const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
+  const config: Record<string, { color: string, icon: any, label: string }> = {
+    movie: { color: 'bg-rose-500/20 text-rose-500', icon: Film, label: 'Film' },
+    tv: { color: 'bg-amber-500/20 text-amber-600', icon: Tv, label: 'Série' },
+    anime: { color: 'bg-orange-500/20 text-orange-600', icon: PlayCircle, label: 'Anime' },
+    manga: { color: 'bg-teal-500/20 text-teal-600', icon: BookOpen, label: 'Manga' },
+    webtoon: { color: 'bg-blue-500/20 text-blue-600', icon: Flame, label: 'Webtoon' },
+    book: { color: 'bg-purple-500/20 text-purple-600', icon: Book, label: 'Livre' }
+  };
+  const current = config[type] || config.movie;
+  const Icon = current.icon;
+  return <span className={`flex items-center gap-1 text-[10px] uppercase tracking-wider px-2 py-1 rounded-md font-bold ${current.color}`}><Icon size={12} /> {current.label}</span>;
+};
 
 // ============================================================================
 // MODAL DE DÉTAILS
@@ -238,20 +258,10 @@ const DetailModal: React.FC<{
 }> = ({ item, onClose, trackedItem, onLibraryUpdate, user, fetchLibrary }) => {
 
   const [localData, setLocalData] = useState(item as LibraryItem);
-  const [isActing, setIsActing] = useState(false);
-
-  const initialReminder = useMemo(() => {
-    if (!trackedItem?.reminder_day) return { type: 'weekly' as const, days: [] as string[], freq: "1", exactDate: '' };
-    try {
-      const parsed = JSON.parse(trackedItem.reminder_day as string);
-      if (parsed.date) return { type: 'exact' as const, days: [], freq: "1", exactDate: parsed.date };
-      return { type: 'weekly' as const, days: parsed.days || [], freq: parsed.frequency?.toString() || "1", exactDate: '' };
-    } catch(e) { return { type: 'weekly' as const, days: [], freq: "1", exactDate: '' }; }
-  }, [trackedItem]);
-
+  const [showFullDesc, setShowFullDesc] = useState(false);
   const [notes, setNotes] = useState(trackedItem?.notes || '');
   const [customLink, setCustomLink] = useState(trackedItem?.custom_link || '');
-  const [reminderDays, setReminderDays] = useState<string[]>(initialReminder.days);
+  const [reminderDays, setReminderDays] = useState<string[]>([]);
   const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
 
   useEffect(() => {
@@ -269,63 +279,82 @@ const DetailModal: React.FC<{
   const saveExtras = async () => {
     if (!trackedItem) return;
     const reminderDataStr = reminderDays.length > 0 ? JSON.stringify({ days: reminderDays, frequency: 1 }) : null;
-    const updates = {
-      notes: notes || null,
-      custom_link: customLink || null,
-      reminder_day: reminderDataStr,
-      reminder_time: reminderDataStr ? reminderTime : null
-    };
+    const updates = { notes: notes || null, custom_link: customLink || null, reminder_day: reminderDataStr, reminder_time: reminderDataStr ? reminderTime : null };
     await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
     if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates as Partial<LibraryItem>);
   };
 
   const handleAddOrUpdate = async (status: string) => {
     if (!user || !fetchLibrary) return;
-    setIsActing(true);
     if (trackedItem) {
       await supabase.from('user_media').update({ status, updated_at: new Date().toISOString() }).match({ id: trackedItem.id });
     } else {
       await supabase.from('user_media').insert([{ user_id: user.id, media_id: item.id, source: item.source, title: item.title, cover_url: 'cover' in item ? item.cover : item.cover_url, type: item.type, status: status }]);
     }
     fetchLibrary();
-    setIsActing(false);
     onClose();
   };
 
+  const title = localData.title;
+  const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
+  const description = localData.description || 'Chargement...';
+  const prodStatusLabel = mapStatusToLabel(localData.prod_status);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4" onClick={onClose}>
-      <div className="bg-[var(--panel-bg)] rounded-3xl w-full max-w-xl p-6" onClick={e => e.stopPropagation()}>
-        <h2 className="text-2xl font-black mb-4">{localData.title}</h2>
-        {!trackedItem ? (
-           <CustomSelect value="" onChange={handleAddOrUpdate} options={STATUS_OPTIONS} />
-        ) : (
-          <div className="space-y-4">
-             <textarea
-                className="w-full p-4 bg-[var(--bg-base)] rounded-xl"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                onBlur={saveExtras}
-             />
-             <Button variant="danger" onClick={async () => { await supabase.from('user_media').delete().match({ id: trackedItem.id }); fetchLibrary?.(); onClose(); }}>Supprimer</Button>
+      <div className="bg-[var(--panel-bg)] rounded-3xl w-full max-w-xl shadow-2xl relative overflow-hidden" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 z-20 bg-[var(--bg-base)] p-2 rounded-full"><X size={20} /></button>
+        <div className="p-6 sm:p-8 max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-center mb-6">
+             <div className="w-40 aspect-[2/3] rounded-xl overflow-hidden border border-[var(--border-color)]">
+              {cover ? <img src={cover} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} /></div>}
+             </div>
           </div>
-        )}
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-black mb-2">{title}</h2>
+            <div className="flex justify-center gap-2 mb-4">
+              <TypeBadge type={localData.type} />
+              <span className="text-[10px] uppercase font-black px-2 py-1 rounded-md bg-[var(--primary)] text-white">{prodStatusLabel}</span>
+            </div>
+          </div>
+          <div className="mb-6 bg-[var(--bg-base)] p-4 rounded-xl">
+            <div className={`text-sm text-[var(--text-muted)] ${!showFullDesc && 'line-clamp-3'}`}>{description}</div>
+            <button onClick={() => setShowFullDesc(!showFullDesc)} className="text-xs font-bold text-[var(--primary)] mt-2">{showFullDesc ? 'Réduire' : 'Voir plus'}</button>
+          </div>
+          {!trackedItem ? (
+            <CustomSelect value="" onChange={handleAddOrUpdate} options={STATUS_OPTIONS} />
+          ) : (
+            <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
+              <CustomSelect value={trackedItem.status} onChange={handleAddOrUpdate} options={STATUS_OPTIONS.filter(o => o.value !== "")} />
+              <textarea placeholder="Notes..." value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] rounded-xl p-4 min-h-[100px] outline-none" />
+              <div className="flex gap-2">
+                <input type="text" placeholder="Lien..." value={customLink} onChange={e => setCustomLink(e.target.value)} onBlur={saveExtras} className="flex-1 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-xl px-4 py-2" />
+                <input type="time" value={reminderTime} onChange={e => setReminderTime(e.target.value)} onBlur={saveExtras} className="bg-[var(--bg-base)] border border-[var(--border-color)] rounded-xl px-2" />
+              </div>
+              <Button variant="danger" className="w-full" onClick={async () => { await supabase.from('user_media').delete().match({ id: trackedItem.id }); fetchLibrary?.(); onClose(); }}>Retirer de la liste</Button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-// ... DiscoverySearch, RemindersList, PersistentPlayer, ProfileScreen et AuthScreen
-// Applique les mêmes principes : supprimer les variables inutilisées dans les map/useEffect
-
+// ============================================================================
+// MAIN APP
+// ============================================================================
 export default function App() {
   const [user, setUser] = useState<UserData | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'watching'|'planning'|'completed'|'on_hold'|'favorites'|'reminders'>('watching');
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem | LibraryItem | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user ?? null); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user ?? null); });
+    supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user ?? null); setAuthLoading(false); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => { setUser(session?.user ?? null); });
     return () => subscription.unsubscribe();
   }, []);
 
@@ -337,11 +366,70 @@ export default function App() {
 
   useEffect(() => { fetchLibrary(); }, [fetchLibrary]);
 
+  const updateProgress = async (item: LibraryItem, increment: number) => {
+    const newProgress = Math.max(0, item.progress + increment);
+    const newDate = new Date().toISOString();
+    setUserLibrary(prev => prev.map(l => l.id === item.id ? { ...l, progress: newProgress, updated_at: newDate } : l));
+    await supabase.from('user_media').update({ progress: newProgress, updated_at: newDate }).match({ id: item.id });
+  };
+
+  const handleSWRUpdate = (id: string, updates: Partial<LibraryItem>) => { setUserLibrary(prev => prev.map(l => l.id === id ? { ...l, ...updates } : l)); };
+
+  if (authLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (!user) return <div className={theme}><GlobalStyles/><div className="min-h-screen flex items-center justify-center">Connectez-vous pour continuer.</div></div>;
+
   return (
-    <div className={`${theme} min-h-screen bg-[var(--bg-base)]`}>
+    <div className={`${theme} min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] transition-colors duration-300`}>
       <GlobalStyles />
-      {/* Ton JSX de Navigation et Main Content ici en utilisant les composants corrigés */}
-      {/* Assure-toi que toutes les fonctions de mise à jour utilisent LibraryItem correctement */}
+      <nav className="fixed bottom-4 inset-x-6 z-50 max-w-md mx-auto bg-[var(--panel-bg)]/90 backdrop-blur-xl border border-[var(--border-color)] rounded-3xl p-3 flex justify-around shadow-2xl">
+        <button onClick={() => setCurrentTab('dashboard')} className={currentTab === 'dashboard' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'}><Library size={24} /></button>
+        <button onClick={() => setCurrentTab('search')} className={currentTab === 'search' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'}><Search size={24} /></button>
+        <button onClick={() => setCurrentTab('profile')} className={currentTab === 'profile' ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'}><User size={24} /></button>
+        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="text-[var(--text-muted)]">{theme === 'dark' ? <Sun size={24} /> : <Moon size={24} />}</button>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 py-8 pb-28">
+        {currentTab === 'dashboard' && (
+          <div className="space-y-6">
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {['favorites', 'watching', 'planning', 'completed', 'on_hold', 'reminders'].map((f) => (
+                <button key={f} onClick={() => setActiveFilter(f as any)} className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${activeFilter === f ? 'bg-[var(--primary)] text-white' : 'bg-[var(--panel-bg)]'}`}>{STATUS_CONFIG[f as keyof typeof STATUS_CONFIG].label}</button>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {userLibrary.filter(i => activeFilter === 'reminders' ? i.reminder_day : i.status === activeFilter).map(item => (
+                <div key={item.id} className="bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] p-4 cursor-pointer" onClick={() => setSelectedMedia(item)}>
+                  <div className="aspect-[2/3] rounded-lg overflow-hidden mb-3">
+                    {item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover" /> : <div className="bg-[var(--bg-base)] h-full w-full flex items-center justify-center"><BookOpen /></div>}
+                  </div>
+                  <h3 className="font-bold text-sm line-clamp-1">{item.title}</h3>
+                  <div className="flex items-center gap-2 mt-3" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => updateProgress(item, -1)} className="p-1 bg-[var(--bg-base)] rounded-lg"><Minus size={14} /></button>
+                    <span className="text-xs font-mono">{item.progress} / {item.total_episodes || '?'}</span>
+                    <button onClick={() => updateProgress(item, 1)} className="p-1 bg-[var(--primary)] text-white rounded-lg"><Plus size={14} /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {currentTab === 'search' && <div className="text-center py-10">Interface de recherche (Tapez pour chercher...)</div>}
+        {currentTab === 'profile' && <div className="max-w-md mx-auto bg-[var(--panel-bg)] p-8 rounded-3xl text-center">
+          <h2 className="text-xl font-bold mb-4">Mon Profil</h2>
+          <Button variant="danger" className="w-full" onClick={() => supabase.auth.signOut()}>Déconnexion</Button>
+        </div>}
+      </main>
+
+      {selectedMedia && (
+        <DetailModal
+          item={selectedMedia}
+          onClose={() => setSelectedMedia(null)}
+          trackedItem={userLibrary.find(i => String(i.id) === String(selectedMedia.id) || (String(i.media_id) === String(selectedMedia.id) && i.source === selectedMedia.source))}
+          onLibraryUpdate={handleSWRUpdate}
+          user={user || undefined}
+          fetchLibrary={fetchLibrary}
+        />
+      )}
     </div>
   );
 }
