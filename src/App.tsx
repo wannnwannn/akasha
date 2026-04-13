@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
@@ -54,7 +54,7 @@ const GlobalStyles = () => (
 );
 
 // ============================================================================
-// CONFIGURATION (SÉCURISÉE & STRICTE)
+// CONFIGURATION
 // ============================================================================
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
@@ -117,9 +117,63 @@ interface LibraryItem {
   totalEpisodes?: number | null;
 }
 
-interface UserData { id: string; email?: string; user_metadata?: { timezone?: string } }
+interface UserData {
+  id: string;
+  email?: string;
+  user_metadata?: { timezone?: string }
+}
 
 interface SelectOption { value: string; label: string; disabled?: boolean; }
+
+// Typages stricts pour les API au lieu de 'any'
+interface TMDBResult {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path?: string;
+  media_type: 'movie' | 'tv';
+  release_date?: string;
+  first_air_date?: string;
+  overview?: string;
+  adult?: boolean;
+}
+
+interface AniListResult {
+  id: number;
+  title: { romaji?: string; english?: string; native?: string };
+  coverImage: { large?: string };
+  format: string;
+  startDate: { year?: number };
+  description?: string;
+  episodes?: number;
+  status?: string;
+  genres?: string[];
+  duration?: number;
+  isAdult?: boolean;
+  studios?: { nodes?: { name?: string }[] };
+}
+
+interface ShikimoriResult {
+  id: number;
+  name?: string;
+  russian?: string;
+  image?: { original?: string };
+  kind?: string;
+  aired_on?: string;
+  volumes?: number;
+  chapters?: number;
+  status?: string;
+}
+
+interface OpenLibraryResult {
+  key: string;
+  title?: string;
+  cover_i?: number;
+  first_publish_year?: number;
+  author_name?: string[];
+  number_of_pages_median?: number;
+  subject?: string[];
+}
 
 // ============================================================================
 // CONFIGURATION DESIGN & STATUTS GLOBALE
@@ -175,12 +229,20 @@ const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
   if (!res.ok) throw new Error("Erreur TMDB");
   const data = await res.json();
-  return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(), source: 'tmdb', title: String(item.title || item.name || ''),
-    cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null, type: item.media_type,
-    year: String(item.release_date || item.first_air_date || '').split('-')[0], description: String(item.overview || 'Aucune description disponible.'),
-    totalEpisodes: item.media_type === 'movie' ? 1 : null, isAiring: false, isAdult: item.adult === true
-  }));
+  return data.results
+    .filter((item: TMDBResult) => item.media_type === 'movie' || item.media_type === 'tv')
+    .map((item: TMDBResult) => ({
+      id: item.id.toString(),
+      source: 'tmdb',
+      title: String(item.title || item.name || ''),
+      cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      type: item.media_type,
+      year: String(item.release_date || item.first_air_date || '').split('-')[0],
+      description: String(item.overview || 'Aucune description disponible.'),
+      totalEpisodes: item.media_type === 'movie' ? 1 : null,
+      isAiring: false,
+      isAdult: item.adult === true
+    }));
 };
 
 const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaItem[]> => {
@@ -193,13 +255,21 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   });
   if (!res.ok) throw new Error("Erreur AniList");
   const data = await res.json();
-  return data.data.Page.media.map((item: any) => ({
-    id: item.id.toString(), source: 'anilist', title: String(item.title.english || item.title.romaji || item.title.native || ''),
-    cover: item.coverImage.large || null, type: 'anime', year: item.startDate.year || 'N/A',
+  return data.data.Page.media.map((item: AniListResult) => ({
+    id: item.id.toString(),
+    source: 'anilist',
+    title: String(item.title.english || item.title.romaji || item.title.native || ''),
+    cover: item.coverImage.large || null,
+    type: 'anime',
+    year: item.startDate.year || 'N/A',
     description: String(item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.'),
-    totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED',
-    genres: item.genres || [], runtime: item.duration || 0, prod_status: item.status || '', isAdult: item.isAdult === true,
-    creator: item.studios?.nodes?.[0]?.name || null
+    totalEpisodes: item.episodes || null,
+    isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED',
+    genres: item.genres || [],
+    runtime: item.duration || 0,
+    prod_status: item.status || '',
+    isAdult: item.isAdult === true,
+    creator: item.studios?.nodes?.[0]?.name || undefined
   }));
 };
 
@@ -207,12 +277,17 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   const res = await fetch(`https://shikimori.one/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
   if (!res.ok) throw new Error("Erreur Shikimori");
   const data = await res.json();
-  return data.map((item: any) => ({
-    id: item.id.toString(), source: 'shikimori', title: String(item.name || item.russian || ''),
+  return data.map((item: ShikimoriResult) => ({
+    id: item.id.toString(),
+    source: 'shikimori',
+    title: String(item.name || item.russian || ''),
     cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
-    type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A',
-    description: 'Recherche des détails en arrière-plan...', totalEpisodes: item.volumes || item.chapters || null,
-    isAiring: item.status === 'ongoing', isAdult: false
+    type: item.kind === 'manhwa' ? 'webtoon' : 'manga',
+    year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A',
+    description: 'Recherche des détails en arrière-plan...',
+    totalEpisodes: item.volumes || item.chapters || null,
+    isAiring: item.status === 'ongoing',
+    isAdult: false
   }));
 };
 
@@ -222,13 +297,19 @@ const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
   const res = await fetch(`https://openlibrary.org/search.json?${searchQuery}&limit=10`);
   if (!res.ok) throw new Error("Erreur OpenLibrary");
   const data = await res.json();
-  return data.docs.map((item: any) => ({
-    id: String(item.key), source: 'openlibrary', title: String(item.title || ''),
+  return data.docs.map((item: OpenLibraryResult) => ({
+    id: String(item.key),
+    source: 'openlibrary',
+    title: String(item.title || ''),
     cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
-    type: 'book', year: item.first_publish_year || 'N/A',
+    type: 'book',
+    year: item.first_publish_year || 'N/A',
     description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
-    totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [],
-    isAdult: false, creator: item.author_name ? item.author_name[0] : null
+    totalEpisodes: item.number_of_pages_median || null,
+    isAiring: false,
+    genres: item.subject ? item.subject.slice(0, 3) : [],
+    isAdult: false,
+    creator: item.author_name ? item.author_name[0] : undefined
   }));
 };
 
@@ -237,12 +318,19 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}&language=fr-FR`);
   if (!res.ok) return [];
   const data = await res.json();
-  return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
-    id: item.id.toString(), source: 'tmdb', title: String(item.title || item.name || ''),
-    cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type, year: String(item.release_date || item.first_air_date || '').split('-')[0],
-    description: String(item.overview || ''), totalEpisodes: item.media_type === 'movie' ? 1 : null, isAdult: item.adult === true
-  }));
+  return data.results
+    .filter((item: TMDBResult) => item.media_type === 'movie' || item.media_type === 'tv')
+    .map((item: TMDBResult) => ({
+      id: item.id.toString(),
+      source: 'tmdb',
+      title: String(item.title || item.name || ''),
+      cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
+      type: item.media_type,
+      year: String(item.release_date || item.first_air_date || '').split('-')[0],
+      description: String(item.overview || ''),
+      totalEpisodes: item.media_type === 'movie' ? 1 : null,
+      isAdult: item.adult === true
+    }));
 };
 
 const mapStatusToLabel = (status: string | undefined): string => {
@@ -262,27 +350,44 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
       const res = await fetch(`https://api.themoviedb.org/3/${item.type}/${targetId}?api_key=${TMDB_API_KEY}&language=fr-FR&append_to_response=credits`);
       if (!res.ok) return null;
       const data = await res.json();
-      let creator = null;
+      let creator = undefined;
       if (item.type === 'movie' && data.credits?.crew) {
-        creator = data.credits.crew.find((c: any) => c.job === 'Director')?.name;
+        creator = data.credits.crew.find((c: { job: string; name: string }) => c.job === 'Director')?.name;
       } else if (item.type === 'tv' && data.created_by?.length > 0) {
         creator = data.created_by[0].name;
       }
-      return { description: String(data.overview || ''), total_episodes: item.type === 'tv' ? data.number_of_episodes : 1, genres: data.genres?.map((g: any) => String(g.name)), runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0), prod_status: String(data.status || ''), creator: creator ? String(creator) : item.creator };
+      return {
+        description: String(data.overview || ''),
+        total_episodes: item.type === 'tv' ? data.number_of_episodes : 1,
+        genres: data.genres?.map((g: { name: string }) => String(g.name)),
+        runtime: item.type === 'movie' ? data.runtime : (data.episode_run_time?.[0] || 0),
+        prod_status: String(data.status || ''),
+        creator: creator ? String(creator) : item.creator
+      };
     }
     if (item.source === 'anilist') {
       const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `query ($id: Int) { Media(id: $id) { description episodes status genres duration studios(isMain: true) { nodes { name } } } }`, variables: { id: parseInt(targetId) } }) });
       if (!res.ok) return null;
       const data = await res.json();
-      return { description: String(data.data.Media.description?.replace(/<[^>]*>?/gm, '') || ''), total_episodes: data.data.Media.episodes || (item as any).total_episodes || (item as any).totalEpisodes, genres: data.data.Media.genres || [], runtime: data.data.Media.duration || 0, prod_status: String(data.data.Media.status || ''), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios.nodes[0].name) : item.creator };
+      return {
+        description: String(data.data.Media.description?.replace(/<[^>]*>?/gm, '') || ''),
+        total_episodes: data.data.Media.episodes || (item as MediaItem).totalEpisodes || (item as LibraryItem).total_episodes,
+        genres: data.data.Media.genres || [],
+        runtime: data.data.Media.duration || 0,
+        prod_status: String(data.data.Media.status || ''),
+        creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios.nodes[0].name) : item.creator
+      };
     }
-  } catch (e) {} return null;
+  } catch (e) {
+    console.warn("Revalidation error", e);
+  }
+  return null;
 };
 
 // ============================================================================
 // COMPOSANTS UI ATOMIQUES
 // ============================================================================
-const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { icon?: any }> = ({ icon: Icon, ...props }) => (
+const Input: React.FC<React.InputHTMLAttributes<HTMLInputElement> & { icon?: React.ElementType }> = ({ icon: Icon, ...props }) => (
   <div className="relative flex items-center w-full">
     {Icon && <Icon className="absolute left-4 text-[var(--text-muted)]" size={20} />}
     <input className={`w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] transition-all placeholder:text-[var(--text-muted)] font-medium ${Icon ? 'pl-12' : ''}`} {...props} />
@@ -342,7 +447,7 @@ const AkashaLogo: React.FC<{ size?: number, className?: string }> = ({ size = 24
 );
 
 const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
-  const config: Record<string, { color: string, icon: any, label: string }> = {
+  const config: Record<string, { color: string, icon: React.ElementType, label: string }> = {
     movie: { color: 'bg-rose-500/20 text-rose-500 border border-rose-500/20', icon: Film, label: 'Film' },
     tv: { color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20', icon: Tv, label: 'Série' },
     anime: { color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20', icon: PlayCircle, label: 'Anime' },
@@ -426,7 +531,7 @@ const DetailModal: React.FC<{
   const [reminderFreq, setReminderFreq] = useState<string>(initialReminder.freq);
   const [reminderTime, setReminderTime] = useState<string>(trackedItem?.reminder_time || '18:00');
 
-  const normalizedTotal = (localData as any).total_episodes || (localData as any).totalEpisodes;
+  const normalizedTotal = (localData as LibraryItem).total_episodes || (localData as unknown as MediaItem).totalEpisodes;
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
@@ -463,13 +568,13 @@ const DetailModal: React.FC<{
     setIsActing(true);
     if (trackedItem) {
       await supabase.from('user_media').update({ status, updated_at: new Date().toISOString() }).match({ id: trackedItem.id });
-      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { status: status as any, updated_at: new Date().toISOString() });
+      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { status: status as LibraryItem['status'], updated_at: new Date().toISOString() });
     } else {
       await supabase.from('user_media').insert([{
         user_id: user.id, media_id: item.id, source: item.source, title: item.title,
-        cover_url: 'cover' in item ? item.cover : item.cover_url, type: item.type,
+        cover_url: 'cover' in item ? item.cover : (item as LibraryItem).cover_url, type: item.type,
         status: status, description: item.description, year: item.year?.toString(),
-        total_episodes: (item as any).totalEpisodes || null
+        total_episodes: (item as MediaItem).totalEpisodes || null
       }]);
     }
     fetchLibrary();
@@ -493,7 +598,7 @@ const DetailModal: React.FC<{
   };
 
   const title = String(localData.title || "");
-  const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
+  const cover = ('cover' in localData) ? (localData as MediaItem).cover : localData.cover_url;
   const description = String(localData.description || 'Description en cours de chargement...');
   const year = String(localData.year || 'Année inconnue');
   const prodStatusLabel = mapStatusToLabel(localData.prod_status);
@@ -573,7 +678,7 @@ const DetailModal: React.FC<{
                 <CustomSelect
                   value=""
                   onChange={(val: string) => handleAddOrUpdate(val)}
-                  options={STATUS_OPTIONS as SelectOption[]}
+                  options={STATUS_OPTIONS}
                   className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] !text-white border border-transparent shadow-lg shadow-[var(--shadow-color)] text-center justify-center"
                 />
               )}
@@ -589,7 +694,7 @@ const DetailModal: React.FC<{
                   <CustomSelect
                     value={String(trackedItem.status)}
                     onChange={(val: string) => handleAddOrUpdate(val)}
-                    options={STATUS_OPTIONS.filter(o => o.value !== "") as SelectOption[]}
+                    options={STATUS_OPTIONS.filter(o => o.value !== "")}
                     className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]"
                   />
                 </div>
@@ -646,7 +751,7 @@ const DetailModal: React.FC<{
               {showReminder && (
                 <div className="bg-amber-500/5 border border-amber-500/20 p-4 rounded-xl animate-in fade-in zoom-in-95 duration-200">
                   <p className="text-xs font-bold text-amber-500 mb-3 flex items-center gap-1.5">
-                    <AlertTriangle size={14}/> {reminderDays.length > 0 ? 'Planifié. (Nécessite MAJ Backend pour JSON)' : 'Sélectionnez vos jours'}
+                    <AlertTriangle size={14}/> {reminderDays.length > 0 ? 'Planifié.' : 'Sélectionnez vos jours'}
                   </p>
 
                   <div className="flex flex-col gap-3">
@@ -670,7 +775,7 @@ const DetailModal: React.FC<{
                          <CustomSelect
                             value={String(reminderFreq)}
                             onChange={(val: string) => { setReminderFreq(val); saveExtras(); }}
-                            options={FREQUENCY_OPTIONS as SelectOption[]}
+                            options={FREQUENCY_OPTIONS}
                             placement="top"
                             className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]"
                           />
@@ -736,7 +841,7 @@ const DiscoverySearch: React.FC<{
         const upcs = await fetchAniList('', true); setUpcoming(upcs);
         const { data } = await supabase.from('user_media').select('*').order('created_at', { ascending: false }).limit(15);
         if (data) {
-          const unique = data.filter((v: any, i: number, a: any[]) => a.findIndex((t: any) => (t.media_id === v.media_id)) === i);
+          const unique = data.filter((v: LibraryItem, i: number, a: LibraryItem[]) => a.findIndex((t: LibraryItem) => (t.media_id === v.media_id)) === i);
           setCommunity(unique);
         }
       } catch (e) { console.error(e); }
@@ -826,7 +931,7 @@ const DiscoverySearch: React.FC<{
              <CustomSelect
                 value={String(filter)}
                 onChange={(val: string) => setFilter(val)}
-                options={FORMAT_OPTIONS as SelectOption[]}
+                options={FORMAT_OPTIONS}
                 className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]"
               />
           </div>
@@ -951,6 +1056,13 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
 // ============================================================================
 // COMPOSANT PROFIL / STATISTIQUES ET PWA
 // ============================================================================
+// On déclare globalement l'interface pour le prompt d'installation web (qui n'est pas standard TS)
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed', platform: string }>;
+  prompt(): Promise<void>;
+}
+
 const ProfileScreen: React.FC<{
   user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void,
   theme: string, toggleTheme: () => void
@@ -978,13 +1090,10 @@ const ProfileScreen: React.FC<{
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
 
   const timezones = useMemo(() => {
-    try {
-      // @ts-ignore
-      if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) {
-        // @ts-ignore
-        return Intl.supportedValuesOf('timeZone').map((tz: string) => ({ value: String(tz), label: String(tz).replace(/_/g, ' ') }));
-      }
-    } catch (e) {}
+    // Vérification sécurisée sans ts-ignore massif
+    if (typeof Intl !== 'undefined' && 'supportedValuesOf' in Intl) {
+      return (Intl as any).supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
+    }
     return [
       { value: 'Europe/Paris', label: 'Europe/Paris' },
       { value: 'America/New_York', label: 'America/New York' },
@@ -1000,7 +1109,7 @@ const ProfileScreen: React.FC<{
     await supabase.auth.updateUser({ data: { timezone: val } });
   };
 
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
 
@@ -1013,7 +1122,7 @@ const ProfileScreen: React.FC<{
 
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -1187,7 +1296,10 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         : await supabase.auth.signUp({ email, password });
       if (err) setError(err.message);
       else if (data.user) onLogin(data.user);
-    } catch (e: any) { setError(e.message || "Erreur critique de connexion"); }
+    } catch (e: unknown) {
+      const err = e as Error;
+      setError(err.message || "Erreur critique de connexion");
+    }
     finally { setLoading(false); }
   };
 
@@ -1247,7 +1359,7 @@ export default function App() {
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
