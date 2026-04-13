@@ -418,18 +418,32 @@ const DetailModal: React.FC<{
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]);
 
-  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
-
-  const saveExtras = async () => {
+  // FONCTION DE SAUVEGARDE RÉÉCRITE POUR ÉVITER LE PIÈGE DE L'ÉTAT ASYNCHRONE DE REACT
+  const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
+
+    const currentType = overrides.type ?? reminderType;
+    const currentDays = overrides.days ?? reminderDays;
+    const currentFreq = overrides.freq ?? reminderFreq;
+    const currentDate = overrides.date ?? reminderExactDate;
+    const currentTime = overrides.time ?? reminderTime;
+    const currentNotes = overrides.notesStr ?? notes;
+    const currentLink = overrides.link ?? customLink;
+
     let reminderDataStr = '';
-    if (reminderType === 'exact' && reminderExactDate) {
-      reminderDataStr = JSON.stringify({ date: reminderExactDate });
-    } else if (reminderType === 'weekly' && reminderDays.length > 0) {
-      reminderDataStr = JSON.stringify({ days: reminderDays, frequency: parseInt(reminderFreq) });
+    if (currentType === 'exact' && currentDate) {
+      reminderDataStr = JSON.stringify({ date: currentDate });
+    } else if (currentType === 'weekly' && currentDays.length > 0) {
+      reminderDataStr = JSON.stringify({ days: currentDays, frequency: parseInt(currentFreq) });
     }
 
-    const updates: Partial<LibraryItem> = { notes, custom_link: customLink, reminder_day: reminderDataStr || null, reminder_time: reminderDataStr ? reminderTime : null };
+    const updates: Partial<LibraryItem> = {
+      notes: currentNotes,
+      custom_link: currentLink,
+      reminder_day: reminderDataStr || null,
+      reminder_time: reminderDataStr ? currentTime : null
+    };
+
     await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
     if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
   };
@@ -541,8 +555,8 @@ const DetailModal: React.FC<{
                   <div className="flex items-center justify-between mb-4">
                     <p className="text-xs font-bold text-amber-500 flex items-center gap-1.5"><BellRing size={14}/> Configurer un rappel Push</p>
                     <div className="flex bg-[var(--bg-base)] border border-[var(--border-color)] rounded-lg p-0.5">
-                      <button onClick={() => setReminderType('weekly')} className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-colors ${reminderType === 'weekly' ? 'bg-amber-500 text-white shadow-sm' : 'text-[var(--text-muted)]'}`}>Hebdomadaire</button>
-                      <button onClick={() => setReminderType('exact')} className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-colors ${reminderType === 'exact' ? 'bg-amber-500 text-white shadow-sm' : 'text-[var(--text-muted)]'}`}>Date précise</button>
+                      <button onClick={() => { setReminderType('weekly'); saveExtras({ type: 'weekly' }); }} className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-colors ${reminderType === 'weekly' ? 'bg-amber-500 text-white shadow-sm' : 'text-[var(--text-muted)]'}`}>Hebdomadaire</button>
+                      <button onClick={() => { setReminderType('exact'); saveExtras({ type: 'exact' }); }} className={`text-[10px] font-bold px-3 py-1.5 rounded-md transition-colors ${reminderType === 'exact' ? 'bg-amber-500 text-white shadow-sm' : 'text-[var(--text-muted)]'}`}>Date précise</button>
                     </div>
                   </div>
 
@@ -552,14 +566,26 @@ const DetailModal: React.FC<{
                         <div className="flex justify-between items-center gap-2 w-full">
                           {WEEK_DAYS.map(day => {
                             const isSelected = reminderDays.includes(day.value);
-                            return <button key={day.value} onClick={() => { toggleDay(day.value); saveExtras(); }} className={`w-9 h-9 shrink-0 rounded-full text-xs font-bold flex items-center justify-center transition-all border ${isSelected ? 'bg-amber-500 border-amber-500 text-white shadow-md scale-110' : 'bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-muted)] hover:border-amber-500/50'}`}>{day.label}</button>;
+                            return (
+                              <button
+                                key={day.value}
+                                onClick={() => {
+                                  const newDays = isSelected ? reminderDays.filter(d => d !== day.value) : [...reminderDays, day.value];
+                                  setReminderDays(newDays);
+                                  saveExtras({ days: newDays });
+                                }}
+                                className={`w-9 h-9 shrink-0 rounded-full text-xs font-bold flex items-center justify-center transition-all border ${isSelected ? 'bg-amber-500 border-amber-500 text-white shadow-md scale-110' : 'bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-muted)] hover:border-amber-500/50'}`}
+                              >
+                                {day.label}
+                              </button>
+                            );
                           })}
                         </div>
                         <div className="flex gap-2">
-                           <div className="flex-1"><CustomSelect value={String(reminderFreq)} onChange={(val) => { setReminderFreq(val); saveExtras(); }} options={FREQUENCY_OPTIONS} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)] focus:border-amber-500" /></div>
+                           <div className="flex-1"><CustomSelect value={String(reminderFreq)} onChange={(val) => { setReminderFreq(val); saveExtras({ freq: val }); }} options={FREQUENCY_OPTIONS} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)] focus:border-amber-500" /></div>
                            <div className="relative shrink-0 w-28">
                              <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                             <input type="time" value={String(reminderTime)} onChange={e => setReminderTime(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
+                             <input type="time" value={String(reminderTime)} onChange={e => setReminderTime(e.target.value)} onBlur={() => saveExtras()} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
                            </div>
                         </div>
                       </>
@@ -567,11 +593,11 @@ const DetailModal: React.FC<{
                       <div className="flex gap-2">
                         <div className="relative flex-1">
                           <CalendarIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                          <input type="date" value={String(reminderExactDate)} onChange={e => setReminderExactDate(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
+                          <input type="date" value={String(reminderExactDate)} onChange={e => setReminderExactDate(e.target.value)} onBlur={() => saveExtras()} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
                         </div>
                         <div className="relative shrink-0 w-28">
                            <Clock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                           <input type="time" value={String(reminderTime)} onChange={e => setReminderTime(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
+                           <input type="time" value={String(reminderTime)} onChange={e => setReminderTime(e.target.value)} onBlur={() => saveExtras()} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm font-bold rounded-xl py-3 pl-10 pr-2 outline-none focus:border-amber-500 transition-colors" />
                          </div>
                       </div>
                     )}
@@ -586,7 +612,7 @@ const DetailModal: React.FC<{
               )}
 
               <div className="pt-2">
-                <textarea placeholder="Bloc note (Enregistré automatiquement)..." value={String(notes)} onChange={(e) => setNotes(e.target.value)} onBlur={saveExtras} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" />
+                <textarea placeholder="Bloc note (Enregistré automatiquement)..." value={String(notes)} onChange={(e) => setNotes(e.target.value)} onBlur={() => saveExtras()} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" />
               </div>
 
             </div>
@@ -669,7 +695,7 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 // COMPOSANT EXPLORER (SEARCH)
 // ============================================================================
 const DiscoverySearch: React.FC<{
-  userLibrary: LibraryItem[], fetchLibrary: () => void, setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
+  userLibrary: LibraryItem[], setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
 }> = ({ userLibrary, setSelectedMedia, onToggleFavorite }) => {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 600);
@@ -690,12 +716,13 @@ const DiscoverySearch: React.FC<{
       try {
         const tmdbs = await fetchTrendingTMDB(); setTrending(tmdbs);
         const upcs = await fetchAniList('', true); setUpcoming(upcs);
-        const { data } = await supabase.from('user_media').select('*').order('created_at', { ascending: false }).limit(15);
+        const { data, error } = await supabase.from('user_media').select('*').order('created_at', { ascending: false }).limit(15);
+        if (error) console.error(error);
         if (data) {
           const unique = data.filter((v: any, i: number, a: any[]) => a.findIndex((t: any) => (t.media_id === v.media_id)) === i);
           setCommunity(unique);
         }
-      } catch (e) { console.error(e); }
+      } catch (e) {}
       finally { setLoadingFeeds(false); }
     };
     loadFeeds();
@@ -845,7 +872,10 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
 
   const timezones = useMemo(() => {
-    try { if (typeof Intl !== 'undefined' && (Intl as any).supportedValuesOf) return (Intl as any).supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') })); } catch (e) {}
+    try {
+      // @ts-ignore: TS environment may not know supportedValuesOf
+      if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) return Intl.supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
+    } catch (e) {}
     return [{ value: 'Europe/Paris', label: 'Europe/Paris' }, { value: 'America/New_York', label: 'America/New York' }, { value: 'Asia/Tokyo', label: 'Asia/Tokyo' }, { value: 'UTC', label: 'UTC' }];
   }, []);
   const [userTz, setUserTz] = useState(user.user_metadata?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Paris');
@@ -1094,8 +1124,8 @@ export default function App() {
           </div>
         )}
 
-        {currentTab === 'search' && <DiscoverySearch user={user as any} userLibrary={userLibrary} fetchLibrary={fetchLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
-        {currentTab === 'profile' && <ProfileScreen user={user as any} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />}
+        {currentTab === 'search' && <DiscoverySearch userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
+        {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} />}
       </main>
 
       {currentTab !== 'profile' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
