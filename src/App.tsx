@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 // Import via CDN pour l'aperçu.
 // En local, utilisez : import { createClient } from '@supabase/supabase-js';
 import { createClient, type Session, type AuthChangeEvent } from '@supabase/supabase-js';
+
+
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ChevronDown, ChevronUp, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff
 } from 'lucide-react';
 
 // ============================================================================
@@ -85,7 +87,7 @@ interface MediaItem {
   id: string; source: 'tmdb' | 'anilist' | 'shikimori' | 'openlibrary'; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; total_episodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
 }
 interface LibraryItem {
-  id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string; notes?: string; reminder_day?: string; reminder_time?: string; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null;
+  id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string | null; notes?: string | null; reminder_day?: string | null; reminder_time?: string | null; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null;
 }
 interface UserData { id: string; email?: string; user_metadata?: { timezone?: string } }
 interface SelectOption { value: string; label: string; disabled?: boolean; }
@@ -134,7 +136,7 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // Moteur de calcul de la prochaine occurrence d'un rappel
-function getNextOccurrence(reminderJsonStr: string | undefined, timeStr: string | undefined): Date | null {
+function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: string | undefined | null): Date | null {
   if (!reminderJsonStr || !timeStr) return null;
   try {
     const parsed = JSON.parse(reminderJsonStr);
@@ -233,7 +235,7 @@ const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
   }));
 };
 
-const mapStatusToLabel = (status: string | undefined, source: string) => {
+const mapStatusToLabel = (status: string | undefined) => {
   if (!status) return "Statut inconnu";
   const s = status.toLowerCase();
   if (s === 'completed' || s === 'finished' || s === 'ended' || s === 'released') return "Terminée";
@@ -294,12 +296,12 @@ const CustomSelect: React.FC<{ value: string, onChange: (val: string) => void, o
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const selectedOption = options.find(o => o.value === value) || options[0];
+  const selectedOption = options.find(o => String(o.value) === String(value)) || options[0];
 
   return (
     <div className="relative w-full" ref={selectRef}>
       <div onClick={() => setIsOpen(!isOpen)} className={`flex items-center justify-between w-full rounded-xl px-4 py-3.5 cursor-pointer font-bold text-sm transition-all select-none border border-[var(--border-color)] bg-[var(--panel-bg-alt)] ${className}`}>
-        <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label || value}</span>
+        <span className="truncate pr-2 text-[var(--text-main)]">{selectedOption?.label || String(value)}</span>
         <ChevronRight size={16} className={`text-[var(--text-muted)] transition-transform duration-200 shrink-0 ${isOpen ? '-rotate-90' : 'rotate-90'}`} />
       </div>
       {isOpen && (
@@ -307,7 +309,7 @@ const CustomSelect: React.FC<{ value: string, onChange: (val: string) => void, o
           <div className="max-h-60 overflow-y-auto custom-scrollbar py-1">
             {options.map((opt) => {
               if (opt.disabled) return null;
-              return <div key={opt.value} onClick={() => { onChange(opt.value); setIsOpen(false); }} className={`px-4 py-3 text-sm font-bold cursor-pointer transition-colors mx-1 rounded-lg ${value === opt.value ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-[var(--text-muted)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)]'}`}>{opt.label}</div>;
+              return <div key={opt.value} onClick={() => { onChange(opt.value); setIsOpen(false); }} className={`px-4 py-3 text-sm font-bold cursor-pointer transition-colors mx-1 rounded-lg ${String(value) === String(opt.value) ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-[var(--text-muted)] hover:bg-[var(--border-color)] hover:text-[var(--text-main)]'}`}>{opt.label}</div>;
             })}
           </div>
         </div>
@@ -357,7 +359,7 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
   return (
     <div className="flex items-center gap-1 py-1" onClick={e => e.stopPropagation()}>
       <span className="text-xs font-mono text-[var(--text-muted)]">{item.progress} /</span>
-      <input autoFocus type="number" min={item.progress} className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center" value={value} onChange={e => setValue(e.target.value)} onBlur={() => { setIsEditing(false); onSave(item.id, isNaN(parseInt(value, 10)) ? null : parseInt(value, 10)); }} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+      <input autoFocus type="number" min={item.progress} className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center" value={String(value)} onChange={e => setValue(e.target.value)} onBlur={() => { setIsEditing(false); onSave(item.id, isNaN(parseInt(value, 10)) ? null : parseInt(value, 10)); }} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
     </div>
   );
 };
@@ -381,7 +383,7 @@ const DetailModal: React.FC<{
       if (parsed.date) return { type: 'exact' as const, days: [], freq: "1", exactDate: parsed.date };
       return { type: 'weekly' as const, days: parsed.days || [], freq: parsed.frequency?.toString() || "1", exactDate: '' };
     } catch(e) {
-      return { type: 'weekly' as const, days: [trackedItem.reminder_day], freq: "1", exactDate: '' };
+      return { type: 'weekly' as const, days: [trackedItem.reminder_day || ''], freq: "1", exactDate: '' };
     }
   };
 
@@ -429,7 +431,7 @@ const DetailModal: React.FC<{
       reminderDataStr = JSON.stringify({ days: reminderDays, frequency: parseInt(reminderFreq) });
     }
 
-    const updates = { notes, custom_link: customLink, reminder_day: reminderDataStr || null, reminder_time: reminderDataStr ? reminderTime : null };
+    const updates: Partial<LibraryItem> = { notes, custom_link: customLink, reminder_day: reminderDataStr || null, reminder_time: reminderDataStr ? reminderTime : null };
     await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
     if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
   };
@@ -467,7 +469,7 @@ const DetailModal: React.FC<{
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = localData.description || 'Description en cours de chargement...';
   const year = localData.year || 'Année inconnue';
-  const prodStatusLabel = mapStatusToLabel(localData.prod_status, localData.source);
+  const prodStatusLabel = mapStatusToLabel(localData.prod_status);
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
@@ -479,7 +481,7 @@ const DetailModal: React.FC<{
           <div className="flex justify-center mb-6 mt-4">
              <div className="w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)]">
               {cover ? <img src={cover} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
-              <div className="absolute top-2 left-2"><TypeBadge type={localData.type} /></div>
+              <div className="absolute top-2 left-2"><TypeBadge type={String(localData.type)} /></div>
              </div>
           </div>
 
@@ -488,7 +490,7 @@ const DetailModal: React.FC<{
             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
               {localData.type !== 'book' && <span className={`text-[10px] uppercase tracking-widest font-black px-2.5 py-1 rounded-md ${statusColor}`}>{prodStatusLabel}</span>}
               {normalizedTotal && <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">{normalizedTotal} {localData.type === 'book' ? 'pages' : 'ép'} {localData.runtime ? <span className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2"><Clock size={12}/> {localData.runtime}m</span> : ''}</span>}
-              <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">{year} • {localData.source.toUpperCase()}</span>
+              <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">{year} • {String(localData.source).toUpperCase()}</span>
             </div>
             {localData.creator && <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {localData.creator}</p>}
             {localData.genres && localData.genres.length > 0 && (
@@ -514,7 +516,7 @@ const DetailModal: React.FC<{
             <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
               <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Statut de la série</p>
               <div className="flex gap-2 w-full items-center">
-                <div className="flex-1"><CustomSelect value={trackedItem.status} onChange={handleAddOrUpdate} options={STATUS_OPTIONS.filter(o => o.value !== "")} className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]" /></div>
+                <div className="flex-1"><CustomSelect value={String(trackedItem.status)} onChange={handleAddOrUpdate} options={STATUS_OPTIONS.filter(o => o.value !== "")} className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]" /></div>
                 <Button variant="ghost" className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title="Favori"><Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} /></Button>
                 <Button variant="danger" className="!p-3.5 shrink-0 rounded-xl h-full" onClick={handleRemove} title="Supprimer de la liste"><Trash2 size={20} /></Button>
               </div>
@@ -577,7 +579,7 @@ const DetailModal: React.FC<{
                     )}
 
                     {(reminderDays.length > 0 || reminderExactDate) && (
-                      <button onClick={async () => { setReminderDays([]); setReminderExactDate(''); await supabase.from('user_media').update({ reminder_day: null, reminder_time: null }).match({ id: trackedItem.id }); if(onLibraryUpdate) onLibraryUpdate(trackedItem.id, { reminder_day: undefined, reminder_time: undefined }); setShowReminder(false); }} className="mt-2 text-[10px] font-bold text-[var(--text-muted)] hover:text-red-500 uppercase tracking-wider flex justify-center items-center gap-1 transition-colors">
+                      <button onClick={async () => { setReminderDays([]); setReminderExactDate(''); await supabase.from('user_media').update({ reminder_day: null, reminder_time: null }).match({ id: trackedItem.id }); if(onLibraryUpdate) onLibraryUpdate(trackedItem.id, { reminder_day: null, reminder_time: null }); setShowReminder(false); }} className="mt-2 text-[10px] font-bold text-[var(--text-muted)] hover:text-red-500 uppercase tracking-wider flex justify-center items-center gap-1 transition-colors">
                         <BellOff size={12}/> Désactiver ce rappel
                       </button>
                     )}
@@ -613,7 +615,7 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
   const handleCancelReminder = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     await supabase.from('user_media').update({ reminder_day: null, reminder_time: null }).match({ id });
-    onUpdate(id, { reminder_day: undefined, reminder_time: undefined });
+    onUpdate(id, { reminder_day: null, reminder_time: null });
   };
 
   if (itemsWithDates.length === 0) {
@@ -751,6 +753,8 @@ const DiscoverySearch: React.FC<{
     );
   };
 
+  const filteredResults = results.filter(item => filter === 'all' || item.type === filter);
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0">
@@ -775,9 +779,9 @@ const DiscoverySearch: React.FC<{
         </div>
       )}
 
-      {debouncedQuery && results.length > 0 && (
+      {debouncedQuery && filteredResults.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-4">
-          {results.filter(item => filter === 'all' || item.type === filter).map(media => {
+          {filteredResults.map(media => {
             const tracked = userLibrary.find(item => item.media_id === media.id && item.source === media.source);
             const isExplicit = media.isAdult || media.source === 'shikimori';
             const needsBlur = !localShowNSFW && isExplicit;
@@ -801,7 +805,7 @@ const DiscoverySearch: React.FC<{
         </div>
       )}
 
-      {debouncedQuery && results.filter(item => filter === 'all' || item.type === filter).length === 0 && !loading && (
+      {debouncedQuery && filteredResults.length === 0 && !loading && (
         <div className="text-center py-20 text-[var(--text-muted)]"><BookOpen className="mx-auto mb-6 opacity-30" size={64} /><p className="text-lg font-medium">Aucun résultat pour "{debouncedQuery}"</p></div>
       )}
     </div>
@@ -987,13 +991,14 @@ export default function App() {
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
     supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user ?? null); setAuthLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setUser(session?.user ?? null); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => { setUser(session?.user ?? null); });
     return () => subscription.unsubscribe();
   }, []);
 
   const fetchLibrary = useCallback(async () => {
     if (!user) return;
     const { data, error } = await supabase.from('user_media').select('*').order('updated_at', { ascending: false });
+    if (error) console.error("Erreur DB:", error);
     if (data) { setUserLibrary(data as LibraryItem[]); if (data.length > 0 && !lastInteractedId) setLastInteractedId(data[0].id); }
   }, [user, lastInteractedId]);
 
@@ -1010,7 +1015,7 @@ export default function App() {
 
   const handleSWRUpdate = (id: string, updates: Partial<LibraryItem>) => { setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, ...updates } : libItem)); };
   const handleToggleFavorite = async (id: string, currentFav: boolean) => { const newFav = !currentFav; handleSWRUpdate(id, { is_favorite: newFav }); await supabase.from('user_media').update({ is_favorite: newFav }).match({ id }); };
-  const handleDeleteAccount = async () => { const confirm1 = window.confirm("ATTENTION: Cette action détruira toutes vos données."); if (!confirm1) return; await supabase.rpc('delete_user'); await supabase.auth.signOut(); };
+  const handleDeleteAccount = async () => { const confirm1 = window.confirm("ATTENTION: Cette action détruira toutes vos données."); if (!confirm1) return; const { error } = await supabase.rpc('delete_user'); if (error) console.error(error); await supabase.auth.signOut(); };
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
 
   if (authLoading) return <div className={`min-h-screen ${theme} bg-[var(--bg-base)] flex items-center justify-center`}><GlobalStyles/><Loader2 className="animate-spin text-[var(--primary)]" size={48} /></div>;
