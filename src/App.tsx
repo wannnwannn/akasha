@@ -3,7 +3,7 @@ import { createClient, type Session, type AuthChangeEvent } from '@supabase/supa
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, AlertTriangle, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing
 } from 'lucide-react';
 
 // ============================================================================
@@ -56,15 +56,35 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-const TMDB_API_KEY = String((import.meta as any).env?.VITE_TMDB_API_KEY || '7dfd3c0011bfe4c3bd253da99abf4e4d');
-const SUPABASE_URL = String((import.meta as any).env?.VITE_SUPABASE_URL || 'https://ewdtspjgcuvwvjnooytf.supabase.co');
-const SUPABASE_ANON_KEY = String((import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3ZHRzcGpnY3V2d3Zqbm9veXRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MjMxMzgsImV4cCI6MjA5MTI5OTEzOH0.fHTGoA8OFOhk7VusZFgCg7GBn0cgp-UrYeJjV2gxl10');
+
+const TMDB_API_KEY = String((import.meta as any).env?.VITE_TMDB_API_KEY;
+const SUPABASE_URL = String((import.meta as any).env?.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = String((import.meta as any).env?.VITE_SUPABASE_ANON_KEY;
+const VAPID_PUBLIC_KEY = String((import.meta as any).env?.VITE_VAPID_PUBLIC_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error("Erreur : Les variables d'environnement Supabase sont manquantes.");
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================================================
+// UTILITAIRE CRYPTOGRAPHIQUE POUR WEB PUSH
+// ============================================================================
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -125,7 +145,7 @@ interface UserData {
 
 interface SelectOption { value: string; label: string; disabled?: boolean; }
 
-// Typages stricts pour les API au lieu de 'any'
+// Typages stricts pour les API
 interface TMDBResult {
   id: number;
   title?: string;
@@ -1056,7 +1076,6 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
 // ============================================================================
 // COMPOSANT PROFIL / STATISTIQUES ET PWA
 // ============================================================================
-// On déclare globalement l'interface pour le prompt d'installation web (qui n'est pas standard TS)
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
   readonly userChoice: Promise<{ outcome: 'accepted' | 'dismissed', platform: string }>;
@@ -1108,9 +1127,14 @@ const ProfileScreen: React.FC<{
     await supabase.auth.updateUser({ data: { timezone: val } });
   };
 
+  // LOGIQUE PWA
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+
+  // LOGIQUE NOTIFICATIONS PUSH
+  const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
+  const [isPushLoading, setIsPushLoading] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) {
@@ -1125,6 +1149,14 @@ const ProfileScreen: React.FC<{
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Initialiser le statut Push
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setPushStatus('unsupported');
+    } else {
+      setPushStatus(Notification.permission as any);
+    }
+
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
 
@@ -1132,9 +1164,42 @@ const ProfileScreen: React.FC<{
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
+      if (outcome === 'accepted') setDeferredPrompt(null);
+    }
+  };
+
+  const handleSubscribePush = async () => {
+    if (pushStatus === 'unsupported' || !VAPID_PUBLIC_KEY) {
+      alert("Votre navigateur ne supporte pas les notifications ou la clé VAPID est manquante.");
+      return;
+    }
+
+    setIsPushLoading(true);
+    try {
+      const permission = await Notification.requestPermission();
+      setPushStatus(permission as any);
+
+      if (permission === 'granted') {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+
+        // Envoyer la souscription à Supabase
+        const { error } = await supabase.from('push_subscriptions').upsert({
+          user_id: user.id,
+          subscription: subscription.toJSON()
+        }, { onConflict: 'user_id, subscription' });
+
+        if (error) throw error;
+        alert("Notifications activées avec succès !");
       }
+    } catch (e: any) {
+      console.error("Erreur Push:", e);
+      alert(`Erreur d'activation : ${e.message}`);
+    } finally {
+      setIsPushLoading(false);
     }
   };
 
@@ -1149,33 +1214,56 @@ const ProfileScreen: React.FC<{
           <p className="text-[var(--text-muted)] font-medium mt-1">{String(user.email || "")}</p>
         </div>
 
-        {!isStandalone && (
-          <div className="mb-8 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <Smartphone className="text-blue-500" size={24} />
-              <h3 className="font-bold text-[var(--text-main)] text-lg">Application Mobile</h3>
-            </div>
-            <p className="text-sm text-[var(--text-muted)] mb-4">
-              Installez Akasha sur votre écran d'accueil pour une expérience en plein écran et préparer l'arrivée des notifications Push.
-            </p>
-
-            {deferredPrompt ? (
-              <Button onClick={handleInstallClick} className="w-full !py-3 bg-blue-600 hover:bg-blue-700">
-                <Download size={18} /> Installer l'application
-              </Button>
-            ) : isIOS ? (
-              <div className="bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)] text-sm text-[var(--text-main)]">
-                <p className="font-bold mb-2">Sur iPhone / iPad :</p>
-                <ol className="list-decimal pl-5 space-y-2 text-[var(--text-muted)]">
-                  <li>Appuyez sur l'icône Partager <Share size={14} className="inline mx-1" /> dans la barre de Safari.</li>
-                  <li>Faites défiler et choisissez <strong>"Sur l'écran d'accueil"</strong> <Plus size={14} className="inline mx-1 border border-current rounded-sm" />.</li>
-                </ol>
-              </div>
-            ) : (
-              <p className="text-xs text-[var(--text-muted)] italic text-center">Votre navigateur ne supporte pas l'installation web ou vous l'avez déjà fait.</p>
-            )}
+        {/* SECTION PWA ET NOTIFICATIONS */}
+        <div className="mb-8 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <Smartphone className="text-blue-500" size={24} />
+            <h3 className="font-bold text-[var(--text-main)] text-lg">Application & Alertes</h3>
           </div>
-        )}
+
+          {!isStandalone ? (
+            <>
+              <p className="text-sm text-[var(--text-muted)]">Installez Akasha sur votre écran d'accueil pour une expérience optimale et pour débloquer les notifications Push.</p>
+              {deferredPrompt ? (
+                <Button onClick={handleInstallClick} className="w-full !py-3 bg-blue-600 hover:bg-blue-700">
+                  <Download size={18} /> Installer l'application
+                </Button>
+              ) : isIOS ? (
+                <div className="bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)] text-sm text-[var(--text-main)]">
+                  <p className="font-bold mb-2">Sur iPhone / iPad :</p>
+                  <ol className="list-decimal pl-5 space-y-2 text-[var(--text-muted)]">
+                    <li>Appuyez sur <Share size={14} className="inline mx-1" /> dans Safari.</li>
+                    <li>Choisissez <strong>"Sur l'écran d'accueil"</strong> <Plus size={14} className="inline mx-1 border border-current rounded-sm" />.</li>
+                    <li>Ouvrez l'application depuis votre écran d'accueil pour activer les alertes.</li>
+                  </ol>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--text-muted)] italic text-center">Ouvrez ce site depuis le navigateur Safari (iOS) ou Chrome (Android) pour l'installer.</p>
+              )}
+            </>
+          ) : (
+             <div className="bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)]">
+               <p className="text-sm text-[var(--text-main)] font-bold mb-2 flex items-center gap-2">
+                 <BellRing size={16} className="text-blue-500"/> Alertes des sorties
+               </p>
+               <p className="text-xs text-[var(--text-muted)] mb-4">Recevez une notification silencieuse sur votre téléphone lorsqu'un épisode ou chapitre prévu est disponible.</p>
+
+               {pushStatus === 'granted' ? (
+                 <div className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-500 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20">
+                   <Check size={18} /> Notifications Activées
+                 </div>
+               ) : pushStatus === 'denied' ? (
+                 <div className="text-xs text-red-500 text-center bg-red-500/10 p-3 rounded-xl">
+                   Notifications bloquées par votre système. Allez dans les réglages de votre téléphone pour autoriser Akasha.
+                 </div>
+               ) : (
+                 <Button onClick={handleSubscribePush} disabled={isPushLoading} className="w-full !py-3 bg-blue-600 hover:bg-blue-700">
+                   {isPushLoading ? <Loader2 className="animate-spin" size={18}/> : "Activer les notifications"}
+                 </Button>
+               )}
+             </div>
+          )}
+        </div>
 
         <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-base)] rounded-2xl border border-[var(--border-color)] mb-8">
           <span className="font-bold text-[var(--text-main)]">Thème de l'application</span>
@@ -1223,32 +1311,32 @@ const ProfileScreen: React.FC<{
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-10">
-          <div className="bg-blue-500/10 border border-blue-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
-            <div className="p-2 sm:p-3 bg-blue-500 text-white rounded-lg sm:rounded-xl"><FolderHeart className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0">
+          <div className="bg-blue-500/10 border border-blue-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
+            <div className="p-2 sm:p-3 bg-blue-500 text-white rounded-lg sm:rounded-xl shrink-0"><FolderHeart className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0 flex-1">
               <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalAdded}</p>
-              <p className="text-[9px] sm:text-xs font-bold text-blue-500 uppercase tracking-wider mt-1 truncate">Ajoutés</p>
+              <p className="text-[10px] sm:text-xs font-bold text-blue-500 uppercase tracking-wider mt-1 truncate">Ajoutés</p>
             </div>
           </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
-            <div className="p-2 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl"><Check className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0">
+          <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
+            <div className="p-2 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl shrink-0"><Check className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0 flex-1">
               <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalCompleted}</p>
-              <p className="text-[9px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1 truncate">Terminés</p>
+              <p className="text-[10px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1 truncate">Terminés</p>
             </div>
           </div>
-          <div className="bg-rose-500/10 border border-rose-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
-            <div className="p-2 sm:p-3 bg-rose-500 text-white rounded-lg sm:rounded-xl"><Clock className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0">
+          <div className="bg-rose-500/10 border border-rose-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
+            <div className="p-2 sm:p-3 bg-rose-500 text-white rounded-lg sm:rounded-xl shrink-0"><Clock className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0 flex-1">
               <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{watchTimeHours}<span className="text-xs sm:text-sm">h</span></p>
-              <p className="text-[9px] sm:text-xs font-bold text-rose-500 uppercase tracking-wider mt-1 truncate">Visionnage</p>
+              <p className="text-[10px] sm:text-xs font-bold text-rose-500 uppercase tracking-wider mt-1 truncate">Visionnage</p>
             </div>
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4">
-            <div className="p-2 sm:p-3 bg-amber-500 text-white rounded-lg sm:rounded-xl"><PlayCircle className="w-5 h-5 sm:w-6 sm:h-6"/></div>
-            <div className="min-w-0">
+          <div className="bg-amber-500/10 border border-amber-500/20 p-3 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4 overflow-hidden">
+            <div className="p-2 sm:p-3 bg-amber-500 text-white rounded-lg sm:rounded-xl shrink-0"><PlayCircle className="w-5 h-5 sm:w-6 sm:h-6"/></div>
+            <div className="min-w-0 flex-1">
               <p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalEpisodesWatched}</p>
-              <p className="text-[9px] sm:text-xs font-bold text-amber-500 uppercase tracking-wider mt-1 truncate">Ép./Chap.</p>
+              <p className="text-[10px] sm:text-xs font-bold text-amber-500 uppercase tracking-wider mt-1 truncate">Ép./Chap.</p>
             </div>
           </div>
         </div>
