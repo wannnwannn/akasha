@@ -1140,7 +1140,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   );
 };
 
-// ============================================================================
+/ ============================================================================
 // COMPOSANT AUTHENTIFICATION
 // ============================================================================
 const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) => {
@@ -1195,7 +1195,24 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
         <div className="space-y-4">
           <Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} />
-          <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
+
+          <div className="space-y-1.5">
+            <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
+            {!isRegistering && (
+              <div className="flex justify-end pr-2">
+                <button
+                  onClick={() => {
+                    const mail = email || "[MON ADRESSE EMAIL]";
+                    // ATTENTION: Remplacer par ta vraie adresse email personnelle ou de support
+                    window.location.href = `mailto:contactwanspace@gmail.com@gmail.com?subject=Akasha%20-%20Mot%20de%20passe%20oublié&body=Bonjour,%20j'ai%20oublié%20mon%20mot%20de%20passe.%20Mon%20compte%20est%20:%20${mail}`;
+                  }}
+                  className="text-[11px] font-bold text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
+                >
+                  Mot de passe oublié ?
+                </button>
+              </div>
+            )}
+          </div>
 
           {HCAPTCHA_SITE_KEY && (
             <div className="flex justify-center pt-2">
