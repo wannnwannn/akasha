@@ -591,7 +591,7 @@ const DetailModal: React.FC<{
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]);
 
-//  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
 
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
@@ -625,9 +625,26 @@ const DetailModal: React.FC<{
   const handleAddOrUpdate = async (status: string) => {
     if (!user || !fetchLibrary) return;
     setIsActing(true);
+
+    // LOGIQUE D'AUTO-COMPLÉTION DE LA PROGRESSION
+    let progressToSet: number | undefined = undefined;
+    if (status === 'completed' && normalizedTotal) {
+      progressToSet = normalizedTotal;
+    }
+
     if (trackedItem) {
-      await supabase.from('user_media').update({ status, updated_at: new Date().toISOString() }).match({ id: trackedItem.id });
-      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { status: status as any, updated_at: new Date().toISOString() });
+      const updates: Partial<LibraryItem> = {
+        status: status as any,
+        updated_at: new Date().toISOString()
+      };
+
+      // Si on marque comme terminé et qu'on connait le total, on met au max
+      if (progressToSet !== undefined) {
+        updates.progress = progressToSet;
+      }
+
+      await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
+      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
     } else {
       await supabase.from('user_media').insert([{
         user_id: user.id,
@@ -637,6 +654,7 @@ const DetailModal: React.FC<{
         cover_url: 'cover' in localData ? localData.cover : localData.cover_url,
         type: localData.type,
         status: status,
+        progress: progressToSet || 0, // Met la progression à 0, SAUF si ajouté direct en "Terminé"
         description: localData.description,
         year: localData.year?.toString(),
         total_episodes: normalizedTotal || null,
@@ -895,7 +913,6 @@ const DetailModal: React.FC<{
     </div>
   );
 };
-
 // ============================================================================
 // COMPOSANT RAPPELS (VUE CHRONOLOGIQUE)
 // ============================================================================
