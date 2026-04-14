@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+// IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
+// import { createClient } from '@supabase/supabase-js';
+// import HCaptcha from '@hcaptcha/react-hcaptcha';
+
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 
@@ -58,6 +62,8 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
+// Note: Remplacées par les variables brutes ici pour l'aperçu Canvas.
+// Dans Vercel, utilisez bien "import.meta.env.VITE_TMDB_API_KEY" etc.
 // @ts-ignore : Tolérance pour le compilateur sur l'environnement d'aperçu
 const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
 
@@ -137,6 +143,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// Moteur de calcul de la prochaine occurrence d'un rappel
 function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: string | undefined | null): Date | null {
   if (!reminderJsonStr || !timeStr) return null;
   try {
@@ -175,7 +182,7 @@ function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: 
 }
 
 // ============================================================================
-// SERVICES API
+// SERVICES API (Raccourcis)
 // ============================================================================
 const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
   if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
@@ -197,7 +204,7 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   const data = await res.json();
   return data.data.Page.media.map((item: any) => ({
     id: String(item.id), source: 'anilist', title: String(item.title.english || item.title.romaji || item.title.native), cover: item.coverImage.large,
-    type: 'anime', year: String(item.startDate.year || 'N/A'), description: String(item.description?.replace(/<[^>]+>/g, '') || 'Aucune description disponible.'),
+    type: 'anime', year: String(item.startDate.year || 'N/A'), description: String(item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.'),
     totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED', genres: item.genres, runtime: item.duration, prod_status: String(item.status), isAdult: item.isAdult === true, creator: item.studios?.nodes?.[0]?.name || null
   }));
 };
@@ -265,7 +272,7 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
       const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `query ($id: Int) { Media(id: $id) { description episodes status genres duration studios(isMain: true) { nodes { name } } } }`, variables: { id: parseInt(targetId) } }) });
       if (!res.ok) return null;
       const data = await res.json();
-      return { description: String(data.data.Media.description?.replace(/<[^>]+>/g, '')), total_episodes: data.data.Media.episodes || item.total_episodes, genres: data.data.Media.genres, runtime: data.data.Media.duration, prod_status: String(data.data.Media.status), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios?.nodes?.[0]?.name) : String(item.creator || '') };
+      return { description: String(data.data.Media.description?.replace(/<[^>]*>?/gm, '')), total_episodes: data.data.Media.episodes || item.total_episodes, genres: data.data.Media.genres, runtime: data.data.Media.duration, prod_status: String(data.data.Media.status), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios?.nodes?.[0]?.name) : String(item.creator || '') };
     }
   } catch (e) {} return null;
 };
@@ -622,7 +629,19 @@ const DetailModal: React.FC<{
       await supabase.from('user_media').update({ status, updated_at: new Date().toISOString() }).match({ id: trackedItem.id });
       if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { status: status as any, updated_at: new Date().toISOString() });
     } else {
-      await supabase.from('user_media').insert([{ user_id: user.id, media_id: item.id, source: item.source, title: item.title, cover_url: 'cover' in item ? item.cover : item.cover_url, type: item.type, status: status, description: item.description, year: item.year?.toString(), total_episodes: (item as any).totalEpisodes || null }]);
+      await supabase.from('user_media').insert([{
+        user_id: user.id,
+        media_id: item.id,
+        source: item.source,
+        title: localData.title,
+        cover_url: 'cover' in localData ? localData.cover : localData.cover_url,
+        type: localData.type,
+        status: status,
+        description: localData.description,
+        year: localData.year?.toString(),
+        total_episodes: normalizedTotal || null,
+        runtime: localData.runtime || null
+      }]);
     }
     fetchLibrary();
     setIsActing(false);
@@ -1087,6 +1106,8 @@ const DiscoverySearch: React.FC<{
   const [upcoming, setUpcoming] = useState<MediaItem[]>([]);
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
+
+  const [showManualAdd, setShowManualAdd] = useState(false);
 
   useEffect(() => {
     if (debouncedQuery) return;
