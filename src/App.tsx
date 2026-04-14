@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
-// import { createClient } from '@supabase/supabase-js';
-// import HCaptcha from '@hcaptcha/react-hcaptcha';
-
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+
+// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+// import HCaptcha from 'https://esm.sh/@hcaptcha/react-hcaptcha@1.11.0';
 
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
@@ -1507,7 +1507,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
   const handleAuth = async () => {
     setLoading(true); setError('');
     try {
-      if (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001') {
+      if (!captchaToken && HCAPTCHA_SITE_KEY !== '') {
         setError("Veuillez valider le Captcha pour continuer.");
         setLoading(false);
         return;
@@ -1579,7 +1579,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
           )}
 
           <div className="pt-6 flex flex-col gap-3">
-            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001')}>
+            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '')}>
               {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? 'Créer mon compte' : 'Se connecter')}
             </Button>
             <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); if(captchaRef.current) captchaRef.current.resetCaptcha(); }} disabled={loading}>
