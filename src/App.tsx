@@ -73,6 +73,7 @@ const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 const HCAPTCHA_SITE_KEY = String(import.meta.env.VITE_HCAPTCHA_SITE_KEY || '');
 
+
 if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_VRAIE_URL_SUPABASE') {
   console.error("ARRÊT CRITIQUE : Tu n'as pas entré tes vraies clés Supabase.");
 }
@@ -221,15 +222,35 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
 };
 
 const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
+  // BOUCLIER : Pas de requête si moins de 4 caractères pour éviter les erreurs 422 et la surcharge
+  if (query.length < 4) return [];
+
   const isISBN = /^[0-9-]+$/.test(query) && query.replace(/-/g, '').length >= 10;
-  const res = await fetch(`https://openlibrary.org/search.json?${isISBN ? `isbn=${query}` : `q=${encodeURIComponent(query)}`}&limit=10`);
-  if (!res.ok) return [];
-  const data = await res.json();
-  return data.docs.map((item: any) => ({
-    id: String(item.key), source: 'openlibrary', title: String(item.title), cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
-    type: 'book', year: String(item.first_publish_year || 'N/A'), description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
-    totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [], isAdult: false, creator: item.author_name ? item.author_name[0] : null
-  }));
+  const searchQuery = isISBN ? `isbn=${query}` : `q=${encodeURIComponent(query)}`;
+
+  // TIMEOUT : 2.5 secondes maximum accordées à OpenLibrary
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 2500);
+
+  try {
+    const res = await fetch(`https://openlibrary.org/search.json?${searchQuery}&limit=10`, {
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) return [];
+    const data = await res.json();
+
+    return data.docs.map((item: any) => ({
+      id: String(item.key), source: 'openlibrary', title: String(item.title), cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
+      type: 'book', year: String(item.first_publish_year || 'N/A'), description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
+      totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [], isAdult: false, creator: item.author_name ? item.author_name[0] : null
+    }));
+  } catch (error) {
+    clearTimeout(timeoutId);
+    // Si l'API crashe ou met trop de temps (timeout), on l'ignore silencieusement
+    return [];
+  }
 };
 
 const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
@@ -913,6 +934,7 @@ const DetailModal: React.FC<{
     </div>
   );
 };
+
 // ============================================================================
 // COMPOSANT RAPPELS (VUE CHRONOLOGIQUE)
 // ============================================================================
@@ -1124,7 +1146,7 @@ const DiscoverySearch: React.FC<{
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
 
-  //const [showManualAdd, setShowManualAdd] = useState(false);
+  const [showManualAdd, setShowManualAdd] = useState(false);
 
   useEffect(() => {
     if (debouncedQuery) return;
@@ -1604,15 +1626,20 @@ export default function App() {
     if (!user) return;
 
     // ⚠️ SÉCURITÉ : On force Supabase à ne renvoyer QUE les données de l'utilisateur actif
+    // FIX 1 : Tri par 'created_at' au lieu de 'updated_at' pour empêcher l'œuvre de sauter tout en haut
     const { data, error } = await supabase
       .from('user_media')
       .select('*')
       .eq('user_id', user.id)
-      .order('updated_at', { ascending: false });
+      .order('created_at', { ascending: false });
 
     if (error) console.error("Erreur DB:", error);
-    if (data) { setUserLibrary(data as LibraryItem[]); if (data.length > 0 && !lastInteractedId) setLastInteractedId(data[0].id); }
-  }, [user, lastInteractedId]);
+    if (data) {
+      setUserLibrary(data as LibraryItem[]);
+      // FIX 2 : Utilisation du callback `prev` pour ne pas injecter lastInteractedId dans les dépendances
+      setLastInteractedId(prev => prev || (data.length > 0 ? data[0].id : null));
+    }
+  }, [user]); // <-- FIX 3 : lastInteractedId supprimé des dépendances. Fini le bug du double-clic !
 
   useEffect(() => { fetchLibrary(); }, [fetchLibrary]);
 
