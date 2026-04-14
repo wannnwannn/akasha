@@ -587,6 +587,7 @@ const DetailModal: React.FC<{
   }, [item.id, trackedItem?.id]);
 
 
+
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
 
@@ -665,7 +666,7 @@ const DetailModal: React.FC<{
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = String(localData.description || 'Description en cours de chargement...');
   const year = String(localData.year || 'Année inconnue');
-  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status, localData.source));
+  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status));
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
@@ -1103,13 +1104,29 @@ const DiscoverySearch: React.FC<{
             return (
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
-                  {cover ? <img src={String(cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                  {cover ? (
+                    <img src={String(cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
+                  ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
-                  {tracked && <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>}
+
+                  {/* Bouton Favori dans le carousel (Seulement si tracké) */}
+                  {tracked && (
+                    <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
+                      <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
+                    </button>
+                  )}
+
                   {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
-                  {needsBlur && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div></div>}
+                  {needsBlur && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div>
+                    </div>
+                  )}
                 </div>
-                <div className="p-3.5"><h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3><p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p></div>
+                <div className="p-3.5">
+                  <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
+                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p>
+                </div>
               </div>
             )
           })}
@@ -1122,18 +1139,30 @@ const DiscoverySearch: React.FC<{
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex-grow flex gap-2">
+      <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 sm:top-2">
+        <div className="flex-grow">
           <Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus />
-          <Button onClick={() => setShowManualAdd(true)} variant="secondary" className="shrink-0 !px-4 border border-[var(--border-color)]" title="Ajout Manuel">
-            <Plus size={20} /> <span className="hidden md:inline">Ajout Manuel</span>
-          </Button>
         </div>
+
         <div className="flex gap-3">
-          <div className="shrink-0 flex-1 sm:w-48"><CustomSelect value={String(filter)} onChange={setFilter} options={FORMAT_OPTIONS} className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]" /></div>
-          <div onClick={() => setLocalShowNSFW(!localShowNSFW)} className="flex items-center justify-center gap-3 shrink-0 bg-[var(--panel-bg)] border border-[var(--border-color)] px-4 rounded-xl cursor-pointer hover:bg-[var(--bg-base)] transition-colors" title="Afficher le contenu pour adultes">
+          <div className="shrink-0 flex-1 sm:w-48">
+             <CustomSelect
+                value={String(filter)}
+                onChange={setFilter}
+                options={FORMAT_OPTIONS}
+                className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]"
+              />
+          </div>
+
+          <div
+            onClick={() => setLocalShowNSFW(!localShowNSFW)}
+            className="flex items-center justify-center gap-3 shrink-0 bg-[var(--panel-bg)] border border-[var(--border-color)] px-4 rounded-xl cursor-pointer hover:bg-[var(--bg-base)] transition-colors"
+            title="Afficher le contenu pour adultes"
+          >
             <EyeOff size={20} className={localShowNSFW ? "text-rose-500" : "text-[var(--text-muted)]"} />
-            <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${localShowNSFW ? 'bg-rose-500' : 'bg-[var(--text-muted)]'}`}><span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${localShowNSFW ? 'translate-x-5' : 'translate-x-1'}`} /></div>
+            <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${localShowNSFW ? 'bg-rose-500' : 'bg-[var(--text-muted)]'}`}>
+              <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${localShowNSFW ? 'translate-x-5' : 'translate-x-1'}`} />
+            </div>
           </div>
         </div>
       </div>
@@ -1159,15 +1188,35 @@ const DiscoverySearch: React.FC<{
             return (
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
-                  {media.cover ? <img src={String(media.cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                  {media.cover ? (
+                    <img src={String(media.cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
+                  ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
-                  {tracked && <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>}
+
+                  {/* Bouton Favori dans la recherche (Seulement si tracké) */}
+                  {tracked && (
+                    <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
+                      <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
+                    </button>
+                  )}
+
                   {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">En prod</span>}
-                  {needsBlur && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div></div>}
+                  {needsBlur && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div>
+                    </div>
+                  )}
                 </div>
                 <div className="p-3.5 flex flex-col flex-grow justify-between">
-                  <div><h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3><p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p></div>
-                  {tracked && <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold bg-[var(--primary)]/10 text-[var(--primary)] py-2 rounded-lg border border-[var(--primary)]/20"><Check size={14} strokeWidth={3}/> Suivi</div>}
+                  <div>
+                    <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
+                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p>
+                  </div>
+                  {tracked && (
+                    <div className="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold bg-[var(--primary)]/10 text-[var(--primary)] py-2 rounded-lg border border-[var(--primary)]/20">
+                      <Check size={14} strokeWidth={3}/> Suivi
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1360,7 +1409,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
   const handleAuth = async () => {
     setLoading(true); setError('');
     try {
-      if (!captchaToken && HCAPTCHA_SITE_KEY !== '') {
+      if (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001') {
         setError("Veuillez valider le Captcha pour continuer.");
         setLoading(false);
         return;
@@ -1432,7 +1481,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
           )}
 
           <div className="pt-6 flex flex-col gap-3">
-            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '')}>
+            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001')}>
               {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? 'Créer mon compte' : 'Se connecter')}
             </Button>
             <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); if(captchaRef.current) captchaRef.current.resetCaptcha(); }} disabled={loading}>
