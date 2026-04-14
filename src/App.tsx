@@ -1107,7 +1107,7 @@ const DiscoverySearch: React.FC<{
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
 
-  const [showManualAdd, setShowManualAdd] = useState(false);
+  //const [showManualAdd, setShowManualAdd] = useState(false);
 
   useEffect(() => {
     if (debouncedQuery) return;
