@@ -570,6 +570,10 @@ const DetailModal: React.FC<{
     const checkAndRevalidate = async () => {
       const freshData = await revalidateMediaDetails(item);
       if (freshData) {
+        // BOUCLIER DE PRIORITÉ : Si l'utilisateur a personnalisé ces valeurs, on bloque l'écrasement par l'API
+        if (trackedItem && trackedItem.runtime) delete freshData.runtime;
+        if (trackedItem && trackedItem.total_episodes) delete freshData.total_episodes;
+
         setLocalData(prev => ({ ...prev, ...freshData }));
       }
     };
