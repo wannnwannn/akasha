@@ -1,8 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
-// import { createClient } from '@supabase/supabase-js';
-// import HCaptcha from '@hcaptcha/react-hcaptcha';
-
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 
@@ -700,7 +696,7 @@ const DetailModal: React.FC<{
                     onChange={e => setEditCoverUrl(e.target.value)}
                   />
                   <div className="flex gap-2 w-full">
-                    <button onClick={() => { setIsEditingCover(false); setEditCoverUrl(cover || ''); }} className="flex-1 bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-red-500 rounded py-1.5 text-xs font-bold transition-colors">Annuler</button>
+                    <button onClick={() => { setIsEditingCover(false); setEditCoverUrl(String(cover || '')); }} className="flex-1 bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-red-500 rounded py-1.5 text-xs font-bold transition-colors">Annuler</button>
                     <button onClick={handleSaveCover} className="flex-1 bg-[var(--primary)] text-white rounded py-1.5 text-xs font-bold shadow-md">Sauver</button>
                   </div>
                 </div>
@@ -712,7 +708,7 @@ const DetailModal: React.FC<{
                   {/* BOUTON D'ÉDITION MANUELLE DE L'AFFICHE (UNIQUEMENT SI SOURCE MANUAL) */}
                   {localData.source === 'manual' && trackedItem && (
                     <button
-                      onClick={(e) => { e.stopPropagation(); setEditCoverUrl(cover || ''); setIsEditingCover(true); }}
+                      onClick={(e) => { e.stopPropagation(); setEditCoverUrl(String(cover || '')); setIsEditingCover(true); }}
                       className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity border border-white/20 hover:bg-black/80 shadow-lg"
                       title="Modifier l'image"
                     >
@@ -1092,8 +1088,6 @@ const DiscoverySearch: React.FC<{
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
 
-  const [showManualAdd, setShowManualAdd] = useState(false);
-
   useEffect(() => {
     if (debouncedQuery) return;
     const loadFeeds = async () => {
@@ -1184,12 +1178,10 @@ const DiscoverySearch: React.FC<{
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 sm:top-2">
-        <div className="flex-grow flex gap-2">
+        <div className="flex-grow">
           <Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus />
-          <Button onClick={() => setShowManualAdd(true)} variant="secondary" className="shrink-0 !px-4 border border-[var(--border-color)]" title="Ajout Manuel">
-            <Plus size={20} /> <span className="hidden md:inline">Ajout Manuel</span>
-          </Button>
         </div>
+
         <div className="flex gap-3">
           <div className="shrink-0 flex-1 sm:w-48">
              <CustomSelect
