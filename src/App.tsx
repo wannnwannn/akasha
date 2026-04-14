@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
-// import { createClient } from '@supabase/supabase-js';
-// import HCaptcha from '@hcaptcha/react-hcaptcha';
-
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+
+//import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+//import HCaptcha from 'https://esm.sh/@hcaptcha/react-hcaptcha@1.11.0';
 
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
@@ -62,8 +62,7 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-// Note: Remplacées par les variables brutes ici pour l'aperçu Canvas.
-// Dans Vercel, utilisez bien "import.meta.env.VITE_TMDB_API_KEY" etc.
+// VALEURS EN DUR POUR ÉVITER LES ERREURS DE COMPILATION SUR LE CANVAS
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
@@ -140,7 +139,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Moteur de calcul de la prochaine occurrence d'un rappel
 function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: string | undefined | null): Date | null {
   if (!reminderJsonStr || !timeStr) return null;
   try {
@@ -179,7 +177,7 @@ function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: 
 }
 
 // ============================================================================
-// SERVICES API (Raccourcis)
+// SERVICES API
 // ============================================================================
 const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
   if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
@@ -201,7 +199,7 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   const data = await res.json();
   return data.data.Page.media.map((item: any) => ({
     id: String(item.id), source: 'anilist', title: String(item.title.english || item.title.romaji || item.title.native), cover: item.coverImage.large,
-    type: 'anime', year: String(item.startDate.year || 'N/A'), description: String(item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.'),
+    type: 'anime', year: String(item.startDate.year || 'N/A'), description: String(item.description?.replace(/<[^>]+>/g, '') || 'Aucune description disponible.'),
     totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED', genres: item.genres, runtime: item.duration, prod_status: String(item.status), isAdult: item.isAdult === true, creator: item.studios?.nodes?.[0]?.name || null
   }));
 };
@@ -266,7 +264,7 @@ const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Pa
       const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ query: `query ($id: Int) { Media(id: $id) { description episodes status genres duration studios(isMain: true) { nodes { name } } } }`, variables: { id: parseInt(targetId) } }) });
       if (!res.ok) return null;
       const data = await res.json();
-      return { description: String(data.data.Media.description?.replace(/<[^>]*>?/gm, '')), total_episodes: data.data.Media.episodes || item.total_episodes, genres: data.data.Media.genres, runtime: data.data.Media.duration, prod_status: String(data.data.Media.status), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios?.nodes?.[0]?.name) : String(item.creator || '') };
+      return { description: String(data.data.Media.description?.replace(/<[^>]+>/g, '')), total_episodes: data.data.Media.episodes || item.total_episodes, genres: data.data.Media.genres, runtime: data.data.Media.duration, prod_status: String(data.data.Media.status), creator: data.data.Media.studios?.nodes?.[0]?.name ? String(data.data.Media.studios?.nodes?.[0]?.name) : String(item.creator || '') };
     }
   } catch (e) {} return null;
 };
@@ -354,7 +352,11 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
 
   if (!isEditing) {
     return (
-      <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] cursor-pointer hover:text-[var(--primary)] group py-1" onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} title="Modifier le total d'épisodes">
+      <div
+        className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] cursor-pointer hover:text-[var(--primary)] group py-1"
+        onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+        title="Modifier le total d'épisodes"
+      >
         <span>{item.progress} / {item.total_episodes ? item.total_episodes : '?'}</span>
         <Edit2 size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
@@ -364,8 +366,59 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
   return (
     <div className="flex items-center gap-1 py-1" onClick={e => e.stopPropagation()}>
       <span className="text-xs font-mono text-[var(--text-muted)]">{item.progress} /</span>
-      <input autoFocus type="number" min={item.progress} className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center" value={String(value)} onChange={e => setValue(e.target.value)} onBlur={() => { setIsEditing(false); onSave(item.id, isNaN(parseInt(String(value), 10)) ? null : parseInt(String(value), 10)); }} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
+      <input
+        autoFocus
+        type="number"
+        min={item.progress}
+        className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        onBlur={() => {
+          setIsEditing(false);
+          const parsed = parseInt(value, 10);
+          onSave(item.id, isNaN(parsed) ? null : parsed);
+        }}
+        onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+      />
     </div>
+  );
+};
+
+// ============================================================================
+// MODIFICATION MANUELLE DE LA DURÉE (NOUVEAU COMPOSANT)
+// ============================================================================
+const InlineRuntimeEdit: React.FC<{ item: LibraryItem, localRuntime: number | undefined, onSave: (val: number) => void }> = ({ item, localRuntime, onSave }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const defaultVal = localRuntime || (item.type === 'movie' ? 90 : item.type === 'tv' ? 60 : 20);
+  const [value, setValue] = useState(defaultVal.toString());
+
+  if (!isEditing) {
+    return (
+      <span
+        className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2 cursor-pointer hover:text-[var(--primary)] group"
+        onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
+        title="Modifier la durée"
+      >
+        <Clock size={12}/> {defaultVal}m
+        <Edit2 size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+      </span>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2" onClick={e => e.stopPropagation()}>
+      <Clock size={12}/>
+      <input
+        autoFocus
+        type="number"
+        className="w-10 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center"
+        value={String(value)}
+        onChange={e => setValue(e.target.value)}
+        onBlur={() => { setIsEditing(false); const parsed = parseInt(String(value), 10); if(!isNaN(parsed)) onSave(parsed); }}
+        onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+      />
+      m
+    </span>
   );
 };
 
@@ -409,23 +462,19 @@ const DetailModal: React.FC<{
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
-      if (trackedItem && trackedItem.updated_at) {
-        const lastUpdated = new Date(trackedItem.updated_at).getTime();
-        if (Date.now() - lastUpdated < 24 * 60 * 60 * 1000) return;
-      }
+      // FIX DU CACHE DE 24H SUPPRIMÉ : L'application recherchera
+      // TOUJOURS les infos fraîches à l'ouverture du modal pour éviter l'écran vide
       const freshData = await revalidateMediaDetails(item);
       if (freshData) {
         setLocalData(prev => ({ ...prev, ...freshData }));
-        if (trackedItem && onLibraryUpdate) {
-          await supabase.from('user_media').update(freshData).match({ id: trackedItem.id });
-          onLibraryUpdate(trackedItem.id, freshData);
-        }
+        // Note: Nous ne sauvegardons PLUS `freshData` en entier dans Supabase ici car
+        // `genres`, `creator`, etc. n'y existent pas par défaut et font crasher l'update silencieusement.
       }
     };
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]);
 
-
+  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
 
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
@@ -525,7 +574,26 @@ const DetailModal: React.FC<{
             <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)] mb-3 leading-tight tracking-tight">{title}</h2>
             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
               {localData.type !== 'book' && <span className={`text-[10px] uppercase tracking-widest font-black px-2.5 py-1 rounded-md ${String(statusColor)}`}>{prodStatusLabel}</span>}
-              {normalizedTotal && <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">{String(normalizedTotal)} {localData.type === 'book' ? 'pages' : 'ép'} {localData.runtime ? <span className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2"><Clock size={12}/> {String(localData.runtime)}m</span> : ''}</span>}
+
+              {(normalizedTotal || localData.type !== 'book') && (
+                <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">
+                  {normalizedTotal ? `${String(normalizedTotal)} ${localData.type === 'book' ? 'pages' : 'ép'}` : '? ép'}
+                  {localData.type !== 'book' && (
+                    <InlineRuntimeEdit
+                      item={localData}
+                      localRuntime={localData.runtime}
+                      onSave={async (newRuntime) => {
+                        setLocalData(prev => ({ ...prev, runtime: newRuntime }));
+                        if (trackedItem) {
+                          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { runtime: newRuntime });
+                          await supabase.from('user_media').update({ runtime: newRuntime }).match({ id: trackedItem.id });
+                        }
+                      }}
+                    />
+                  )}
+                </span>
+              )}
+
               <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">{year} • {String(localData.source).toUpperCase()}</span>
             </div>
             {localData.creator && <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {String(localData.creator)}</p>}
@@ -554,7 +622,6 @@ const DetailModal: React.FC<{
               <div className="flex gap-2 w-full items-center">
                 <div className="flex-1"><CustomSelect value={String(trackedItem.status)} onChange={handleAddOrUpdate} options={STATUS_OPTIONS.filter(o => o.value !== "")} className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]" /></div>
 
-                {/* Nouveau bouton de Classement (Trophy) juste à côté des favoris */}
                 <Button
                   variant="ghost"
                   className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
@@ -1022,8 +1089,18 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   const totalAdded = library.length;
   const totalCompleted = library.filter(i => i.status === 'completed').length;
   const totalEpisodesWatched = library.reduce((acc, item) => acc + (item.progress || 0), 0);
+
   const watchableItems = library.filter(i => i.type === 'tv' || i.type === 'movie' || i.type === 'anime');
-  const watchTimeHours = (watchableItems.reduce((acc, item) => acc + ((item.progress || 0) * (item.runtime || (item.type === 'movie' ? 120 : 24))), 0) / 60).toFixed(1);
+  const watchTimeMinutes = watchableItems.reduce((acc, item) => {
+    let runtime = 20; // default (anime)
+    if (item.runtime) runtime = item.runtime;
+    else if (item.type === 'movie') runtime = 90;
+    else if (item.type === 'tv') runtime = 60;
+
+    return acc + ((item.progress || 0) * runtime);
+  }, 0);
+  const watchTimeHours = (watchTimeMinutes / 60).toFixed(1);
+
   const completionRate = totalAdded > 0 ? Math.round((totalCompleted / totalAdded) * 100) : 0;
   const watchProgress = watchableItems.reduce((acc, item) => acc + (item.progress || 0), 0);
   const readProgress = library.filter(i => ['manga', 'webtoon', 'book'].includes(i.type)).reduce((acc, item) => acc + (item.progress || 0), 0);
@@ -1133,7 +1210,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
           <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-amber-500 text-white rounded-lg sm:rounded-xl"><PlayCircle className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalEpisodesWatched}</p><p className="text-[9px] sm:text-xs font-bold text-amber-500 uppercase tracking-wider mt-1 truncate">Ép./Chap.</p></div></div>
         </div>
 
-        <div className="mb-6"><label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label><CustomSelect value={String(userTz)} onChange={handleTzChange} options={timezones} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]" /><p className="text-[10px] text-[var(--text-muted)] mt-2 italic">Définit l'heure d'envoi matinale de vos notifications de rappels.</p></div>
+        <div className="mb-6"><label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label><CustomSelect value={String(userTz)} onChange={handleTzChange} options={timezones} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]" /><p className="text-[10px] text-[var(--text-muted)] mt-2 italic">Définit l'heure d'envoi matinale de vos emails de rappels.</p></div>
         <div className="space-y-3 pt-6 border-t border-[var(--border-color)]"><Button variant="secondary" className="w-full !py-3" onClick={onLogout}><LogOut size={18} /> Déconnexion</Button><button onClick={onDelete} className="w-full py-3 text-xs font-bold text-[var(--text-muted)] hover:text-red-500 transition-colors">Supprimer mon compte (Action irréversible)</button></div>
       </div>
     </div>
@@ -1155,7 +1232,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
   const handleAuth = async () => {
     setLoading(true); setError('');
     try {
-      if (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001') {
+      if (!captchaToken && HCAPTCHA_SITE_KEY !== '') {
         setError("Veuillez valider le Captcha pour continuer.");
         setLoading(false);
         return;
@@ -1203,12 +1280,15 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
                 <button
                   onClick={() => {
                     const mail = email || "[MON ADRESSE EMAIL]";
-                    // ATTENTION: Remplacer par ta vraie adresse email personnelle ou de support
-                    window.location.href = `mailto:contactwanspace@gmail.com?subject=Akasha%20-%20Mot%20de%20passe%20oublié&body=Bonjour,%20j'ai%20oublié%20mon%20mot%20de%20passe.%20Mon%20compte%20est%20:%20${mail}`;
+                    // Encodage URI pour éviter les bugs Android / Outlook / Mail
+                    const subject = encodeURIComponent("Akasha - Mot de passe oublié");
+                    const body = encodeURIComponent(`Bonjour, j'ai oublié mon mot de passe. Mon compte est : ${mail}`);
+                    // Remplacer "contactwanspace@gmail.com" par TA VRAIE adresse, en ne laissant qu'un seul "@gmail.com"
+                    window.location.href = `mailto:contactwanspace@gmail.com?subject=${subject}&body=${body}`;
                   }}
                   className="text-[11px] font-bold text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
                 >
-                  Mot de passe oublié ? (par mail à contactwanspace@gmail.com)
+                  Mot de passe oublié ?
                 </button>
               </div>
             )}
@@ -1226,7 +1306,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
           )}
 
           <div className="pt-6 flex flex-col gap-3">
-            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (!captchaToken && HCAPTCHA_SITE_KEY !== '10000000-ffff-ffff-ffff-000000000001')}>
+            <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '')}>
               {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? 'Créer mon compte' : 'Se connecter')}
             </Button>
             <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); if(captchaRef.current) captchaRef.current.resetCaptcha(); }} disabled={loading}>
@@ -1272,7 +1352,7 @@ export default function App() {
   const fetchLibrary = useCallback(async () => {
     if (!user) return;
 
-    // ⚠️ SÉCURITÉ (LA CEINTURE) : On force Supabase à ne renvoyer QUE les données de l'utilisateur actif
+    // ⚠️ SÉCURITÉ : On force Supabase à ne renvoyer QUE les données de l'utilisateur actif
     const { data, error } = await supabase
       .from('user_media')
       .select('*')
