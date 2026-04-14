@@ -62,7 +62,9 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-// IMPORTANT: Pour Vercel, utilisez import.meta.env.VITE_XXX à la place de ces chaînes.
+// @ts-ignore : Tolérance pour le compilateur sur l'environnement d'aperçu
+const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
+
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
@@ -424,13 +426,9 @@ const InlineRuntimeEdit: React.FC<{ item: LibraryItem, localRuntime: number | un
 };
 
 // ============================================================================
-// MODAL D'AJOUT MANUEL
+// COMPOSANT D'AJOUT MANUEL (INTÉGRÉ À LA PAGE)
 // ============================================================================
-const ManualAddModal: React.FC<{
-  user: UserData;
-  onClose: () => void;
-  fetchLibrary: () => void;
-}> = ({ user, onClose, fetchLibrary }) => {
+const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = ({ user, fetchLibrary }) => {
   const [title, setTitle] = useState('');
   const [type, setType] = useState('movie');
   const [status, setStatus] = useState('watching');
@@ -446,7 +444,6 @@ const ManualAddModal: React.FC<{
       setError("Le titre est obligatoire.");
       return;
     }
-
     setIsSubmitting(true);
     setError('');
 
@@ -467,76 +464,69 @@ const ManualAddModal: React.FC<{
     };
 
     const { error: dbError } = await supabase.from('user_media').insert([payload]);
-
     setIsSubmitting(false);
 
     if (dbError) {
       setError(dbError.message);
     } else {
       fetchLibrary();
-      onClose();
+      // Reset du form
+      setTitle(''); setTotalEpisodes(''); setRuntime(''); setCoverUrl('');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all overflow-y-auto" onClick={onClose}>
-      <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 right-4 z-20 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors bg-[var(--bg-base)] rounded-full p-2">
-          <X size={20} strokeWidth={3} />
-        </button>
+    <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-6 sm:p-8 shadow-xl mt-8 mx-auto w-full max-w-2xl text-left">
+      <h2 className="text-xl font-black text-[var(--text-main)] mb-2 flex items-center gap-2">
+        <PenTool className="text-[var(--primary)]" /> Vous ne trouvez pas votre bonheur ?
+      </h2>
+      <p className="text-sm text-[var(--text-muted)] mb-6">Ajoutez manuellement l'œuvre à votre bibliothèque si elle n'existe pas dans nos bases de données.</p>
 
-        <div className="p-6 sm:p-8">
-          <h2 className="text-2xl font-black text-[var(--text-main)] mb-2 flex items-center gap-2">
-            <PenTool className="text-[var(--primary)]" /> Ajout Manuel
-          </h2>
-          <p className="text-sm text-[var(--text-muted)] mb-6">Vous ne trouvez pas votre bonheur ? Ajoutez-le vous-même.</p>
+      {error && <div className="mb-4 p-3 bg-red-500/10 text-red-500 text-sm font-bold rounded-xl border border-red-500/30">{error}</div>}
 
-          {error && <div className="mb-4 p-3 bg-red-500/10 text-red-500 text-sm font-bold rounded-xl border border-red-500/30">{error}</div>}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Titre de l'œuvre *</label>
-              <Input required type="text" placeholder="Ex: Le Seigneur des Anneaux" value={title} onChange={e => setTitle(e.target.value)} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Type *</label>
-                <CustomSelect value={type} onChange={setType} options={FORMAT_OPTIONS.filter(o => o.value !== 'all')} className="bg-[var(--bg-base)]" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Statut *</label>
-                <CustomSelect value={status} onChange={setStatus} options={STATUS_OPTIONS.filter(o => o.value !== '')} className="bg-[var(--bg-base)]" />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Total Épisodes / Pages</label>
-                <Input type="number" min="1" placeholder="Optionnel" value={totalEpisodes} onChange={e => setTotalEpisodes(e.target.value)} />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Durée (minutes)</label>
-                <Input type="number" min="1" placeholder="Optionnel" value={runtime} onChange={e => setRuntime(e.target.value)} />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Lien de l'image (Cover URL)</label>
-              <Input type="url" placeholder="https://..." value={coverUrl} onChange={e => setCoverUrl(e.target.value)} />
-            </div>
-
-            <div className="pt-4">
-              <Button type="submit" className="w-full !py-3.5" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Ajouter à ma bibliothèque'}
-              </Button>
-            </div>
-          </form>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Titre de l'œuvre *</label>
+          <Input required type="text" placeholder="Ex: Le Seigneur des Anneaux" value={title} onChange={e => setTitle(e.target.value)} />
         </div>
-      </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Type *</label>
+            <CustomSelect value={type} onChange={setType} options={FORMAT_OPTIONS.filter(o => o.value !== 'all')} className="bg-[var(--bg-base)]" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Statut *</label>
+            <CustomSelect value={status} onChange={setStatus} options={STATUS_OPTIONS.filter(o => o.value !== '')} className="bg-[var(--bg-base)]" />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Total Épisodes / Pages</label>
+            <Input type="number" min="1" placeholder="Optionnel" value={totalEpisodes} onChange={e => setTotalEpisodes(e.target.value)} />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Durée (minutes)</label>
+            <Input type="number" min="1" placeholder="Optionnel" value={runtime} onChange={e => setRuntime(e.target.value)} />
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Lien de l'image (Cover URL)</label>
+          <Input type="url" placeholder="https://..." value={coverUrl} onChange={e => setCoverUrl(e.target.value)} />
+        </div>
+
+        <div className="pt-4">
+          <Button type="submit" className="w-full !py-3.5" disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="animate-spin" /> : 'Ajouter manuellement'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };
+
 
 // ============================================================================
 // MODAL DE DÉTAILS
@@ -586,7 +576,7 @@ const DetailModal: React.FC<{
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]);
 
-
+//  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
 
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
@@ -734,6 +724,7 @@ const DetailModal: React.FC<{
               <div className="flex gap-2 w-full items-center">
                 <div className="flex-1"><CustomSelect value={String(trackedItem.status)} onChange={handleAddOrUpdate} options={STATUS_OPTIONS.filter(o => o.value !== "")} className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]" /></div>
 
+                {/* Nouveau bouton de Classement (Trophy) juste à côté des favoris */}
                 <Button
                   variant="ghost"
                   className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
@@ -1048,8 +1039,6 @@ const DiscoverySearch: React.FC<{
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
 
-  const [showManualAdd, setShowManualAdd] = useState(false);
-
   useEffect(() => {
     if (debouncedQuery) return;
     const loadFeeds = async () => {
@@ -1175,6 +1164,9 @@ const DiscoverySearch: React.FC<{
           {renderCarousel("Tendances Actuelles", trending)}
           {renderCarousel("Prochaines Sorties", upcoming)}
           {community.length > 0 && renderCarousel("Découvertes Communautaires", community)}
+
+          {/* AJOUT MANUEL EN BASE DE L'ACCUEIL */}
+          <ManualAddForm user={user} fetchLibrary={fetchLibrary} />
         </div>
       )}
 
@@ -1225,18 +1217,15 @@ const DiscoverySearch: React.FC<{
       )}
 
       {debouncedQuery && filteredResults.length === 0 && !loading && (
-        <div className="text-center py-20 text-[var(--text-muted)] flex flex-col items-center">
+        <div className="text-center py-10 text-[var(--text-muted)] flex flex-col items-center">
           <BookOpen className="mb-6 opacity-30" size={64} />
           <p className="text-lg font-medium mb-4">Aucun résultat pour "{debouncedQuery}"</p>
-          <Button onClick={() => setShowManualAdd(true)} variant="secondary" className="border border-[var(--border-color)]">
-            <Plus size={18} /> Ajouter manuellement à ma liste
-          </Button>
+          <div className="w-full">
+            <ManualAddForm user={user} fetchLibrary={fetchLibrary} />
+          </div>
         </div>
       )}
 
-      {showManualAdd && (
-        <ManualAddModal user={user} fetchLibrary={fetchLibrary} onClose={() => setShowManualAdd(false)} />
-      )}
     </div>
   );
 };
