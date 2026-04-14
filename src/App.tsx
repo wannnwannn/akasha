@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
+// import { createClient } from '@supabase/supabase-js';
+// import HCaptcha from '@hcaptcha/react-hcaptcha';
+
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
-
-//import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-//import HCaptcha from 'https://esm.sh/@hcaptcha/react-hcaptcha@1.11.0';
 
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool
 } from 'lucide-react';
 
 // ============================================================================
@@ -62,7 +62,7 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
-// VALEURS EN DUR POUR ÉVITER LES ERREURS DE COMPILATION SUR LE CANVAS
+// IMPORTANT: Pour Vercel, utilisez import.meta.env.VITE_XXX à la place de ces chaînes.
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
@@ -88,7 +88,7 @@ function urlBase64ToUint8Array(base64String: string) {
 // TYPES & INTERFACES
 // ============================================================================
 interface MediaItem {
-  id: string; source: 'tmdb' | 'anilist' | 'shikimori' | 'openlibrary'; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; total_episodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
+  id: string; source: 'tmdb' | 'anilist' | 'shikimori' | 'openlibrary' | 'manual'; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; total_episodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
 }
 interface LibraryItem {
   id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string | null; notes?: string | null; reminder_day?: string | null; reminder_time?: string | null; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null;
@@ -249,6 +249,9 @@ const mapStatusToLabel = (status: string | undefined) => {
 };
 
 const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Partial<LibraryItem> | null> => {
+  // ANGLE MORT CORRIGÉ: Si c'est un ajout manuel, on ne contacte surtout pas les API externes
+  if (item.source === 'manual') return null;
+
   const targetId = 'media_id' in item ? item.media_id : item.id;
   try {
     if (item.source === 'tmdb') {
@@ -339,7 +342,8 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
     anime: { color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20', icon: PlayCircle, label: 'Anime' },
     manga: { color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/20', icon: BookOpen, label: 'Manga' },
     webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: 'Webtoon' },
-    book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: 'Livre' }
+    book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: 'Livre' },
+    manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: 'Manuel' }
   };
   const current = config[type] || config.movie;
   const Icon = current.icon;
@@ -384,9 +388,6 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
   );
 };
 
-// ============================================================================
-// MODIFICATION MANUELLE DE LA DURÉE (NOUVEAU COMPOSANT)
-// ============================================================================
 const InlineRuntimeEdit: React.FC<{ item: LibraryItem, localRuntime: number | undefined, onSave: (val: number) => void }> = ({ item, localRuntime, onSave }) => {
   const [isEditing, setIsEditing] = useState(false);
   const defaultVal = localRuntime || (item.type === 'movie' ? 90 : item.type === 'tv' ? 60 : 20);
@@ -419,6 +420,121 @@ const InlineRuntimeEdit: React.FC<{ item: LibraryItem, localRuntime: number | un
       />
       m
     </span>
+  );
+};
+
+// ============================================================================
+// MODAL D'AJOUT MANUEL
+// ============================================================================
+const ManualAddModal: React.FC<{
+  user: UserData;
+  onClose: () => void;
+  fetchLibrary: () => void;
+}> = ({ user, onClose, fetchLibrary }) => {
+  const [title, setTitle] = useState('');
+  const [type, setType] = useState('movie');
+  const [status, setStatus] = useState('watching');
+  const [totalEpisodes, setTotalEpisodes] = useState('');
+  const [runtime, setRuntime] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) {
+      setError("Le titre est obligatoire.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError('');
+
+    const newMediaId = `manual_${Date.now()}`;
+    const payload = {
+      user_id: user.id,
+      media_id: newMediaId,
+      source: 'manual', // SOURCE MANUELLE POUR BLOQUER L'API
+      title: title.trim(),
+      type: type,
+      status: status,
+      cover_url: coverUrl.trim() || null,
+      total_episodes: parseInt(totalEpisodes, 10) || null,
+      runtime: parseInt(runtime, 10) || null,
+      progress: 0,
+      description: "Ajouté manuellement.",
+      year: new Date().getFullYear().toString()
+    };
+
+    const { error: dbError } = await supabase.from('user_media').insert([payload]);
+
+    setIsSubmitting(false);
+
+    if (dbError) {
+      setError(dbError.message);
+    } else {
+      fetchLibrary();
+      onClose();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 transition-all overflow-y-auto" onClick={onClose}>
+      <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl w-full max-w-md shadow-2xl relative animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 right-4 z-20 text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors bg-[var(--bg-base)] rounded-full p-2">
+          <X size={20} strokeWidth={3} />
+        </button>
+
+        <div className="p-6 sm:p-8">
+          <h2 className="text-2xl font-black text-[var(--text-main)] mb-2 flex items-center gap-2">
+            <PenTool className="text-[var(--primary)]" /> Ajout Manuel
+          </h2>
+          <p className="text-sm text-[var(--text-muted)] mb-6">Vous ne trouvez pas votre bonheur ? Ajoutez-le vous-même.</p>
+
+          {error && <div className="mb-4 p-3 bg-red-500/10 text-red-500 text-sm font-bold rounded-xl border border-red-500/30">{error}</div>}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Titre de l'œuvre *</label>
+              <Input required type="text" placeholder="Ex: Le Seigneur des Anneaux" value={title} onChange={e => setTitle(e.target.value)} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Type *</label>
+                <CustomSelect value={type} onChange={setType} options={FORMAT_OPTIONS.filter(o => o.value !== 'all')} className="bg-[var(--bg-base)]" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Statut *</label>
+                <CustomSelect value={status} onChange={setStatus} options={STATUS_OPTIONS.filter(o => o.value !== '')} className="bg-[var(--bg-base)]" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Total Épisodes / Pages</label>
+                <Input type="number" min="1" placeholder="Optionnel" value={totalEpisodes} onChange={e => setTotalEpisodes(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Durée (minutes)</label>
+                <Input type="number" min="1" placeholder="Optionnel" value={runtime} onChange={e => setRuntime(e.target.value)} />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Lien de l'image (Cover URL)</label>
+              <Input type="url" placeholder="https://..." value={coverUrl} onChange={e => setCoverUrl(e.target.value)} />
+            </div>
+
+            <div className="pt-4">
+              <Button type="submit" className="w-full !py-3.5" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Ajouter à ma bibliothèque'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -462,19 +578,14 @@ const DetailModal: React.FC<{
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
-      // FIX DU CACHE DE 24H SUPPRIMÉ : L'application recherchera
-      // TOUJOURS les infos fraîches à l'ouverture du modal pour éviter l'écran vide
       const freshData = await revalidateMediaDetails(item);
       if (freshData) {
         setLocalData(prev => ({ ...prev, ...freshData }));
-        // Note: Nous ne sauvegardons PLUS `freshData` en entier dans Supabase ici car
-        // `genres`, `creator`, etc. n'y existent pas par défaut et font crasher l'update silencieusement.
       }
     };
     checkAndRevalidate();
   }, [item.id, trackedItem?.id]);
 
-  
 
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
@@ -554,7 +665,7 @@ const DetailModal: React.FC<{
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = String(localData.description || 'Description en cours de chargement...');
   const year = String(localData.year || 'Année inconnue');
-  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status));
+  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status, localData.source));
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
@@ -922,8 +1033,8 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 // COMPOSANT EXPLORER (SEARCH)
 // ============================================================================
 const DiscoverySearch: React.FC<{
-  userLibrary: LibraryItem[], setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
-}> = ({ userLibrary, setSelectedMedia, onToggleFavorite }) => {
+  user: UserData, fetchLibrary: () => void, userLibrary: LibraryItem[], setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
+}> = ({ user, fetchLibrary, userLibrary, setSelectedMedia, onToggleFavorite }) => {
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 600);
   const [results, setResults] = useState<MediaItem[]>([]);
@@ -935,6 +1046,8 @@ const DiscoverySearch: React.FC<{
   const [upcoming, setUpcoming] = useState<MediaItem[]>([]);
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
+
+  const [showManualAdd, setShowManualAdd] = useState(false);
 
   useEffect(() => {
     if (debouncedQuery) return;
@@ -1010,7 +1123,12 @@ const DiscoverySearch: React.FC<{
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex-grow"><Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus /></div>
+        <div className="flex-grow flex gap-2">
+          <Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus />
+          <Button onClick={() => setShowManualAdd(true)} variant="secondary" className="shrink-0 !px-4 border border-[var(--border-color)]" title="Ajout Manuel">
+            <Plus size={20} /> <span className="hidden md:inline">Ajout Manuel</span>
+          </Button>
+        </div>
         <div className="flex gap-3">
           <div className="shrink-0 flex-1 sm:w-48"><CustomSelect value={String(filter)} onChange={setFilter} options={FORMAT_OPTIONS} className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)]" /></div>
           <div onClick={() => setLocalShowNSFW(!localShowNSFW)} className="flex items-center justify-center gap-3 shrink-0 bg-[var(--panel-bg)] border border-[var(--border-color)] px-4 rounded-xl cursor-pointer hover:bg-[var(--bg-base)] transition-colors" title="Afficher le contenu pour adultes">
@@ -1058,7 +1176,17 @@ const DiscoverySearch: React.FC<{
       )}
 
       {debouncedQuery && filteredResults.length === 0 && !loading && (
-        <div className="text-center py-20 text-[var(--text-muted)]"><BookOpen className="mx-auto mb-6 opacity-30" size={64} /><p className="text-lg font-medium">Aucun résultat pour "{debouncedQuery}"</p></div>
+        <div className="text-center py-20 text-[var(--text-muted)] flex flex-col items-center">
+          <BookOpen className="mb-6 opacity-30" size={64} />
+          <p className="text-lg font-medium mb-4">Aucun résultat pour "{debouncedQuery}"</p>
+          <Button onClick={() => setShowManualAdd(true)} variant="secondary" className="border border-[var(--border-color)]">
+            <Plus size={18} /> Ajouter manuellement à ma liste
+          </Button>
+        </div>
+      )}
+
+      {showManualAdd && (
+        <ManualAddModal user={user} fetchLibrary={fetchLibrary} onClose={() => setShowManualAdd(false)} />
       )}
     </div>
   );
@@ -1280,10 +1408,8 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
                 <button
                   onClick={() => {
                     const mail = email || "[MON ADRESSE EMAIL]";
-                    // Encodage URI pour éviter les bugs Android / Outlook / Mail
                     const subject = encodeURIComponent("Akasha - Mot de passe oublié");
                     const body = encodeURIComponent(`Bonjour, j'ai oublié mon mot de passe. Mon compte est : ${mail}`);
-                    // Remplacer "contactwanspace@gmail.com" par TA VRAIE adresse, en ne laissant qu'un seul "@gmail.com"
                     window.location.href = `mailto:contactwanspace@gmail.com?subject=${subject}&body=${body}`;
                   }}
                   className="text-[11px] font-bold text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
@@ -1458,7 +1584,7 @@ export default function App() {
           </div>
         )}
 
-        {currentTab === 'search' && <DiscoverySearch userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
+        {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
         {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} />}
         {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />}
       </main>
