@@ -1675,9 +1675,9 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [lang, setLang] = useState<Lang>('fr');
 
-//  const t = useCallback((key: string) => {
-//    return DICTIONARY[key]?.[lang] || key;
-//  }, [lang]);
+  const t = useCallback((key: string) => {
+    return DICTIONARY[key]?.[lang] || key;
+  }, [lang]);
 
   const filteredLibrary = userLibrary.filter(item => {
     if (activeFilter === 'reminders') return item.reminder_day !== null && item.reminder_time !== null;
