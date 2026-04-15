@@ -3,8 +3,6 @@ import React, { useState, useEffect, useCallback, useMemo, useRef, createContext
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?bundle';
-import HCaptcha from 'https://esm.sh/@hcaptcha/react-hcaptcha@1.11.0?bundle';
 
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
@@ -54,7 +52,7 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION ENVIRONNEMENT
 // ============================================================================
-const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
+//const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
 
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
@@ -168,7 +166,7 @@ const WEEK_DAYS = [
 // ============================================================================
 // UTILS & CACHE
 // ============================================================================
-const apiCache = new Map<string, MediaItem[]>();
+//const apiCache = new Map<string, MediaItem[]>();
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -1162,7 +1160,7 @@ const DiscoverySearch: React.FC<{
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
 
-  const [showManualAdd, setShowManualAdd] = useState(false);
+//  const [showManualAdd, setShowManualAdd] = useState(false);
 
   useEffect(() => {
     if (debouncedQuery) return;
