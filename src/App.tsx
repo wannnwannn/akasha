@@ -50,7 +50,7 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION ENVIRONNEMENT
 // ============================================================================
-const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
+//const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
 
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
@@ -165,7 +165,7 @@ const WEEK_DAYS = [
 // ============================================================================
 // UTILS & CACHE
 // ============================================================================
-const apiCache = new Map<string, MediaItem[]>();
+//const apiCache = new Map<string, MediaItem[]>();
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -1158,7 +1158,7 @@ const DiscoverySearch: React.FC<{
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
 
-//  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [showManualAdd, setShowManualAdd] = useState(false);
 
   useEffect(() => {
     if (debouncedQuery) return;
@@ -1675,9 +1675,9 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [lang, setLang] = useState<Lang>('fr');
 
-  const t = useCallback((key: string) => {
-    return DICTIONARY[key]?.[lang] || key;
-  }, [lang]);
+//  const t = useCallback((key: string) => {
+//    return DICTIONARY[key]?.[lang] || key;
+//  }, [lang]);
 
   const filteredLibrary = userLibrary.filter(item => {
     if (activeFilter === 'reminders') return item.reminder_day !== null && item.reminder_time !== null;
