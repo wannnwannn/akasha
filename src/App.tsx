@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
+// IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
+
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3?bundle';
+import HCaptcha from 'https://esm.sh/@hcaptcha/react-hcaptcha@1.11.0?bundle';
 
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
@@ -50,14 +54,13 @@ const GlobalStyles = () => (
 // ============================================================================
 // CONFIGURATION ENVIRONNEMENT
 // ============================================================================
-//const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
+const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
 
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
 const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 const HCAPTCHA_SITE_KEY = String(import.meta.env.VITE_HCAPTCHA_SITE_KEY || '');
-
 
 if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_VRAIE_URL_SUPABASE') {
   console.error("ARRÊT CRITIQUE : Tu n'as pas entré tes vraies clés Supabase.");
@@ -165,7 +168,7 @@ const WEEK_DAYS = [
 // ============================================================================
 // UTILS & CACHE
 // ============================================================================
-//const apiCache = new Map<string, MediaItem[]>();
+const apiCache = new Map<string, MediaItem[]>();
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -173,6 +176,7 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
+// Moteur de calcul de la prochaine occurrence d'un rappel
 function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: string | undefined | null): Date | null {
   if (!reminderJsonStr || !timeStr) return null;
   try {
@@ -1145,7 +1149,7 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 const DiscoverySearch: React.FC<{
   user: UserData, fetchLibrary: () => void, userLibrary: LibraryItem[], setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
 }> = ({ user, fetchLibrary, userLibrary, setSelectedMedia, onToggleFavorite }) => {
-  const { t, lang } = useContext(LangContext);
+  const { lang } = useContext(LangContext);
   const [query, setQuery] = useState('');
   const debouncedQuery = useDebounce(query, 400);
   const [results, setResults] = useState<MediaItem[]>([]);
