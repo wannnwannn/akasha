@@ -1,19 +1,15 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-// IMPORT POUR VERCEL/LOCAL : Décommentez ces lignes dans votre vrai projet et supprimez celles avec "esm.sh"
+import React, { useState, useEffect, useCallback, useMemo, useRef, createContext, useContext } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import HCaptcha from '@hcaptcha/react-hcaptcha';
-
-// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-// import HCaptcha from 'https://esm.sh/@hcaptcha/react-hcaptcha@1.11.0';
 
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages
 } from 'lucide-react';
 
 // ============================================================================
-// STYLES GLOBAUX (VARIABLES DE THÈME & SCROLLBARS)
+// STYLES GLOBAUX
 // ============================================================================
 const GlobalStyles = () => (
   <style>{`
@@ -28,7 +24,6 @@ const GlobalStyles = () => (
       --primary-hover: #7a0011;
       --shadow-color: rgba(79, 0, 11, 0.15);
     }
-
     .dark {
       --bg-base: #2a2a2a;
       --panel-bg: #333333;
@@ -40,31 +35,21 @@ const GlobalStyles = () => (
       --primary-hover: #e05268;
       --shadow-color: rgba(206, 66, 87, 0.25);
     }
-
-    body {
-      background-color: var(--bg-base);
-      color: var(--text-main);
-    }
-
+    body { background-color: var(--bg-base); color: var(--text-main); }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg-base); }
     ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
     * { scrollbar-width: thin; scrollbar-color: var(--border-color) var(--bg-base); }
-
     .custom-scrollbar::-webkit-scrollbar { height: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; margin-inline: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--primary); }
   `}</style>
 );
 
 // ============================================================================
-// CONFIGURATION
+// CONFIGURATION ENVIRONNEMENT
 // ============================================================================
-// Note: Remplacées par les variables brutes ici pour l'aperçu Canvas.
-// Dans Vercel, utilisez bien "import.meta.env.VITE_TMDB_API_KEY" etc.
-// @ts-ignore : Tolérance pour le compilateur sur l'environnement d'aperçu
 const getEnv = (key: string) => { try { return import.meta.env[key] || ''; } catch { return ''; } };
 
 const TMDB_API_KEY = String(import.meta.env.VITE_TMDB_API_KEY || '');
@@ -88,6 +73,50 @@ function urlBase64ToUint8Array(base64String: string) {
   for (let i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
   return outputArray;
 }
+
+// ============================================================================
+// SYSTÈME DE TRADUCTION (i18n Dictionnaire Local)
+// ============================================================================
+type Lang = 'fr' | 'en';
+const LangContext = createContext<{ lang: Lang, setLang: (l: Lang) => void, t: (key: string) => string }>({ lang: 'fr', setLang: () => {}, t: () => '' });
+
+const DICTIONARY: Record<string, Record<Lang, string>> = {
+  "nav_library": { fr: "Ma Liste", en: "My List" },
+  "nav_explore": { fr: "Explorer", en: "Explore" },
+  "nav_profile": { fr: "Profil", en: "Profile" },
+  "nav_ranking": { fr: "Classement", en: "Ranking" },
+
+  "auth_title": { fr: "Votre mémoire culturelle.", en: "Your cultural memory." },
+  "auth_email": { fr: "Adresse email", en: "Email address" },
+  "auth_password": { fr: "Mot de passe", en: "Password" },
+  "auth_login": { fr: "Se connecter", en: "Sign in" },
+  "auth_register": { fr: "Créer un compte", en: "Create account" },
+  "auth_forgot": { fr: "Mot de passe oublié ? (par mail)", en: "Forgot password? (via email)" },
+  "auth_switch_to_login": { fr: "J'ai déjà un compte", en: "I already have an account" },
+  "auth_copyright": { fr: "Distribué sous licence AGPL-3.0.", en: "Distributed under AGPL-3.0 license." },
+  "auth_legal": { fr: "Mentions Légales & CGU", en: "Legal Notice & TOS" },
+
+  "status_favorites": { fr: "Favoris", en: "Favorites" },
+  "status_watching": { fr: "En cours", en: "Watching" },
+  "status_planning": { fr: "À voir", en: "Plan to watch" },
+  "status_completed": { fr: "Terminés", en: "Completed" },
+  "status_onhold": { fr: "En pause", en: "On Hold" },
+  "status_reminders": { fr: "Rappels", en: "Reminders" },
+
+  "type_all": { fr: "Tous les formats", en: "All formats" },
+  "type_movie": { fr: "Films", en: "Movies" },
+  "type_tv": { fr: "Séries", en: "TV Shows" },
+  "type_anime": { fr: "Animes", en: "Anime" },
+  "type_manga": { fr: "Mangas", en: "Manga" },
+  "type_webtoon": { fr: "Webtoons", en: "Webtoons" },
+  "type_book": { fr: "Livres", en: "Books" },
+
+  "profile_logout": { fr: "Déconnexion", en: "Log out" },
+  "profile_delete": { fr: "Supprimer mon compte (Action irréversible)", en: "Delete my account (Irreversible)" },
+  "profile_added": { fr: "Ajoutés", en: "Added" },
+  "profile_finished": { fr: "Terminés", en: "Finished" },
+  "profile_watchtime": { fr: "Visionnage", en: "Watch time" },
+};
 
 // ============================================================================
 // TYPES & INTERFACES
@@ -144,7 +173,6 @@ function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Moteur de calcul de la prochaine occurrence d'un rappel
 function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: string | undefined | null): Date | null {
   if (!reminderJsonStr || !timeStr) return null;
   try {
@@ -183,11 +211,12 @@ function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: 
 }
 
 // ============================================================================
-// SERVICES API (Raccourcis)
+// SERVICES API
 // ============================================================================
-const fetchTMDB = async (query: string): Promise<MediaItem[]> => {
+const fetchTMDB = async (query: string, lang: Lang): Promise<MediaItem[]> => {
   if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
-  const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=fr-FR&include_adult=true`);
+  const apiLang = lang === 'fr' ? 'fr-FR' : 'en-US';
+  const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=${apiLang}&include_adult=true`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
@@ -248,14 +277,14 @@ const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
     }));
   } catch (error) {
     clearTimeout(timeoutId);
-    // Si l'API crashe ou met trop de temps (timeout), on l'ignore silencieusement
     return [];
   }
 };
 
-const fetchTrendingTMDB = async (): Promise<MediaItem[]> => {
+const fetchTrendingTMDB = async (lang: Lang): Promise<MediaItem[]> => {
   if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
-  const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}&language=fr-FR`);
+  const apiLang = lang === 'fr' ? 'fr-FR' : 'en-US';
+  const res = await fetch(`https://api.themoviedb.org/3/trending/all/week?api_key=${TMDB_API_KEY}&language=${apiLang}`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
@@ -274,14 +303,14 @@ const mapStatusToLabel = (status: string | undefined) => {
   return "Statut inconnu";
 };
 
-const revalidateMediaDetails = async (item: MediaItem | LibraryItem): Promise<Partial<LibraryItem> | null> => {
-  // Si c'est un ajout manuel, on ne contacte surtout pas les API externes
+const revalidateMediaDetails = async (item: MediaItem | LibraryItem, lang: Lang): Promise<Partial<LibraryItem> | null> => {
   if (item.source === 'manual') return null;
-
   const targetId = 'media_id' in item ? item.media_id : item.id;
+  const apiLang = lang === 'fr' ? 'fr-FR' : 'en-US';
+
   try {
     if (item.source === 'tmdb') {
-      const res = await fetch(`https://api.themoviedb.org/3/${item.type}/${targetId}?api_key=${TMDB_API_KEY}&language=fr-FR&append_to_response=credits`);
+      const res = await fetch(`https://api.themoviedb.org/3/${item.type}/${targetId}?api_key=${TMDB_API_KEY}&language=${apiLang}&append_to_response=credits`);
       if (!res.ok) return null;
       const data = await res.json();
       let creator = null;
@@ -362,14 +391,15 @@ const AkashaLogo: React.FC<{ size?: number, className?: string }> = ({ size = 24
 );
 
 const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
+  const { t } = useContext(LangContext);
   const config: Record<string, { color: string, icon: any, label: string }> = {
-    movie: { color: 'bg-rose-500/20 text-rose-500 border border-rose-500/20', icon: Film, label: 'Film' },
-    tv: { color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20', icon: Tv, label: 'Série' },
-    anime: { color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20', icon: PlayCircle, label: 'Anime' },
-    manga: { color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/20', icon: BookOpen, label: 'Manga' },
-    webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: 'Webtoon' },
-    book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: 'Livre' },
-    manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: 'Manuel' }
+    movie: { color: 'bg-rose-500/20 text-rose-500 border border-rose-500/20', icon: Film, label: t('type_movie') },
+    tv: { color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20', icon: Tv, label: t('type_tv') },
+    anime: { color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20', icon: PlayCircle, label: t('type_anime') },
+    manga: { color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/20', icon: BookOpen, label: t('type_manga') },
+    webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: t('type_webtoon') },
+    book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: t('type_book') },
+    manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: 'Manual' }
   };
   const current = config[type] || config.movie;
   const Icon = current.icon;
@@ -382,11 +412,7 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
 
   if (!isEditing) {
     return (
-      <div
-        className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] cursor-pointer hover:text-[var(--primary)] group py-1"
-        onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-        title="Modifier le total d'épisodes"
-      >
+      <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] cursor-pointer hover:text-[var(--primary)] group py-1" onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} title="Modifier le total d'épisodes">
         <span>{item.progress} / {item.total_episodes ? item.total_episodes : '?'}</span>
         <Edit2 size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
@@ -396,20 +422,7 @@ const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, tota
   return (
     <div className="flex items-center gap-1 py-1" onClick={e => e.stopPropagation()}>
       <span className="text-xs font-mono text-[var(--text-muted)]">{item.progress} /</span>
-      <input
-        autoFocus
-        type="number"
-        min={item.progress}
-        className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center"
-        value={value}
-        onChange={e => setValue(e.target.value)}
-        onBlur={() => {
-          setIsEditing(false);
-          const parsed = parseInt(value, 10);
-          onSave(item.id, isNaN(parsed) ? null : parsed);
-        }}
-        onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
-      />
+      <input autoFocus type="number" min={item.progress} className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-[var(--primary)] rounded px-1 outline-none text-center" value={String(value)} onChange={e => setValue(e.target.value)} onBlur={() => { setIsEditing(false); onSave(item.id, isNaN(parseInt(String(value), 10)) ? null : parseInt(String(value), 10)); }} onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()} />
     </div>
   );
 };
@@ -564,11 +577,11 @@ const DetailModal: React.FC<{
   onLibraryUpdate?: (id: string, updates: Partial<LibraryItem>) => void, user?: UserData, fetchLibrary?: () => void, userLibrary?: LibraryItem[]
 }> = ({ item, onClose, trackedItem, onLibraryUpdate, user, fetchLibrary, userLibrary = [] }) => {
 
+  const { lang } = useContext(LangContext);
   const [localData, setLocalData] = useState(item as LibraryItem);
   const [isActing, setIsActing] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
-  // Édition d'image manuelle
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [editCoverUrl, setEditCoverUrl] = useState('');
 
@@ -600,9 +613,8 @@ const DetailModal: React.FC<{
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
-      const freshData = await revalidateMediaDetails(item);
+      const freshData = await revalidateMediaDetails(item, lang);
       if (freshData) {
-        // BOUCLIER DE PRIORITÉ : Si l'utilisateur a personnalisé ces valeurs, on bloque l'écrasement par l'API
         if (trackedItem && trackedItem.runtime) delete freshData.runtime;
         if (trackedItem && trackedItem.total_episodes) delete freshData.total_episodes;
 
@@ -610,7 +622,7 @@ const DetailModal: React.FC<{
       }
     };
     checkAndRevalidate();
-  }, [item.id, trackedItem?.id]);
+  }, [item.id, trackedItem?.id, lang]);
 
 //  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
 
@@ -647,7 +659,6 @@ const DetailModal: React.FC<{
     if (!user || !fetchLibrary) return;
     setIsActing(true);
 
-    // LOGIQUE D'AUTO-COMPLÉTION DE LA PROGRESSION
     let progressToSet: number | undefined = undefined;
     if (status === 'completed' && normalizedTotal) {
       progressToSet = normalizedTotal;
@@ -659,7 +670,6 @@ const DetailModal: React.FC<{
         updated_at: new Date().toISOString()
       };
 
-      // Si on marque comme terminé et qu'on connait le total, on met au max
       if (progressToSet !== undefined) {
         updates.progress = progressToSet;
       }
@@ -675,7 +685,7 @@ const DetailModal: React.FC<{
         cover_url: 'cover' in localData ? localData.cover : localData.cover_url,
         type: localData.type,
         status: status,
-        progress: progressToSet || 0, // Met la progression à 0, SAUF si ajouté direct en "Terminé"
+        progress: progressToSet || 0,
         description: localData.description,
         year: localData.year?.toString(),
         total_episodes: normalizedTotal || null,
@@ -1007,7 +1017,8 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 // COMPOSANT CLASSEMENT (NOUVEAU)
 // ============================================================================
 const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, updates: Partial<LibraryItem>) => void, onSelect: (m: LibraryItem) => void }> = ({ items, onUpdate, onSelect }) => {
-  const [filterType, setFilterType] = useState<string>('anime'); // Par défaut on affiche un type précis pour que le classement ait du sens
+  const { t } = useContext(LangContext);
+  const [filterType, setFilterType] = useState<string>('anime');
   const [isSwapping, setIsSwapping] = useState(false);
 
   // On récupère uniquement les éléments classés (ayant un rating) et on filtre par type
@@ -1060,7 +1071,7 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
       <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
-            <Trophy className="text-amber-500" /> Mon Classement
+            <Trophy className="text-amber-500" /> {t('nav_ranking')}
           </h2>
           <p className="text-sm text-[var(--text-muted)] mt-1">Organisez vos œuvres préférées.</p>
         </div>
@@ -1134,8 +1145,9 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 const DiscoverySearch: React.FC<{
   user: UserData, fetchLibrary: () => void, userLibrary: LibraryItem[], setSelectedMedia: (m: MediaItem | LibraryItem) => void, onToggleFavorite: (id: string, currentFav: boolean) => void
 }> = ({ user, fetchLibrary, userLibrary, setSelectedMedia, onToggleFavorite }) => {
+  const { t, lang } = useContext(LangContext);
   const [query, setQuery] = useState('');
-  const debouncedQuery = useDebounce(query, 600);
+  const debouncedQuery = useDebounce(query, 400);
   const [results, setResults] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<string>('all');
@@ -1153,7 +1165,7 @@ const DiscoverySearch: React.FC<{
     const loadFeeds = async () => {
       setLoadingFeeds(true);
       try {
-        const tmdbs = await fetchTrendingTMDB(); setTrending(tmdbs);
+        const tmdbs = await fetchTrendingTMDB(lang); setTrending(tmdbs);
         const upcs = await fetchAniList('', true); setUpcoming(upcs);
         const { data, error } = await supabase.from('user_media').select('*').order('created_at', { ascending: false }).limit(15);
         if (error) console.error(error);
@@ -1165,27 +1177,61 @@ const DiscoverySearch: React.FC<{
       finally { setLoadingFeeds(false); }
     };
     loadFeeds();
-  }, [debouncedQuery]);
+  }, [debouncedQuery, lang]);
 
   useEffect(() => {
-    if (!debouncedQuery) { setResults([]); return; }
-    const searchAll = async () => {
-      setLoading(true);
-      if (apiCache.has(debouncedQuery)) { setResults(apiCache.get(debouncedQuery)!); setLoading(false); return; }
-      try {
-        const [tmdbRes, aniRes, shikiRes, olRes] = await Promise.allSettled([ fetchTMDB(debouncedQuery), fetchAniList(debouncedQuery), fetchShikimori(debouncedQuery), fetchOpenLibrary(debouncedQuery) ]);
-        let combined: MediaItem[] = [];
-        if (tmdbRes.status === 'fulfilled') combined.push(...tmdbRes.value);
-        if (aniRes.status === 'fulfilled') combined.push(...aniRes.value);
-        if (shikiRes.status === 'fulfilled') combined.push(...shikiRes.value);
-        if (olRes.status === 'fulfilled') combined.push(...olRes.value);
-        combined.sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
-        apiCache.set(debouncedQuery, combined);
-        setResults(combined);
-      } finally { setLoading(false); }
+    if (!debouncedQuery) {
+      setResults([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setLoading(true);
+
+    // 1. RECHERCHE LOCALE (Zero-Latency)
+    const localQ = debouncedQuery.toLowerCase();
+    const localResults = userLibrary.filter(item => {
+      if (filter !== 'all' && item.type !== filter) return false;
+      return item.title.toLowerCase().includes(localQ) || item.description?.toLowerCase().includes(localQ);
+    }).map(item => ({
+      id: item.media_id, source: item.source as any, title: item.title, cover: item.cover_url,
+      type: item.type as any, year: item.year || 'N/A', description: item.description || '',
+      totalEpisodes: item.total_episodes, isAiring: item.isAiring, isAdult: item.isAdult
+    }));
+
+    setResults(localResults);
+
+    const pushResults = (newItems: MediaItem[]) => {
+      if (isCancelled || !newItems || newItems.length === 0) return;
+      setResults(prev => {
+        const map = new Map();
+        const validNewItems = newItems.filter(i => filter === 'all' || i.type === filter);
+        [...prev, ...validNewItems].forEach(item => map.set(`${item.source}-${item.id}`, item));
+        return Array.from(map.values()).sort((a, b) => (Number(b.year) || 0) - (Number(a.year) || 0));
+      });
     };
-    searchAll();
-  }, [debouncedQuery]);
+
+    const promises = [];
+
+    if (filter === 'all' || filter === 'movie' || filter === 'tv') {
+      promises.push(fetchTMDB(debouncedQuery, lang).then(pushResults).catch(() => {}));
+    }
+    if (filter === 'all' || filter === 'anime') {
+      promises.push(fetchAniList(debouncedQuery).then(pushResults).catch(() => {}));
+    }
+    if (filter === 'all' || filter === 'manga' || filter === 'webtoon') {
+      promises.push(fetchShikimori(debouncedQuery).then(pushResults).catch(() => {}));
+    }
+    if (filter === 'all' || filter === 'book') {
+      promises.push(fetchOpenLibrary(debouncedQuery).then(pushResults).catch(() => {}));
+    }
+
+    Promise.allSettled(promises).finally(() => {
+      if (!isCancelled) setLoading(false);
+    });
+
+    return () => { isCancelled = true; };
+  }, [debouncedQuery, filter, userLibrary, lang]);
 
   const renderCarousel = (title: string, items: (MediaItem | LibraryItem)[]) => {
     if (items.length === 0) return null;
@@ -1238,8 +1284,11 @@ const DiscoverySearch: React.FC<{
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 flex flex-col sm:flex-row gap-3 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 sm:top-2">
-        <div className="flex-grow">
+        <div className="flex-grow flex gap-2">
           <Input icon={Search} placeholder="Films, Animes, Livres..." value={String(query)} onChange={e => setQuery(e.target.value)} autoFocus />
+          <Button onClick={() => setShowManualAdd(true)} variant="secondary" className="shrink-0 !px-4 border border-[var(--border-color)]" title="Ajout Manuel">
+            <Plus size={20} /> <span className="hidden md:inline">Ajout Manuel</span>
+          </Button>
         </div>
 
         <div className="flex gap-3">
@@ -1265,7 +1314,7 @@ const DiscoverySearch: React.FC<{
         </div>
       </div>
 
-      {loading && <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[var(--primary)]" size={40} /></div>}
+      {loading && <div className="flex justify-center py-8"><Loader2 className="animate-spin text-[var(--primary)]" size={32} /></div>}
       {!debouncedQuery && loadingFeeds && <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[var(--primary)]" size={40} /></div>}
 
       {!debouncedQuery && !loadingFeeds && (
@@ -1274,7 +1323,6 @@ const DiscoverySearch: React.FC<{
           {renderCarousel("Prochaines Sorties", upcoming)}
           {community.length > 0 && renderCarousel("Découvertes Communautaires", community)}
 
-          {/* AJOUT MANUEL EN BASE DE L'ACCUEIL */}
           <ManualAddForm user={user} fetchLibrary={fetchLibrary} />
         </div>
       )}
@@ -1294,7 +1342,6 @@ const DiscoverySearch: React.FC<{
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
-                  {/* Bouton Favori dans la recherche (Seulement si tracké) */}
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                       <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
@@ -1335,6 +1382,17 @@ const DiscoverySearch: React.FC<{
         </div>
       )}
 
+      {/* AFFICHAGE DES CRÉDITS API */}
+      <div className="text-center opacity-50 py-10 pointer-events-none select-none flex flex-col items-center gap-2">
+         <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Data provided by</p>
+         <div className="flex justify-center gap-6 items-center text-[var(--text-muted)] font-bold text-xs">
+           <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" alt="TMDB" className="h-3 opacity-60" />
+           <span>AniList</span>
+           <span>Shikimori</span>
+           <span>OpenLibrary</span>
+         </div>
+      </div>
+
     </div>
   );
 };
@@ -1361,6 +1419,7 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
 // COMPOSANT PROFIL
 // ============================================================================
 const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking }) => {
+  const { t } = useContext(LangContext);
   const totalAdded = library.length;
   const totalCompleted = library.filter(i => i.status === 'completed').length;
   const totalEpisodesWatched = library.reduce((acc, item) => acc + (item.progress || 0), 0);
@@ -1436,11 +1495,11 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
           <div className="w-20 h-20 bg-[var(--bg-base)] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[var(--border-color)] shadow-xl text-[var(--primary)]">
             <User size={32} />
           </div>
-          <h2 className="text-2xl font-black text-[var(--text-main)]">Profil</h2>
+          <h2 className="text-2xl font-black text-[var(--text-main)]">{t('nav_profile')}</h2>
           <p className="text-[var(--text-muted)] font-medium mt-1 mb-4">{String(user.email || "")}</p>
 
           <Button onClick={onOpenRanking} className="mx-auto !px-6 !py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-lg shadow-orange-500/20">
-            <Trophy size={18}/> Mon classement
+            <Trophy size={18}/> {t('nav_ranking')}
           </Button>
         </div>
 
@@ -1479,14 +1538,14 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-10">
-          <div className="bg-blue-500/10 border border-blue-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-blue-500 text-white rounded-lg sm:rounded-xl"><FolderHeart className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalAdded}</p><p className="text-[9px] sm:text-xs font-bold text-blue-500 uppercase tracking-wider mt-1 truncate">Ajoutés</p></div></div>
-          <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl"><Check className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalCompleted}</p><p className="text-[9px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1 truncate">Terminés</p></div></div>
-          <div className="bg-rose-500/10 border border-rose-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-rose-500 text-white rounded-lg sm:rounded-xl"><Clock className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{watchTimeHours}<span className="text-xs sm:text-sm">h</span></p><p className="text-[9px] sm:text-xs font-bold text-rose-500 uppercase tracking-wider mt-1 truncate">Visionnage</p></div></div>
+          <div className="bg-blue-500/10 border border-blue-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-blue-500 text-white rounded-lg sm:rounded-xl"><FolderHeart className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalAdded}</p><p className="text-[9px] sm:text-xs font-bold text-blue-500 uppercase tracking-wider mt-1 truncate">{t('profile_added')}</p></div></div>
+          <div className="bg-emerald-500/10 border border-emerald-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-emerald-500 text-white rounded-lg sm:rounded-xl"><Check className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalCompleted}</p><p className="text-[9px] sm:text-xs font-bold text-emerald-500 uppercase tracking-wider mt-1 truncate">{t('profile_finished')}</p></div></div>
+          <div className="bg-rose-500/10 border border-rose-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-rose-500 text-white rounded-lg sm:rounded-xl"><Clock className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{watchTimeHours}<span className="text-xs sm:text-sm">h</span></p><p className="text-[9px] sm:text-xs font-bold text-rose-500 uppercase tracking-wider mt-1 truncate">{t('profile_watchtime')}</p></div></div>
           <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl flex items-center gap-2 sm:gap-4"><div className="p-2 sm:p-3 bg-amber-500 text-white rounded-lg sm:rounded-xl"><PlayCircle className="w-5 h-5 sm:w-6 sm:h-6"/></div><div className="min-w-0"><p className="text-lg sm:text-2xl font-black text-[var(--text-main)] leading-none truncate">{totalEpisodesWatched}</p><p className="text-[9px] sm:text-xs font-bold text-amber-500 uppercase tracking-wider mt-1 truncate">Ép./Chap.</p></div></div>
         </div>
 
         <div className="mb-6"><label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label><CustomSelect value={String(userTz)} onChange={handleTzChange} options={timezones} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]" /><p className="text-[10px] text-[var(--text-muted)] mt-2 italic">Définit l'heure d'envoi matinale de vos emails de rappels.</p></div>
-        <div className="space-y-3 pt-6 border-t border-[var(--border-color)]"><Button variant="secondary" className="w-full !py-3" onClick={onLogout}><LogOut size={18} /> Déconnexion</Button><button onClick={onDelete} className="w-full py-3 text-xs font-bold text-[var(--text-muted)] hover:text-red-500 transition-colors">Supprimer mon compte (Action irréversible)</button></div>
+        <div className="space-y-3 pt-6 border-t border-[var(--border-color)]"><Button variant="secondary" className="w-full !py-3" onClick={onLogout}><LogOut size={18} /> {t('profile_logout')}</Button><button onClick={onDelete} className="w-full py-3 text-xs font-bold text-[var(--text-muted)] hover:text-red-500 transition-colors">{t('profile_delete')}</button></div>
       </div>
     </div>
   );
@@ -1496,6 +1555,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 // COMPOSANT AUTHENTIFICATION
 // ============================================================================
 const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) => {
+  const { t } = useContext(LangContext);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -1540,28 +1600,26 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
   };
 
   return (
-    <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4 flex-col">
+      <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl relative overflow-hidden z-10">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-[var(--primary)] to-amber-500" />
-        <div className="text-center mb-10"><div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"><AkashaLogo size={48} /></div><h1 className="text-3xl font-black text-[var(--text-main)] tracking-tight uppercase">Akasha</h1><p className="text-[var(--text-muted)] font-medium mt-2">Votre mémoire culturelle.</p></div>
+        <div className="text-center mb-10"><div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"><AkashaLogo size={48} /></div><h1 className="text-3xl font-black text-[var(--text-main)] tracking-tight uppercase">Akasha</h1><p className="text-[var(--text-muted)] font-medium mt-2">{t('auth_title')}</p></div>
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
         <div className="space-y-4">
-          <Input type="email" placeholder="Adresse email" value={email} onChange={e => setEmail(e.target.value)} />
+          <Input type="email" placeholder={t('auth_email')} value={email} onChange={e => setEmail(e.target.value)} />
 
           <div className="space-y-1.5">
-            <Input type="password" placeholder="Mot de passe" value={password} onChange={e => setPassword(e.target.value)} />
+            <Input type="password" placeholder={t('auth_password')} value={password} onChange={e => setPassword(e.target.value)} />
             {!isRegistering && (
               <div className="flex justify-end pr-2">
                 <button
                   onClick={() => {
                     const mail = email || "[MON ADRESSE EMAIL]";
-                    const subject = encodeURIComponent("Akasha - Mot de passe oublié");
-                    const body = encodeURIComponent(`Bonjour, j'ai oublié mon mot de passe. Mon compte est : ${mail}`);
-                    window.location.href = `mailto:contactwanspace@gmail.com?subject=${subject}&body=${body}`;
+                    window.location.href = `mailto:contactwanspace@gmail.com?subject=Akasha%20-%20Mot%20de%20passe%20oublié&body=Bonjour,%20j'ai%20oublié%20mon%20mot%20de%20passe.%20Mon%20compte%20est%20:%20${mail}`;
                   }}
                   className="text-[11px] font-bold text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
                 >
-                  Mot de passe oublié ?
+                  {t('auth_forgot')}
                 </button>
               </div>
             )}
@@ -1580,20 +1638,30 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
 
           <div className="pt-6 flex flex-col gap-3">
             <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '')}>
-              {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? 'Créer mon compte' : 'Se connecter')}
+              {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? t('auth_register') : t('auth_login'))}
             </Button>
             <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); if(captchaRef.current) captchaRef.current.resetCaptcha(); }} disabled={loading}>
-              {isRegistering ? 'J\'ai déjà un compte' : 'Créer un compte'}
+              {isRegistering ? t('auth_switch_to_login') : t('auth_register')}
             </Button>
           </div>
         </div>
+      </div>
+
+      {/* COPYRIGHT & LÉGAL */}
+      <div className="mt-8 text-center text-xs text-[var(--text-muted)] space-y-4 max-w-sm z-0">
+        <p>© {new Date().getFullYear()} Akasha Tracker. {t('auth_copyright')}</p>
+        <div className="flex justify-center gap-4 items-center opacity-40 grayscale">
+          <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" alt="TMDB" className="h-3" />
+        </div>
+        <p className="opacity-60 text-[10px]">This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+        <a href="/legal.html" target="_blank" className="inline-block underline hover:text-[var(--text-main)] transition-colors">{t('auth_legal')}</a>
       </div>
     </div>
   );
 };
 
 // ============================================================================
-// APPLICATION PRINCIPALE
+// APPLICATION PRINCIPALE (RACINE ET CONTEXTE)
 // ============================================================================
 export default function App() {
   const [user, setUser] = useState<UserData | null>(null);
@@ -1605,6 +1673,11 @@ export default function App() {
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | LibraryItem | null>(null);
   const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [lang, setLang] = useState<Lang>('fr');
+
+  const t = useCallback((key: string) => {
+    return DICTIONARY[key]?.[lang] || key;
+  }, [lang]);
 
   const filteredLibrary = userLibrary.filter(item => {
     if (activeFilter === 'reminders') return item.reminder_day !== null && item.reminder_time !== null;
@@ -1624,22 +1697,13 @@ export default function App() {
 
   const fetchLibrary = useCallback(async () => {
     if (!user) return;
-
-    // ⚠️ SÉCURITÉ : On force Supabase à ne renvoyer QUE les données de l'utilisateur actif
-    // FIX 1 : Tri par 'created_at' au lieu de 'updated_at' pour empêcher l'œuvre de sauter tout en haut
-    const { data, error } = await supabase
-      .from('user_media')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-
+    const { data, error } = await supabase.from('user_media').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     if (error) console.error("Erreur DB:", error);
     if (data) {
       setUserLibrary(data as LibraryItem[]);
-      // FIX 2 : Utilisation du callback `prev` pour ne pas injecter lastInteractedId dans les dépendances
       setLastInteractedId(prev => prev || (data.length > 0 ? data[0].id : null));
     }
-  }, [user]); // <-- FIX 3 : lastInteractedId supprimé des dépendances. Fini le bug du double-clic !
+  }, [user]);
 
   useEffect(() => { fetchLibrary(); }, [fetchLibrary]);
 
@@ -1656,104 +1720,117 @@ export default function App() {
   const handleToggleFavorite = async (id: string, currentFav: boolean) => { const newFav = !currentFav; handleSWRUpdate(id, { is_favorite: newFav }); await supabase.from('user_media').update({ is_favorite: newFav }).match({ id }); };
   const handleDeleteAccount = async () => { const confirm1 = window.confirm("ATTENTION: Cette action détruira toutes vos données."); if (!confirm1) return; const { error } = await supabase.rpc('delete_user'); if (error) console.error(error); await supabase.auth.signOut(); };
   const toggleTheme = () => setTheme(theme === 'dark' ? 'light' : 'dark');
+  const toggleLang = () => setLang(lang === 'fr' ? 'en' : 'fr');
 
   if (authLoading) return <div className={`min-h-screen ${theme} bg-[var(--bg-base)] flex items-center justify-center`}><GlobalStyles/><Loader2 className="animate-spin text-[var(--primary)]" size={48} /></div>;
-  if (!user) return <div className={theme}><GlobalStyles/><AuthScreen onLogin={setUser} /></div>;
-
-  const activeStatusConf = STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG];
 
   return (
-    <div className={`${theme} min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans pb-28 sm:pb-12 flex flex-col relative transition-colors duration-300`}>
-      <GlobalStyles />
-      <nav className="fixed bottom-4 inset-x-6 mx-auto sm:mx-0 max-w-[250px] sm:max-w-none sm:top-6 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 z-50 sm:w-auto px-6 py-3 sm:py-3 bg-[var(--panel-bg)]/95 backdrop-blur-xl border sm:border border-[var(--border-color)] rounded-3xl sm:rounded-full flex justify-between sm:justify-center items-center sm:gap-12 shadow-2xl">
-        <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]"><AkashaLogo size={24} /><span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span></div>
-        <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} /></button>
-        <button onClick={() => setCurrentTab('search')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'search' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><Search size={24} strokeWidth={currentTab === 'search' ? 3 : 2} /></button>
-        <button onClick={() => setCurrentTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}><User size={24} strokeWidth={currentTab === 'profile' ? 3 : 2} /></button>
-        {currentTab === 'ranking' && <div className="hidden sm:flex flex-col items-center gap-1 text-[var(--primary)] scale-110 transition-all"><Trophy size={24} strokeWidth={3}/></div>}
-        <div className="hidden sm:block w-px h-6 bg-[var(--border-color)] mx-2"></div>
-        <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title="Changer le thème">{theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}</button>
-      </nav>
+    <LangContext.Provider value={{ lang, setLang, t }}>
+      {!user ? (
+        <div className={theme}>
+          <GlobalStyles />
+          <AuthScreen onLogin={setUser} />
+        </div>
+      ) : (
+        <div className={`${theme} min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans pb-28 sm:pb-12 flex flex-col relative transition-colors duration-300`}>
+          <GlobalStyles />
+          <nav className="fixed bottom-4 inset-x-6 mx-auto sm:mx-0 max-w-[250px] sm:max-w-none sm:top-6 sm:bottom-auto sm:left-1/2 sm:-translate-x-1/2 z-50 sm:w-auto px-6 py-3 sm:py-3 bg-[var(--panel-bg)]/95 backdrop-blur-xl border sm:border border-[var(--border-color)] rounded-3xl sm:rounded-full flex justify-between sm:justify-center items-center sm:gap-12 shadow-2xl">
 
-      <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full">
-        {currentTab === 'dashboard' && (
-          <div className="animate-in fade-in duration-500">
+            {/* BOUTON TRADUCTION INTÉGRÉ À GAUCHE */}
+            <button onClick={toggleLang} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all mr-2" title="Changer la langue">
+              <Languages size={22} />
+            </button>
 
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
-              <div className="flex gap-1 overflow-x-auto w-full sm:w-auto custom-scrollbar px-1 pt-1">
-                {[
-                  { id: 'favorites', label: 'Favoris' }, { id: 'watching', label: 'En cours' }, { id: 'planning', label: 'À voir' },
-                  { id: 'completed', label: 'Terminés' }, { id: 'on_hold', label: 'En pause' }, { id: 'reminders', label: 'Rappels' }
-                ].map(f => {
-                  const isActive = activeFilter === f.id;
-                  const count = userLibrary.filter(i => {
-                    if (f.id === 'reminders') return i.reminder_day !== null && i.reminder_time !== null;
-                    const formatMatch = formatFilter === 'all' || i.type === formatFilter;
-                    if (f.id === 'favorites') return i.is_favorite === true && formatMatch;
-                    return i.status === f.id && formatMatch;
-                  }).length;
-                  const config = STATUS_CONFIG[f.id as keyof typeof STATUS_CONFIG];
-                  return (
-                    <button key={f.id} onClick={() => setActiveFilter(f.id as any)} className={`whitespace-nowrap px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all relative ${isActive ? config.tabActive : config.tabInactive}`}>
-                      {f.id === 'favorites' && <Heart size={14} className={`inline mr-1 ${isActive ? "fill-[var(--text-main)]" : ""}`} />}
-                      {f.id === 'reminders' && <Bell size={14} className={`inline mr-1 ${isActive ? "text-amber-500" : ""}`} />}
-                      {f.label} <span className="ml-1.5 opacity-50 font-medium">({count})</span>
-                      {isActive && <div className={`absolute -bottom-[2px] left-0 right-0 h-[2px] ${config.containerBg}`} />}
-                    </button>
-                  );
-                })}
-              </div>
-              <div className={`shrink-0 w-full sm:w-48 z-10 transition-opacity duration-300 ${activeFilter === 'reminders' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}><CustomSelect value={formatFilter} onChange={setFormatFilter} options={FORMAT_OPTIONS} className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm" /></div>
-            </div>
+            <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]"><AkashaLogo size={24} /><span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span></div>
+            <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_library')}><Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} /></button>
+            <button onClick={() => setCurrentTab('search')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'search' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_explore')}><Search size={24} strokeWidth={currentTab === 'search' ? 3 : 2} /></button>
+            <button onClick={() => setCurrentTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_profile')}><User size={24} strokeWidth={currentTab === 'profile' ? 3 : 2} /></button>
+            {currentTab === 'ranking' && <div className="hidden sm:flex flex-col items-center gap-1 text-[var(--primary)] scale-110 transition-all"><Trophy size={24} strokeWidth={3}/></div>}
+            <div className="hidden sm:block w-px h-6 bg-[var(--border-color)] mx-2"></div>
+            <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title="Changer le thème">{theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}</button>
+          </nav>
 
-            <div className={`p-4 sm:p-6 rounded-b-2xl rounded-tr-2xl border ${activeStatusConf.containerBg} ${activeStatusConf.containerBorder} transition-colors duration-300`}>
+          <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full">
+            {currentTab === 'dashboard' && (
+              <div className="animate-in fade-in duration-500">
 
-              {activeFilter === 'reminders' ? (
-                <RemindersList items={filteredLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                  {filteredLibrary.map(item => {
-                    const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
-                    return (
-                      <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
-                        <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
-                          {item.cover_url ? <img src={String(item.cover_url)} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                          <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
-                          <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>
-                          <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
-                        </div>
-                        <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
-                          <div className="flex flex-col"><h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3><div className="w-fit" onClick={e => e.stopPropagation()}><InlineEpisodeEdit item={item} onSave={async (id, newTotal) => { setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem)); await supabase.from('user_media').update({ total_episodes: newTotal }).match({ id }); }}/></div></div>
-                          <div className="flex items-center gap-3 w-full mt-auto" onClick={e => e.stopPropagation()}><div className="flex-1 h-1.5 sm:h-2 bg-[var(--border-color)] rounded-full overflow-hidden"><div className="h-full bg-[var(--primary)] rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} /></div><div className="flex flex-row gap-1.5 items-center shrink-0"><button onClick={() => updateProgress(item, -1)} disabled={item.progress <= 0} className="p-2 sm:p-2 bg-[var(--panel-bg)] hover:bg-[var(--border-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><Minus size={18} strokeWidth={3}/></button><button onClick={() => updateProgress(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-10 h-10 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl text-white transition-transform active:scale-95 shadow-lg shadow-[var(--shadow-color)]"><Plus size={20} strokeWidth={3}/></button></div></div>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  {filteredLibrary.length === 0 && <div className="col-span-full py-20 text-center text-[var(--text-muted)] font-medium">Aucun média trouvé avec ces filtres.</div>}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-2">
+                  <div className="flex gap-1 overflow-x-auto w-full sm:w-auto custom-scrollbar px-1 pt-1">
+                    {[
+                      { id: 'favorites', label: t('status_favorites') }, { id: 'watching', label: t('status_watching') }, { id: 'planning', label: t('status_planning') },
+                      { id: 'completed', label: t('status_completed') }, { id: 'on_hold', label: t('status_onhold') }, { id: 'reminders', label: t('status_reminders') }
+                    ].map(f => {
+                      const isActive = activeFilter === f.id;
+                      const count = userLibrary.filter(i => {
+                        if (f.id === 'reminders') return i.reminder_day !== null && i.reminder_time !== null;
+                        const formatMatch = formatFilter === 'all' || i.type === formatFilter;
+                        if (f.id === 'favorites') return i.is_favorite === true && formatMatch;
+                        return i.status === f.id && formatMatch;
+                      }).length;
+                      const config = STATUS_CONFIG[f.id as keyof typeof STATUS_CONFIG];
+                      return (
+                        <button key={f.id} onClick={() => setActiveFilter(f.id as any)} className={`whitespace-nowrap px-5 py-2.5 rounded-t-xl text-sm font-bold transition-all relative ${isActive ? config.tabActive : config.tabInactive}`}>
+                          {f.id === 'favorites' && <Heart size={14} className={`inline mr-1 ${isActive ? "fill-[var(--text-main)]" : ""}`} />}
+                          {f.id === 'reminders' && <Bell size={14} className={`inline mr-1 ${isActive ? "text-amber-500" : ""}`} />}
+                          {f.label} <span className="ml-1.5 opacity-50 font-medium">({count})</span>
+                          {isActive && <div className={`absolute -bottom-[2px] left-0 right-0 h-[2px] ${config.containerBg}`} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className={`shrink-0 w-full sm:w-48 z-10 transition-opacity duration-300 ${activeFilter === 'reminders' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}><CustomSelect value={formatFilter} onChange={setFormatFilter} options={FORMAT_OPTIONS.map(o => ({...o, label: t(`type_${o.value}`)}))} className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm" /></div>
                 </div>
-              )}
-            </div>
-          </div>
-        )}
 
-        {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
-        {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} />}
-        {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />}
-      </main>
+                <div className={`p-4 sm:p-6 rounded-b-2xl rounded-tr-2xl border ${STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG].containerBg} ${STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG].containerBorder} transition-colors duration-300`}>
 
-      {currentTab !== 'profile' && currentTab !== 'ranking' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
+                  {activeFilter === 'reminders' ? (
+                    <RemindersList items={filteredLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+                      {filteredLibrary.map(item => {
+                        const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
+                        return (
+                          <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
+                            <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
+                              {item.cover_url ? <img src={String(item.cover_url)} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                              <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
+                              <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>
+                              <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
+                            </div>
+                            <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
+                              <div className="flex flex-col"><h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3><div className="w-fit" onClick={e => e.stopPropagation()}><InlineEpisodeEdit item={item} onSave={async (id, newTotal) => { setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem)); await supabase.from('user_media').update({ total_episodes: newTotal }).match({ id }); }}/></div></div>
+                              <div className="flex items-center gap-3 w-full mt-auto" onClick={e => e.stopPropagation()}><div className="flex-1 h-1.5 sm:h-2 bg-[var(--border-color)] rounded-full overflow-hidden"><div className="h-full bg-[var(--primary)] rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} /></div><div className="flex flex-row gap-1.5 items-center shrink-0"><button onClick={() => updateProgress(item, -1)} disabled={item.progress <= 0} className="p-2 sm:p-2 bg-[var(--panel-bg)] hover:bg-[var(--border-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><Minus size={18} strokeWidth={3}/></button><button onClick={() => updateProgress(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-10 h-10 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl text-white transition-transform active:scale-95 shadow-lg shadow-[var(--shadow-color)]"><Plus size={20} strokeWidth={3}/></button></div></div>
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {filteredLibrary.length === 0 && <div className="col-span-full py-20 text-center text-[var(--text-muted)] font-medium">Aucun média trouvé avec ces filtres.</div>}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
-      {selectedMedia && (
-        <DetailModal
-          item={selectedMedia}
-          onClose={() => setSelectedMedia(null)}
-          trackedItem={'status' in selectedMedia ? userLibrary.find(i => String(i.id) === String(selectedMedia.id)) : userLibrary.find(i => String(i.media_id) === String(selectedMedia.id) && String(i.source) === String(selectedMedia.source))}
-          onLibraryUpdate={handleSWRUpdate}
-          user={user || undefined}
-          fetchLibrary={fetchLibrary}
-          userLibrary={userLibrary}
-        />
+            {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
+            {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} />}
+            {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />}
+          </main>
+
+          {currentTab !== 'profile' && currentTab !== 'ranking' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
+
+          {selectedMedia && (
+            <DetailModal
+              item={selectedMedia}
+              onClose={() => setSelectedMedia(null)}
+              trackedItem={'status' in selectedMedia ? userLibrary.find(i => String(i.id) === String(selectedMedia.id)) : userLibrary.find(i => String(i.media_id) === String(selectedMedia.id) && String(i.source) === String(selectedMedia.source))}
+              onLibraryUpdate={handleSWRUpdate}
+              user={user || undefined}
+              fetchLibrary={fetchLibrary}
+              userLibrary={userLibrary}
+            />
+          )}
+        </div>
       )}
-    </div>
+    </LangContext.Provider>
   );
 }
