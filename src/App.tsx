@@ -9,7 +9,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages, Upload
 } from 'lucide-react';
 
 // ============================================================================
@@ -119,6 +119,10 @@ const DICTIONARY: Record<string, Record<Lang, string>> = {
   "profile_added": { fr: "Ajoutés", en: "Added" },
   "profile_finished": { fr: "Terminés", en: "Finished" },
   "profile_watchtime": { fr: "Visionnage", en: "Watch time" },
+  "profile_data_title": { fr: "Sauvegarde & Données", en: "Backup & Data" },
+  "profile_data_desc": { fr: "Exportez votre bibliothèque pour la sauvegarder, ou importez un ancien fichier pour restaurer vos œuvres.", en: "Export your library to back it up, or import an old file to restore your media." },
+  "profile_export": { fr: "Exporter", en: "Export" },
+  "profile_import": { fr: "Importer", en: "Import" },
 };
 
 // ============================================================================
@@ -168,7 +172,8 @@ const WEEK_DAYS = [
 // ============================================================================
 // UTILS & CACHE
 // ============================================================================
-//
+//const apiCache = new Map<string, MediaItem[]>();
+
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => { const handler = setTimeout(() => setDebouncedValue(value), delay); return () => clearTimeout(handler); }, [value, delay]);
@@ -213,6 +218,11 @@ function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: 
   return null;
 }
 
+// Aide pour récupérer en toute sécurité le localStorage (pour iframe/canvas)
+const getSavedFilter = (key: string, defaultValue: string) => {
+  try { return localStorage.getItem(key) || defaultValue; } catch { return defaultValue; }
+};
+
 // ============================================================================
 // SERVICES API
 // ============================================================================
@@ -254,13 +264,11 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
 };
 
 const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
-  // BOUCLIER : Pas de requête si moins de 4 caractères pour éviter les erreurs 422 et la surcharge
   if (query.length < 4) return [];
 
   const isISBN = /^[0-9-]+$/.test(query) && query.replace(/-/g, '').length >= 10;
   const searchQuery = isISBN ? `isbn=${query}` : `q=${encodeURIComponent(query)}`;
 
-  // TIMEOUT : 2.5 secondes maximum accordées à OpenLibrary
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 2500);
 
@@ -612,6 +620,30 @@ const DetailModal: React.FC<{
   const [reminderExactDate, setReminderExactDate] = useState<string>(initialReminder.exactDate);
   const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
 
+  // --- NOUVEAU : GESTION DU BOUTON RETOUR NATIF (MOBILE) ---
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    // L'astuce vitale pour Android/iOS : modifier l'URL avec un hash
+    window.history.pushState({ modal: 'detail' }, '', window.location.pathname + window.location.search + '#modal');
+
+    const handlePopState = () => {
+      onCloseRef.current();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      // Si on ferme avec la croix, l'URL a encore le hash, on force le retour en arrière pour nettoyer l'historique
+      if (window.location.hash === '#modal') {
+        window.history.back();
+      }
+    };
+  }, []);
+  // ---------------------------------------------------------
+
   const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : (localData as any).totalEpisodes;
 
   useEffect(() => {
@@ -824,6 +856,23 @@ const DetailModal: React.FC<{
                 {localData.genres.map(genre => <span key={String(genre)} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">{String(genre)}</span>)}
               </div>
             )}
+
+            {/* BOUTONS DE RACCOURCI GOOGLE RECHERCHE */}
+            <div className="flex flex-wrap justify-center gap-2 mb-2">
+              <button
+                onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(title + ' trailer')}`, '_blank')}
+                className="flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] hover:text-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm"
+              >
+                <PlayCircle size={14} /> Bande-annonce
+              </button>
+              <button
+                onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(title + ' date de sortie')}`, '_blank')}
+                className="flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] hover:text-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm"
+              >
+                <CalendarIcon size={14} /> Date de sortie
+              </button>
+            </div>
+
           </div>
 
           <div className="mb-6 bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)]">
@@ -1024,7 +1073,6 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
   const [filterType, setFilterType] = useState<string>('anime');
   const [isSwapping, setIsSwapping] = useState(false);
 
-  // On récupère uniquement les éléments classés (ayant un rating) et on filtre par type
   const rankedItems = useMemo(() => {
     return items
       .filter(item => item.rating !== null && (filterType === 'all' || item.type === filterType))
@@ -1044,15 +1092,12 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
     const currentItem = rankedItems[index];
     const targetItem = rankedItems[targetIndex];
 
-    // Échange des valeurs de classement (rating)
     const newCurrentRating = targetItem.rating;
     const newTargetRating = currentItem.rating;
 
-    // Mise à jour optimiste du state local
     onUpdate(currentItem.id, { rating: newCurrentRating });
     onUpdate(targetItem.id, { rating: newTargetRating });
 
-    // Mise à jour de la base de données
     await Promise.all([
       supabase.from('user_media').update({ rating: newCurrentRating }).match({ id: currentItem.id }),
       supabase.from('user_media').update({ rating: newTargetRating }).match({ id: targetItem.id })
@@ -1070,7 +1115,6 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      {/* HEADER CLASSEMENT */}
       <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
@@ -1097,13 +1141,10 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 
             return (
               <div key={item.id} onClick={() => onSelect(item)} className={`group cursor-pointer rounded-2xl overflow-hidden border hover:shadow-lg transition-all flex items-stretch h-28 sm:h-32 ${rankStyle} ${index > 2 ? 'hover:border-[var(--primary)]' : ''}`}>
-
-                {/* GROS NUMÉRO */}
                 <div className="w-20 sm:w-28 shrink-0 flex items-center justify-center border-r border-black/10">
                   <span className="text-4xl sm:text-5xl font-black tracking-tighter opacity-90">{rankNumber}</span>
                 </div>
 
-                {/* CONTENU (COVER + TEXT) */}
                 <div className="flex-1 flex items-center gap-4 bg-[var(--panel-bg)] text-[var(--text-main)]">
                   <div className="h-full aspect-[2/3] shrink-0 bg-[var(--bg-base)] border-r border-[var(--border-color)]">
                     {item.cover_url ? <img src={String(item.cover_url)} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={24} />}
@@ -1115,7 +1156,6 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
                   </div>
                 </div>
 
-                {/* BOUTONS UP/DOWN */}
                 <div className="w-16 sm:w-20 shrink-0 bg-[var(--panel-bg-alt)] border-l border-[var(--border-color)] flex flex-col items-center justify-center p-2 gap-2" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={(e) => handleMove(e, index, 'up')}
@@ -1132,7 +1172,6 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
                     <ChevronDown strokeWidth={3} />
                   </button>
                 </div>
-
               </div>
             );
           })}
@@ -1189,7 +1228,6 @@ const DiscoverySearch: React.FC<{
     let isCancelled = false;
     setLoading(true);
 
-    // 1. RECHERCHE LOCALE (Zero-Latency)
     const localQ = debouncedQuery.toLowerCase();
     const localResults = userLibrary.filter(item => {
       if (filter !== 'all' && item.type !== filter) return false;
@@ -1254,7 +1292,6 @@ const DiscoverySearch: React.FC<{
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
-                  {/* Bouton Favori dans le carousel (Seulement si tracké) */}
                   {tracked && (
                     <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
                       <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
@@ -1270,7 +1307,7 @@ const DiscoverySearch: React.FC<{
                 </div>
                 <div className="p-3.5">
                   <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
-                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p>
+                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p>
                 </div>
               </div>
             )
@@ -1320,7 +1357,6 @@ const DiscoverySearch: React.FC<{
           {renderCarousel("Tendances Actuelles", trending)}
           {renderCarousel("Prochaines Sorties", upcoming)}
           {community.length > 0 && renderCarousel("Découvertes Communautaires", community)}
-
           <ManualAddForm user={user} fetchLibrary={fetchLibrary} />
         </div>
       )}
@@ -1416,8 +1452,8 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
 // ============================================================================
 // COMPOSANT PROFIL
 // ============================================================================
-const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking }) => {
-  const { t } = useContext(LangContext);
+const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary }) => {
+  const { t, lang, setLang } = useContext(LangContext);
   const totalAdded = library.length;
   const totalCompleted = library.filter(i => i.status === 'completed').length;
   const totalEpisodesWatched = library.reduce((acc, item) => acc + (item.progress || 0), 0);
@@ -1456,6 +1492,8 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
   const [isPushLoading, setIsPushLoading] = useState(false);
 
+  const [isImporting, setIsImporting] = useState(false);
+
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) setIsStandalone(true);
     setIsIOS(/iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase()));
@@ -1486,6 +1524,57 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
     } catch (e: any) { console.error("Échec de l'activation Push :", e.message); } finally { setIsPushLoading(false); }
   };
 
+  // ================= LOGIQUE EXPORT / IMPORT =================
+  const handleExport = () => {
+    const dataStr = JSON.stringify(library, null, 2);
+    const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+    const exportFileDefaultName = `akasha_backup_${new Date().toISOString().split('T')[0]}.json`;
+
+    const linkElement = document.createElement('a');
+    linkElement.setAttribute('href', dataUri);
+    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.click();
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = JSON.parse(event.target?.result as string);
+        if (!Array.isArray(data)) throw new Error("Le fichier n'est pas une liste valide.");
+
+        // Filtrer pour éviter les doublons avec la bibliothèque existante
+        const existingSet = new Set(library.map(item => `${item.source}-${item.media_id}`));
+        const newItems = data
+          .filter((item: any) => !existingSet.has(`${item.source}-${item.media_id}`))
+          .map((item: any) => {
+            const { id, created_at, updated_at, ...rest } = item;
+            return { ...rest, user_id: user.id }; // On force le user_id actuel
+          });
+
+        if (newItems.length > 0) {
+          const { error } = await supabase.from('user_media').insert(newItems);
+          if (error) throw error;
+          alert(`${newItems.length} œuvres ont été importées avec succès !`);
+          fetchLibrary();
+        } else {
+          alert("Aucune nouvelle œuvre trouvée dans le fichier (les doublons ont été ignorés).");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Erreur lors de l'importation. Le fichier est invalide ou corrompu.");
+      } finally {
+        setIsImporting(false);
+        e.target.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 sm:pb-0 pt-6">
       <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-4 sm:p-10 shadow-2xl">
@@ -1499,6 +1588,28 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
           <Button onClick={onOpenRanking} className="mx-auto !px-6 !py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-lg shadow-orange-500/20">
             <Trophy size={18}/> {t('nav_ranking')}
           </Button>
+        </div>
+
+        {/* SECTION GESTION DES DONNÉES (IMPORT/EXPORT) */}
+        <div className="mb-8 bg-purple-500/10 border border-purple-500/30 rounded-2xl p-5 space-y-4">
+          <div className="flex items-center gap-3">
+            <FolderHeart className="text-purple-500" size={24} />
+            <h3 className="font-bold text-[var(--text-main)] text-lg">{t('profile_data_title')}</h3>
+          </div>
+          <p className="text-sm text-[var(--text-muted)]">{t('profile_data_desc')}</p>
+
+          <div className="flex gap-3 pt-2">
+            <Button onClick={handleExport} className="flex-1 bg-purple-600 hover:bg-purple-700 !py-3">
+              <Download size={18} /> {t('profile_export')}
+            </Button>
+            <div className="flex-1 relative">
+              <input type="file" accept=".json" onChange={handleImport} disabled={isImporting} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+              <Button className="w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-base)] !py-3">
+                {isImporting ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
+                {t('profile_import')}
+              </Button>
+            </div>
+          </div>
         </div>
 
         <div className="mb-8 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 space-y-4">
@@ -1543,6 +1654,17 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
         </div>
 
         <div className="mb-6"><label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label><CustomSelect value={String(userTz)} onChange={handleTzChange} options={timezones} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]" /><p className="text-[10px] text-[var(--text-muted)] mt-2 italic">Définit l'heure d'envoi matinale de vos emails de rappels.</p></div>
+
+        {/* NOUVEAU : BOUTON TRADUCTION SUR MOBILE */}
+        <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-base)] rounded-2xl border border-[var(--border-color)] mb-8">
+          <span className="font-bold text-[var(--text-main)] flex items-center gap-2">
+            <Languages size={20} className="text-[var(--primary)]" /> Langue de l'app
+          </span>
+          <button onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')} className="p-2.5 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl text-[var(--primary)] shadow-sm font-black text-xs">
+            {lang === 'fr' ? 'EN' : 'FR'}
+          </button>
+        </div>
+
         <div className="space-y-3 pt-6 border-t border-[var(--border-color)]"><Button variant="secondary" className="w-full !py-3" onClick={onLogout}><LogOut size={18} /> {t('profile_logout')}</Button><button onClick={onDelete} className="w-full py-3 text-xs font-bold text-[var(--text-muted)] hover:text-red-500 transition-colors">{t('profile_delete')}</button></div>
       </div>
     </div>
@@ -1666,8 +1788,15 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile' | 'ranking'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
-  const [activeFilter, setActiveFilter] = useState<'watching'|'planning'|'completed'|'on_hold'|'favorites'|'reminders'>('watching');
-  const [formatFilter, setFormatFilter] = useState<string>('all');
+
+  // CHARGEMENT DE LA MÉMOIRE DES FILTRES
+  const [activeFilter, setActiveFilter] = useState<'watching'|'planning'|'completed'|'on_hold'|'favorites'|'reminders'>(
+    () => getSavedFilter('akasha_activeFilter', 'watching') as any
+  );
+  const [formatFilter, setFormatFilter] = useState<string>(
+    () => getSavedFilter('akasha_formatFilter', 'all')
+  );
+
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | LibraryItem | null>(null);
   const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -1676,6 +1805,15 @@ export default function App() {
   const t = useCallback((key: string) => {
     return DICTIONARY[key]?.[lang] || key;
   }, [lang]);
+
+  // SAUVEGARDE DE LA MÉMOIRE DES FILTRES
+  useEffect(() => {
+    try { localStorage.setItem('akasha_activeFilter', activeFilter); } catch {}
+  }, [activeFilter]);
+
+  useEffect(() => {
+    try { localStorage.setItem('akasha_formatFilter', formatFilter); } catch {}
+  }, [formatFilter]);
 
   const filteredLibrary = userLibrary.filter(item => {
     if (activeFilter === 'reminders') return item.reminder_day !== null && item.reminder_time !== null;
@@ -1810,7 +1948,7 @@ export default function App() {
             )}
 
             {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
-            {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} />}
+            {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} />}
             {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />}
           </main>
 
