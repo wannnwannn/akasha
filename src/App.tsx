@@ -172,7 +172,6 @@ const WEEK_DAYS = [
 // ============================================================================
 // UTILS & CACHE
 // ============================================================================
-//const apiCache = new Map<string, MediaItem[]>();
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
@@ -221,6 +220,42 @@ function getNextOccurrence(reminderJsonStr: string | undefined | null, timeStr: 
 // Aide pour récupérer en toute sécurité le localStorage (pour iframe/canvas)
 const getSavedFilter = (key: string, defaultValue: string) => {
   try { return localStorage.getItem(key) || defaultValue; } catch { return defaultValue; }
+};
+
+// Fonctions de copie et d'encodage pour le partage de média
+const fallbackCopyTextToClipboard = (text: string) => {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.style.position = "fixed";
+  textArea.style.top = "0";
+  textArea.style.left = "0";
+  textArea.style.width = "2em";
+  textArea.style.height = "2em";
+  textArea.style.padding = "0";
+  textArea.style.border = "none";
+  textArea.style.outline = "none";
+  textArea.style.boxShadow = "none";
+  textArea.style.background = "transparent";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  try { document.execCommand('copy'); } catch (err) { console.error('Fallback: Oops, unable to copy', err); }
+  document.body.removeChild(textArea);
+};
+
+const encodeMediaForShare = (item: any) => {
+  const minimalData = {
+    id: ('media_id' in item) ? item.media_id : item.id,
+    source: item.source,
+    title: item.title,
+    cover: ('cover' in item) ? item.cover : item.cover_url,
+    type: item.type,
+    year: item.year,
+    description: item.description,
+    totalEpisodes: ('total_episodes' in item) ? item.total_episodes : item.totalEpisodes,
+    runtime: item.runtime
+  };
+  return btoa(encodeURIComponent(JSON.stringify(minimalData)));
 };
 
 // ============================================================================
@@ -392,12 +427,12 @@ const CustomSelect: React.FC<{ value: string, onChange: (val: string) => void, o
 
 const AkashaLogo: React.FC<{ size?: number, className?: string }> = ({ size = 24, className = "" }) => (
   <svg width={size} height={size} viewBox="0 0 107 111" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <path fillRule="evenodd" clipRule="evenodd" d="M20.6191 13.4407C20.3294 13.4257 20.0549 13.4116 19.7988 13.3984L20.6191 13.4407Z" fill="var(--primary)"/>
-    <path d="M64.0889 37.3545C59.4132 37.4488 54.2832 37.9057 49.8428 38.7197C44.8726 39.6466 40.3385 40.823 36.2393 42.2451C31.077 44.0779 26.2942 46.5335 21.8867 49.6104C17.4699 52.6938 13.6012 56.2309 10.2764 60.2207C7.03841 64.2085 4.51665 68.3892 2.70117 72.7627C0.894753 77.1145 5.69075e-05 81.4855 0 85.8838C0 90.4072 0.823939 93.968 2.3623 96.6602C3.9344 99.4112 5.98127 101.362 8.49805 102.582C11.1025 103.845 13.9074 104.479 16.9316 104.479C22.238 104.479 28.3831 102.197 33.7773 99.873C33.1668 97.5887 32.5668 95.1245 31.9795 92.4814C31.6882 91.1496 31.3178 89.0877 30.9229 86.6426C27.5019 88.1681 24.5392 88.664 21.7959 88.6641C19.7172 88.664 17.8467 88.1479 16.667 86.7061C15.5964 85.3975 15.1758 83.6385 15.1758 81.6602C15.1758 79.0155 16.1021 76.1182 17.79 73.0088C19.5011 69.8569 21.9122 66.8318 24.9912 63.9287C28.0902 60.9216 31.6686 58.407 35.7168 56.3828L35.7324 56.375C38.8195 54.8756 42.6579 53.483 47.2256 52.1895C51.5253 50.9155 54.3004 49.964 59.7432 49.8389C61.2294 46.5057 62.4059 43.4048 63.1104 41.04L63.1172 41.0166L63.125 40.9932C63.4329 40.0693 63.8415 38.7321 64.0889 37.3545Z" fill="var(--primary)"/>
-    <path d="M45.1455 55.9434C41.9701 56.9465 39.2719 57.9906 37.043 59.0732C34.9322 60.1297 32.9658 61.3247 31.1426 62.6572C31.228 65.9508 31.8317 71.5978 32.5771 77.2246C33.3795 83.2807 34.325 89.163 34.9082 91.8311L35.3555 93.7969C36.2603 97.6882 37.1859 101.131 38.1318 104.127L53.0469 99.7275C51.7638 95.7181 50.5492 91.574 49.4033 87.2959C48.1043 82.4462 47.0681 77.1339 46.293 71.3633L46.292 71.3516L46.29 71.3389C45.6692 66.0619 45.2237 62.2125 45.1455 55.9434Z" fill="var(--primary)"/>
-    <path d="M83.8955 42.3135C83.3896 43.9991 82.9628 45.3621 82.6182 46.3975C81.7958 49.0113 80.9011 51.5471 79.9375 54.0049C83.0948 55.5128 85.1916 57.1411 87.0322 59.8184C89.0867 62.8068 90.1122 66.177 90.1123 69.8838C90.1123 73.6057 88.9937 77.3977 86.8496 81.2393C84.715 85.2165 81.0651 88.6317 76.0518 91.5342C71.5628 94.1785 66.5456 96.4664 59.0381 97.5811L66.3643 110.482C73.9027 109.29 80.1353 107.38 85.0996 104.779L85.1123 104.772L85.125 104.767C90.4488 102.105 94.6298 98.9739 97.7168 95.3994C100.837 91.7862 103.034 87.9103 104.333 83.7705C105.654 79.4752 106.312 75.1464 106.312 70.7803C106.312 63.9861 104.476 58.161 100.845 53.2383C97.3661 48.5229 92.1053 43.8364 84.3291 41.0879C84.1852 41.494 84.0395 41.9023 83.8955 42.3135Z" fill="var(--primary)"/>
-    <path d="M34.9424 2.89062C34.9962 1.86881 35.0163 0.904683 35.0039 0L51.4248 0.420898C51.2093 1.16203 51.0069 1.86508 50.8174 2.52832L50.8037 2.57617L50.793 2.62598C50.6684 3.20727 50.3624 4.93605 50.0507 6.69621L49.9688 7.15918C49.6203 9.12653 49.2876 10.9941 49.1709 11.5L48.7246 13.4307L50.7041 13.3359C57.8101 12.9935 66.5227 12.3274 73.0635 11.4668C79.0283 10.6819 85.166 9.5383 91.4766 8.04102L91.582 22.6738C87.6642 23.3544 83.2914 24.0036 78.4619 24.6172C73.1069 25.2122 67.4923 25.723 61.6221 26.1484L60.548 26.2275C55.5408 26.5964 53.3926 26.7546 48.0645 26.9932L46.8135 27.0488L46.6455 28.29C46.5666 28.8716 46.4983 29.3723 46.4383 29.8111C46.0168 32.8974 46.0137 32.92 45.7266 36.4932C41.9943 37.3125 38.5029 38.2846 35.2559 39.4111L35.2461 39.4141C33.902 39.891 32.5813 40.4079 31.2852 40.9658C31.532 37.0755 31.8498 32.3695 32.127 29.0439L32.2627 27.4199H30.6318C28.1692 27.4199 23.5884 27.3812 20.707 27.2969C17.8976 27.1269 15.0879 26.9996 12.2783 26.9141C10.1217 26.7793 8.14805 26.6717 6.3584 26.5898L5.9375 12.0537C7.22339 12.205 8.77804 12.3922 10.6016 12.6201L10.6523 12.626C13.4749 12.8826 16.5103 13.1391 19.7578 13.3955L19.7783 13.3965L19.7988 13.3984L20.6191 13.4407C24.0638 13.6185 29.6758 13.9082 32.4766 13.9082H33.7939L33.9648 12.6016C34.2933 10.0833 34.3054 9.93468 34.358 9.29052C34.3673 9.17691 34.3778 9.04787 34.3916 8.8877L34.5527 7.18555C34.7261 5.87436 34.8564 4.43869 34.9424 2.89062Z" fill="var(--primary)"/>
-    <path d="M67.8232 32.8584C67.96 31.9469 68.0721 31.1244 68.1621 30.3936L83.6582 34.083C83.4178 34.7384 83.1464 35.4997 82.8438 36.3643C82.2463 37.9862 81.6488 39.6506 81.0518 41.3564L81.041 41.3887L81.0312 41.4209C80.5212 43.1209 80.0991 44.4702 79.7646 45.4736L79.7607 45.4854L79.7568 45.498C77.3968 52.9996 74.4519 59.8102 70.9277 65.9355L70.9053 65.9746L70.8857 66.0146C68.1843 71.433 64.2338 76.2123 60.4082 80.2451C58.5537 82.2001 56.7434 83.9649 55.1253 85.5424L54.9805 85.6836L54.9362 85.7268C54.136 86.5069 53.3758 87.2481 52.6865 87.9434C52.5573 87.4706 52.4283 86.9957 52.3008 86.5195C51.0988 82.0319 50.1256 77.1105 49.3779 71.7539C52.8296 68.5854 56.2866 63.2672 59.1611 57.8701C62.0414 52.4621 64.4389 46.782 65.7402 42.6924L65.9854 41.8965C66.3307 40.8571 66.8301 39.23 67.1035 37.5283C67.3287 36.4529 67.4672 35.4204 67.6007 34.4246C67.6716 33.8964 67.741 33.3785 67.8213 32.8701L67.8232 32.8584Z" fill="var(--primary)"/>
+    <path fillRule="evenodd" clipRule="evenodd" d="M20.6191 13.4407C20.3294 13.4257 20.0549 13.4116 19.7988 13.3984L20.6191 13.4407Z" fill="currentColor"/>
+    <path d="M64.0889 37.3545C59.4132 37.4488 54.2832 37.9057 49.8428 38.7197C44.8726 39.6466 40.3385 40.823 36.2393 42.2451C31.077 44.0779 26.2942 46.5335 21.8867 49.6104C17.4699 52.6938 13.6012 56.2309 10.2764 60.2207C7.03841 64.2085 4.51665 68.3892 2.70117 72.7627C0.894753 77.1145 5.69075e-05 81.4855 0 85.8838C0 90.4072 0.823939 93.968 2.3623 96.6602C3.9344 99.4112 5.98127 101.362 8.49805 102.582C11.1025 103.845 13.9074 104.479 16.9316 104.479C22.238 104.479 28.3831 102.197 33.7773 99.873C33.1668 97.5887 32.5668 95.1245 31.9795 92.4814C31.6882 91.1496 31.3178 89.0877 30.9229 86.6426C27.5019 88.1681 24.5392 88.664 21.7959 88.6641C19.7172 88.664 17.8467 88.1479 16.667 86.7061C15.5964 85.3975 15.1758 83.6385 15.1758 81.6602C15.1758 79.0155 16.1021 76.1182 17.79 73.0088C19.5011 69.8569 21.9122 66.8318 24.9912 63.9287C28.0902 60.9216 31.6686 58.407 35.7168 56.3828L35.7324 56.375C38.8195 54.8756 42.6579 53.483 47.2256 52.1895C51.5253 50.9155 54.3004 49.964 59.7432 49.8389C61.2294 46.5057 62.4059 43.4048 63.1104 41.04L63.1172 41.0166L63.125 40.9932C63.4329 40.0693 63.8415 38.7321 64.0889 37.3545Z" fill="currentColor"/>
+    <path d="M45.1455 55.9434C41.9701 56.9465 39.2719 57.9906 37.043 59.0732C34.9322 60.1297 32.9658 61.3247 31.1426 62.6572C31.228 65.9508 31.8317 71.5978 32.5771 77.2246C33.3795 83.2807 34.325 89.163 34.9082 91.8311L35.3555 93.7969C36.2603 97.6882 37.1859 101.131 38.1318 104.127L53.0469 99.7275C51.7638 95.7181 50.5492 91.574 49.4033 87.2959C48.1043 82.4462 47.0681 77.1339 46.293 71.3633L46.292 71.3516L46.29 71.3389C45.6692 66.0619 45.2237 62.2125 45.1455 55.9434Z" fill="currentColor"/>
+    <path d="M83.8955 42.3135C83.3896 43.9991 82.9628 45.3621 82.6182 46.3975C81.7958 49.0113 80.9011 51.5471 79.9375 54.0049C83.0948 55.5128 85.1916 57.1411 87.0322 59.8184C89.0867 62.8068 90.1122 66.177 90.1123 69.8838C90.1123 73.6057 88.9937 77.3977 86.8496 81.2393C84.715 85.2165 81.0651 88.6317 76.0518 91.5342C71.5628 94.1785 66.5456 96.4664 59.0381 97.5811L66.3643 110.482C73.9027 109.29 80.1353 107.38 85.0996 104.779L85.1123 104.772L85.125 104.767C90.4488 102.105 94.6298 98.9739 97.7168 95.3994C100.837 91.7862 103.034 87.9103 104.333 83.7705C105.654 79.4752 106.312 75.1464 106.312 70.7803C106.312 63.9861 104.476 58.161 100.845 53.2383C97.3661 48.5229 92.1053 43.8364 84.3291 41.0879C84.1852 41.494 84.0395 41.9023 83.8955 42.3135Z" fill="currentColor"/>
+    <path d="M34.9424 2.89062C34.9962 1.86881 35.0163 0.904683 35.0039 0L51.4248 0.420898C51.2093 1.16203 51.0069 1.86508 50.8174 2.52832L50.8037 2.57617L50.793 2.62598C50.6684 3.20727 50.3624 4.93605 50.0507 6.69621L49.9688 7.15918C49.6203 9.12653 49.2876 10.9941 49.1709 11.5L48.7246 13.4307L50.7041 13.3359C57.8101 12.9935 66.5227 12.3274 73.0635 11.4668C79.0283 10.6819 85.166 9.5383 91.4766 8.04102L91.582 22.6738C87.6642 23.3544 83.2914 24.0036 78.4619 24.6172C73.1069 25.2122 67.4923 25.723 61.6221 26.1484L60.548 26.2275C55.5408 26.5964 53.3926 26.7546 48.0645 26.9932L46.8135 27.0488L46.6455 28.29C46.5666 28.8716 46.4983 29.3723 46.4383 29.8111C46.0168 32.8974 46.0137 32.92 45.7266 36.4932C41.9943 37.3125 38.5029 38.2846 35.2559 39.4111L35.2461 39.4141C33.902 39.891 32.5813 40.4079 31.2852 40.9658C31.532 37.0755 31.8498 32.3695 32.127 29.0439L32.2627 27.4199H30.6318C28.1692 27.4199 23.5884 27.3812 20.707 27.2969C17.8976 27.1269 15.0879 26.9996 12.2783 26.9141C10.1217 26.7793 8.14805 26.6717 6.3584 26.5898L5.9375 12.0537C7.22339 12.205 8.77804 12.3922 10.6016 12.6201L10.6523 12.626C13.4749 12.8826 16.5103 13.1391 19.7578 13.3955L19.7783 13.3965L19.7988 13.3984L20.6191 13.4407C24.0638 13.6185 29.6758 13.9082 32.4766 13.9082H33.7939L33.9648 12.6016C34.2933 10.0833 34.3054 9.93468 34.358 9.29052C34.3673 9.17691 34.3778 9.04787 34.3916 8.8877L34.5527 7.18555C34.7261 5.87436 34.8564 4.43869 34.9424 2.89062Z" fill="currentColor"/>
+    <path d="M67.8232 32.8584C67.96 31.9469 68.0721 31.1244 68.1621 30.3936L83.6582 34.083C83.4178 34.7384 83.1464 35.4997 82.8438 36.3643C82.2463 37.9862 81.6488 39.6506 81.0518 41.3564L81.041 41.3887L81.0312 41.4209C80.5212 43.1209 80.0991 44.4702 79.7646 45.4736L79.7607 45.4854L79.7568 45.498C77.3968 52.9996 74.4519 59.8102 70.9277 65.9355L70.9053 65.9746L70.8857 66.0146C68.1843 71.433 64.2338 76.2123 60.4082 80.2451C58.5537 82.2001 56.7434 83.9649 55.1253 85.5424L54.9805 85.6836L54.9362 85.7268C54.136 86.5069 53.3758 87.2481 52.6865 87.9434C52.5573 87.4706 52.4283 86.9957 52.3008 86.5195C51.0988 82.0319 50.1256 77.1105 49.3779 71.7539C52.8296 68.5854 56.2866 63.2672 59.1611 57.8701C62.0414 52.4621 64.4389 46.782 65.7402 42.6924L65.9854 41.8965C66.3307 40.8571 66.8301 39.23 67.1035 37.5283C67.3287 36.4529 67.4672 35.4204 67.6007 34.4246C67.6716 33.8964 67.741 33.3785 67.8213 32.8701L67.8232 32.8584Z" fill="currentColor"/>
   </svg>
 );
 
@@ -595,6 +630,7 @@ const DetailModal: React.FC<{
 
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [editCoverUrl, setEditCoverUrl] = useState('');
+  const [shareCopied, setShareCopied] = useState(false);
 
   const getInitialReminderState = () => {
     if (!trackedItem?.reminder_day) return { type: 'weekly' as 'weekly'|'exact', days: [] as string[], freq: "1", exactDate: '' };
@@ -659,8 +695,6 @@ const DetailModal: React.FC<{
     checkAndRevalidate();
   }, [item.id, trackedItem?.id, lang]);
 
-//  const toggleDay = (day: string) => setReminderDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
-
   const saveExtras = async (overrides: { type?: 'weekly'|'exact', days?: string[], freq?: string, date?: string, time?: string, notesStr?: string, link?: string } = {}) => {
     if (!trackedItem) return;
 
@@ -714,7 +748,7 @@ const DetailModal: React.FC<{
     } else {
       await supabase.from('user_media').insert([{
         user_id: user.id,
-        media_id: item.id,
+        media_id: ('media_id' in localData) ? localData.media_id : item.id,
         source: item.source,
         title: localData.title,
         cover_url: 'cover' in localData ? localData.cover : localData.cover_url,
@@ -770,6 +804,22 @@ const DetailModal: React.FC<{
     if (trackedItem) {
       if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { cover_url: newUrl });
       await supabase.from('user_media').update({ cover_url: newUrl }).match({ id: trackedItem.id });
+    }
+  };
+
+  const handleShare = () => {
+    const encoded = encodeMediaForShare(localData);
+    const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 3000);
+      }).catch(err => fallbackCopyTextToClipboard(shareUrl));
+    } else {
+      fallbackCopyTextToClipboard(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 3000);
     }
   };
 
@@ -857,7 +907,7 @@ const DetailModal: React.FC<{
               </div>
             )}
 
-            {/* BOUTONS DE RACCOURCI GOOGLE RECHERCHE */}
+            {/* BOUTONS DE RACCOURCI GOOGLE RECHERCHE ET PARTAGE */}
             <div className="flex flex-wrap justify-center gap-2 mb-2">
               <button
                 onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(title + ' trailer')}`, '_blank')}
@@ -870,6 +920,12 @@ const DetailModal: React.FC<{
                 className="flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] hover:text-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm"
               >
                 <CalendarIcon size={14} /> Date de sortie
+              </button>
+              <button
+                onClick={handleShare}
+                className={`flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm ${shareCopied ? '!border-emerald-500 !text-emerald-500 bg-emerald-500/10' : 'hover:text-[var(--primary)]'}`}
+              >
+                {shareCopied ? <Check size={14} /> : <Share size={14} />} {shareCopied ? 'Lien copié !' : 'Partager'}
               </button>
             </div>
 
@@ -1723,7 +1779,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
     <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4 flex-col">
       <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl relative overflow-hidden z-10">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-[var(--primary)] to-amber-500" />
-        <div className="text-center mb-10"><div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl"><AkashaLogo size={48} /></div><h1 className="text-3xl font-black text-[var(--text-main)] tracking-tight uppercase">Akasha</h1><p className="text-[var(--text-muted)] font-medium mt-2">{t('auth_title')}</p></div>
+        <div className="text-center mb-10"><div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl text-[var(--primary)]"><AkashaLogo size={48} /></div><h1 className="text-3xl font-black text-[var(--text-main)] tracking-tight uppercase">Akasha</h1><p className="text-[var(--text-muted)] font-medium mt-2">{t('auth_title')}</p></div>
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
         <div className="space-y-4">
           <Input type="email" placeholder={t('auth_email')} value={email} onChange={e => setEmail(e.target.value)} />
@@ -1781,6 +1837,41 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
 };
 
 // ============================================================================
+// COMPOSANT PARTAGE (VUE PUBLIQUE NON CONNECTÉE)
+// ============================================================================
+const SharedMediaScreen: React.FC<{ item: any, onJoin: () => void, theme: string }> = ({ item, onJoin, theme }) => {
+  return (
+    <div className={`${theme} min-h-screen bg-[var(--bg-base)] flex flex-col items-center justify-center p-4`}>
+       <GlobalStyles />
+       <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden text-center animate-in fade-in zoom-in-95 duration-500">
+          <h1 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest mb-6">On vous a partagé une œuvre</h1>
+
+          <div className="w-32 sm:w-40 aspect-[2/3] relative rounded-xl overflow-hidden shadow-xl mx-auto mb-6 border border-[var(--border-color)]">
+            {item.cover ? <img src={String(item.cover)} alt={item.title} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40}/>}
+            <div className="absolute top-2 left-2"><TypeBadge type={String(item.type)} /></div>
+          </div>
+
+          <h2 className="text-2xl font-black text-[var(--text-main)] mb-2 leading-tight">{item.title}</h2>
+          <p className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] inline-block px-3 py-1 rounded-md border border-[var(--border-color)] mb-4">{item.year} • {String(item.source).toUpperCase()}</p>
+          <p className="text-sm text-[var(--text-muted)] line-clamp-4 mb-8 text-left">{item.description}</p>
+
+          <div className="bg-gradient-to-br from-[var(--primary)] to-rose-600 rounded-2xl p-5 sm:p-6 text-white text-left shadow-lg mb-6 transform transition-transform hover:scale-[1.02]">
+            <div className="flex items-center gap-3 mb-3">
+              <AkashaLogo size={28} className="text-white drop-shadow-md" />
+              <h3 className="font-black text-lg tracking-tight">Rejoignez Akasha</h3>
+            </div>
+            <p className="text-sm font-medium mb-4 text-white/90">Ne perdez plus le fil de vos séries, animes et livres préférés. Sauvegardez votre progression et organisez votre bibliothèque culturelle gratuitement.</p>
+            <Button onClick={onJoin} className="w-full bg-white text-[var(--primary)] hover:bg-gray-100 !py-3 shadow-md">
+               Créer un compte ou se connecter
+            </Button>
+          </div>
+       </div>
+    </div>
+  );
+};
+
+
+// ============================================================================
 // APPLICATION PRINCIPALE (RACINE ET CONTEXTE)
 // ============================================================================
 export default function App() {
@@ -1801,6 +1892,10 @@ export default function App() {
   const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [lang, setLang] = useState<Lang>('fr');
+
+  // GESTION DU LIEN PARTAGÉ
+  const [sharedItem, setSharedItem] = useState<any>(null);
+  const [showAuthForShare, setShowAuthForShare] = useState(false);
 
   const t = useCallback((key: string) => {
     return DICTIONARY[key]?.[lang] || key;
@@ -1826,6 +1921,22 @@ export default function App() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
+    // INTERCEPTER LE LIEN PARTAGÉ
+    const params = new URLSearchParams(window.location.search);
+    const shareData = params.get('share');
+    if (shareData) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(atob(shareData)));
+        if (decoded && decoded.title) {
+          setSharedItem(decoded);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } catch (e) {
+        console.error("Lien de partage invalide");
+      }
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user ?? null); setAuthLoading(false); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => { setUser(session?.user ?? null); });
     return () => subscription.unsubscribe();
@@ -1842,6 +1953,15 @@ export default function App() {
   }, [user]);
 
   useEffect(() => { fetchLibrary(); }, [fetchLibrary]);
+
+  // Si on est connecté et qu'on a un sharedItem en attente, on l'ouvre directement
+  useEffect(() => {
+    if (user && sharedItem) {
+      setSelectedMedia(sharedItem);
+      setSharedItem(null); // Consommé
+      setShowAuthForShare(false);
+    }
+  }, [user, sharedItem]);
 
   const updateProgress = async (item: LibraryItem, increment: number) => {
     const newProgress = Math.max(0, item.progress + increment);
@@ -1863,10 +1983,17 @@ export default function App() {
   return (
     <LangContext.Provider value={{ lang, setLang, t }}>
       {!user ? (
-        <div className={theme}>
-          <GlobalStyles />
-          <AuthScreen onLogin={setUser} />
-        </div>
+        <>
+           {/* Si pas d'utilisateur, qu'on a un lien partagé, et qu'on n'a pas encore cliqué sur 'rejoindre' */}
+           {sharedItem && !showAuthForShare ? (
+             <SharedMediaScreen item={sharedItem} onJoin={() => setShowAuthForShare(true)} theme={theme} />
+           ) : (
+             <div className={theme}>
+               <GlobalStyles />
+               <AuthScreen onLogin={setUser} />
+             </div>
+           )}
+        </>
       ) : (
         <div className={`${theme} min-h-screen bg-[var(--bg-base)] text-[var(--text-main)] font-sans pb-28 sm:pb-12 flex flex-col relative transition-colors duration-300`}>
           <GlobalStyles />
@@ -1877,7 +2004,7 @@ export default function App() {
               <Languages size={22} />
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]"><AkashaLogo size={24} /><span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span></div>
+            <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]"><AkashaLogo size={24} className="text-[var(--primary)]" /><span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span></div>
             <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_library')}><Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} /></button>
             <button onClick={() => setCurrentTab('search')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'search' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_explore')}><Search size={24} strokeWidth={currentTab === 'search' ? 3 : 2} /></button>
             <button onClick={() => setCurrentTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_profile')}><User size={24} strokeWidth={currentTab === 'profile' ? 3 : 2} /></button>
