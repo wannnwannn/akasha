@@ -815,7 +815,7 @@ const DetailModal: React.FC<{
       navigator.clipboard.writeText(shareUrl).then(() => {
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 3000);
-      }).catch(err => fallbackCopyTextToClipboard(shareUrl));
+      }).catch(() => fallbackCopyTextToClipboard(shareUrl));
     } else {
       fallbackCopyTextToClipboard(shareUrl);
       setShareCopied(true);
