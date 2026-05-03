@@ -1429,7 +1429,7 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
 // COMPOSANT PROFIL
 // ============================================================================
 const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary }) => {
-  const { t } = useContext(LangContext);
+  const { t, lang, setLang } = useContext(LangContext);
   const totalAdded = library.length;
   const totalCompleted = library.filter(i => i.status === 'completed').length;
   const totalEpisodesWatched = library.reduce((acc, item) => acc + (item.progress || 0), 0);
@@ -1630,6 +1630,17 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
         </div>
 
         <div className="mb-6"><label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> Fuseau Horaire (Rappels)</label><CustomSelect value={String(userTz)} onChange={handleTzChange} options={timezones} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]" /><p className="text-[10px] text-[var(--text-muted)] mt-2 italic">Définit l'heure d'envoi matinale de vos emails de rappels.</p></div>
+
+        {/* NOUVEAU : BOUTON TRADUCTION SUR MOBILE */}
+        <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-base)] rounded-2xl border border-[var(--border-color)] mb-8">
+          <span className="font-bold text-[var(--text-main)] flex items-center gap-2">
+            <Languages size={20} className="text-[var(--primary)]" /> Langue de l'app
+          </span>
+          <button onClick={() => setLang(lang === 'fr' ? 'en' : 'fr')} className="p-2.5 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl text-[var(--primary)] shadow-sm font-black text-xs">
+            {lang === 'fr' ? 'EN' : 'FR'}
+          </button>
+        </div>
+
         <div className="space-y-3 pt-6 border-t border-[var(--border-color)]"><Button variant="secondary" className="w-full !py-3" onClick={onLogout}><LogOut size={18} /> {t('profile_logout')}</Button><button onClick={onDelete} className="w-full py-3 text-xs font-bold text-[var(--text-muted)] hover:text-red-500 transition-colors">{t('profile_delete')}</button></div>
       </div>
     </div>
