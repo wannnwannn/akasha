@@ -620,6 +620,30 @@ const DetailModal: React.FC<{
   const [reminderExactDate, setReminderExactDate] = useState<string>(initialReminder.exactDate);
   const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
 
+  // --- NOUVEAU : GESTION DU BOUTON RETOUR NATIF (MOBILE) ---
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  useEffect(() => {
+    // L'astuce vitale pour Android/iOS : modifier l'URL avec un hash
+    window.history.pushState({ modal: 'detail' }, '', window.location.pathname + window.location.search + '#modal');
+
+    const handlePopState = () => {
+      onCloseRef.current();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      // Si on ferme avec la croix, l'URL a encore le hash, on force le retour en arrière pour nettoyer l'historique
+      if (window.location.hash === '#modal') {
+        window.history.back();
+      }
+    };
+  }, []);
+  // ---------------------------------------------------------
+
   const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : (localData as any).totalEpisodes;
 
   useEffect(() => {
