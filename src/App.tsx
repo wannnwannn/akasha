@@ -402,15 +402,14 @@ const AkashaLogo: React.FC<{ size?: number, className?: string }> = ({ size = 24
 );
 
 const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
-  const { t } = useContext(LangContext);
   const config: Record<string, { color: string, icon: any, label: string }> = {
-    movie: { color: 'bg-rose-500/20 text-rose-500 border border-rose-500/20', icon: Film, label: t('type_movie') },
-    tv: { color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20', icon: Tv, label: t('type_tv') },
-    anime: { color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20', icon: PlayCircle, label: t('type_anime') },
-    manga: { color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/20', icon: BookOpen, label: t('type_manga') },
-    webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: t('type_webtoon') },
-    book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: t('type_book') },
-    manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: 'Manual' }
+    movie: { color: 'bg-rose-500/20 text-rose-500 border border-rose-500/20', icon: Film, label: 'Film' },
+    tv: { color: 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/20', icon: Tv, label: 'Série' },
+    anime: { color: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/20', icon: PlayCircle, label: 'Anime' },
+    manga: { color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/20', icon: BookOpen, label: 'Manga' },
+    webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: 'Webtoon' },
+    book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: 'Livre' },
+    manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: 'Manuel' }
   };
   const current = config[type] || config.movie;
   const Icon = current.icon;
@@ -1200,6 +1199,8 @@ const DiscoverySearch: React.FC<{
   const [community, setCommunity] = useState<LibraryItem[]>([]);
   const [loadingFeeds, setLoadingFeeds] = useState(true);
 
+  const [showManualAdd, setShowManualAdd] = useState(false);
+
   useEffect(() => {
     if (debouncedQuery) return;
     const loadFeeds = async () => {
@@ -1307,7 +1308,7 @@ const DiscoverySearch: React.FC<{
                 </div>
                 <div className="p-3.5">
                   <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
-                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p>
+                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{'year' in media ? media.year : '?'}</p>
                 </div>
               </div>
             )
@@ -1357,6 +1358,7 @@ const DiscoverySearch: React.FC<{
           {renderCarousel("Tendances Actuelles", trending)}
           {renderCarousel("Prochaines Sorties", upcoming)}
           {community.length > 0 && renderCarousel("Découvertes Communautaires", community)}
+
           <ManualAddForm user={user} fetchLibrary={fetchLibrary} />
         </div>
       )}
@@ -1524,7 +1526,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
     } catch (e: any) { console.error("Échec de l'activation Push :", e.message); } finally { setIsPushLoading(false); }
   };
 
-  // ================= LOGIQUE EXPORT / IMPORT =================
   const handleExport = () => {
     const dataStr = JSON.stringify(library, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
