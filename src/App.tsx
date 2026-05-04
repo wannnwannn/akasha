@@ -1938,7 +1938,7 @@ const SharedMediaScreen: React.FC<{ item: any, onJoin: () => void, theme: string
               <h3 className="font-black text-2xl tracking-tight">Rejoignez Akasha</h3>
             </div>
             <p className="text-sm font-medium mb-6 text-white/90 max-w-sm mx-auto">Ne perdez plus le fil de vos séries, animes et livres préférés. Sauvegardez votre progression et organisez votre bibliothèque culturelle gratuitement.</p>
-            <Button onClick={onJoin} className="w-full bg-white text-[var(--primary)] hover:text-rose-700 hover:bg-gray-100 !py-4 shadow-xl text-base font-black border-0">
+            <Button onClick={onJoin} className="w-full bg-white !text-[var(--primary)] hover:!text-rose-700 hover:bg-gray-100 !py-4 shadow-xl text-base font-black border-0">
                Créer un compte ou se connecter
             </Button>
           </div>
