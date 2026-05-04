@@ -631,6 +631,7 @@ const DetailModal: React.FC<{
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [editCoverUrl, setEditCoverUrl] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
 
   const getInitialReminderState = () => {
     if (!trackedItem?.reminder_day) return { type: 'weekly' as 'weekly'|'exact', days: [] as string[], freq: "1", exactDate: '' };
@@ -807,20 +808,35 @@ const DetailModal: React.FC<{
     }
   };
 
-  const handleShare = () => {
+  const handleShare = async () => {
+    setIsSharing(true);
     const encoded = encodeMediaForShare(localData);
-    const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+    const originalUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+    let finalUrl = originalUrl;
+
+    try {
+      const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(originalUrl)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.shorturl) {
+          finalUrl = data.shorturl;
+        }
+      }
+    } catch (err) {
+      console.warn("L'API de raccourcissement a échoué (sûrement CORS ou limite rate). Fallback sur l'URL complète.");
+    }
 
     if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(shareUrl).then(() => {
+      navigator.clipboard.writeText(finalUrl).then(() => {
         setShareCopied(true);
         setTimeout(() => setShareCopied(false), 3000);
-      }).catch(() => fallbackCopyTextToClipboard(shareUrl));
+      }).catch(() => fallbackCopyTextToClipboard(finalUrl));
     } else {
-      fallbackCopyTextToClipboard(shareUrl);
+      fallbackCopyTextToClipboard(finalUrl);
       setShareCopied(true);
       setTimeout(() => setShareCopied(false), 3000);
     }
+    setIsSharing(false);
   };
 
   const title = String(localData.title || "");
@@ -923,9 +939,11 @@ const DetailModal: React.FC<{
               </button>
               <button
                 onClick={handleShare}
+                disabled={isSharing}
                 className={`flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm ${shareCopied ? '!border-emerald-500 !text-emerald-500 bg-emerald-500/10' : 'hover:text-[var(--primary)]'}`}
               >
-                {shareCopied ? <Check size={14} /> : <Share size={14} />} {shareCopied ? 'Lien copié !' : 'Partager'}
+                {isSharing ? <Loader2 size={14} className="animate-spin" /> : (shareCopied ? <Check size={14} /> : <Share size={14} />)}
+                {shareCopied ? 'Lien copié !' : (isSharing ? 'Création...' : 'Partager')}
               </button>
             </div>
 
