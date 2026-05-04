@@ -1840,28 +1840,87 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
 // COMPOSANT PARTAGE (VUE PUBLIQUE NON CONNECTÉE)
 // ============================================================================
 const SharedMediaScreen: React.FC<{ item: any, onJoin: () => void, theme: string }> = ({ item, onJoin, theme }) => {
-  return (
-    <div className={`${theme} min-h-screen bg-[var(--bg-base)] flex flex-col items-center justify-center p-4`}>
-       <GlobalStyles />
-       <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden text-center animate-in fade-in zoom-in-95 duration-500">
-          <h1 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest mb-6">On vous a partagé une œuvre</h1>
+  const { lang } = useContext(LangContext);
+  const [localData, setLocalData] = useState(item);
+  const [showFullDesc, setShowFullDesc] = useState(false);
 
-          <div className="w-32 sm:w-40 aspect-[2/3] relative rounded-xl overflow-hidden shadow-xl mx-auto mb-6 border border-[var(--border-color)]">
-            {item.cover ? <img src={String(item.cover)} alt={item.title} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40}/>}
-            <div className="absolute top-2 left-2"><TypeBadge type={String(item.type)} /></div>
+  // On revalide les données pour récupérer les genres, la durée, le créateur, etc. (non inclus dans l'URL)
+  useEffect(() => {
+    const checkAndRevalidate = async () => {
+      const freshData = await revalidateMediaDetails(item, lang);
+      if (freshData) {
+        setLocalData((prev: any) => ({ ...prev, ...freshData }));
+      }
+    };
+    checkAndRevalidate();
+  }, [item.id, item.source, lang]);
+
+  const title = String(localData.title || "");
+  const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
+  const description = String(localData.description || 'Description en cours de chargement...');
+  const year = String(localData.year || 'Année inconnue');
+  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status));
+  const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
+  const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : localData.totalEpisodes;
+
+  return (
+    <div className={`${theme} min-h-screen bg-[var(--bg-base)] flex flex-col items-center justify-center p-4 sm:p-6 overflow-y-auto custom-scrollbar`}>
+       <GlobalStyles />
+       <div className="max-w-xl w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden text-center animate-in fade-in zoom-in-95 duration-500 my-auto">
+
+          <h1 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center justify-center gap-2 mb-6">
+            <Share size={16} /> On vous a recommandé cette œuvre
+          </h1>
+
+          <div className="w-40 sm:w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)] mx-auto mb-6">
+            {cover ? <img src={String(cover)} alt={title} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40}/>}
+            <div className="absolute top-2 left-2"><TypeBadge type={String(localData.type)} /></div>
           </div>
 
-          <h2 className="text-2xl font-black text-[var(--text-main)] mb-2 leading-tight">{item.title}</h2>
-          <p className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] inline-block px-3 py-1 rounded-md border border-[var(--border-color)] mb-4">{item.year} • {String(item.source).toUpperCase()}</p>
-          <p className="text-sm text-[var(--text-muted)] line-clamp-4 mb-8 text-left">{item.description}</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)] mb-3 leading-tight tracking-tight">{title}</h2>
 
-          <div className="bg-gradient-to-br from-[var(--primary)] to-rose-600 rounded-2xl p-5 sm:p-6 text-white text-left shadow-lg mb-6 transform transition-transform hover:scale-[1.02]">
-            <div className="flex items-center gap-3 mb-3">
-              <AkashaLogo size={28} className="text-white drop-shadow-md" />
-              <h3 className="font-black text-lg tracking-tight">Rejoignez Akasha</h3>
+          <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
+            {localData.type !== 'book' && <span className={`text-[10px] uppercase tracking-widest font-black px-2.5 py-1 rounded-md ${String(statusColor)}`}>{prodStatusLabel}</span>}
+
+            {(normalizedTotal || localData.type !== 'book') && (
+              <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">
+                {normalizedTotal ? `${String(normalizedTotal)} ${localData.type === 'book' ? 'pages' : 'ép'}` : '? ép'}
+                {localData.type !== 'book' && localData.runtime && (
+                  <span className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2">
+                    <Clock size={12}/> {localData.runtime}m
+                  </span>
+                )}
+              </span>
+            )}
+
+            <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">{year} • {String(localData.source).toUpperCase()}</span>
+          </div>
+
+          {localData.creator && <p className="text-sm font-bold text-[var(--primary)] mb-4">Par {String(localData.creator)}</p>}
+
+          {localData.genres && localData.genres.length > 0 && (
+            <div className="flex flex-wrap justify-center gap-1.5 mb-4">
+              {localData.genres.map((genre: string) => <span key={String(genre)} className="text-[10px] uppercase tracking-wider bg-[var(--panel-bg-alt)] text-[var(--text-main)] border border-[var(--border-color)] px-3 py-1 rounded-full font-bold">{String(genre)}</span>)}
             </div>
-            <p className="text-sm font-medium mb-4 text-white/90">Ne perdez plus le fil de vos séries, animes et livres préférés. Sauvegardez votre progression et organisez votre bibliothèque culturelle gratuitement.</p>
-            <Button onClick={onJoin} className="w-full bg-white text-[var(--primary)] hover:bg-gray-100 !py-3 shadow-md">
+          )}
+
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            <button onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(title + ' trailer')}`, '_blank')} className="flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] hover:text-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm"><PlayCircle size={14} /> Bande-annonce</button>
+            <button onClick={() => window.open(`https://www.google.com/search?q=${encodeURIComponent(title + ' date de sortie')}`, '_blank')} className="flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] hover:text-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm"><CalendarIcon size={14} /> Date de sortie</button>
+          </div>
+
+          <div className="mb-8 bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)] text-left">
+            <div className={`text-sm text-[var(--text-muted)] leading-relaxed ${!showFullDesc ? 'line-clamp-4' : ''}`}>{description}</div>
+            {description.length > 200 && <button onClick={() => setShowFullDesc(!showFullDesc)} className="text-xs font-bold text-[var(--primary)] hover:text-[var(--primary-hover)] mt-2 transition-colors">{showFullDesc ? 'Voir moins' : '... Voir plus'}</button>}
+          </div>
+
+          <div className="bg-gradient-to-br from-[var(--primary)] to-rose-600 rounded-2xl p-6 sm:p-8 text-white text-center shadow-lg transform transition-transform hover:scale-[1.02]">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <AkashaLogo size={36} className="text-white drop-shadow-md" />
+              <h3 className="font-black text-2xl tracking-tight">Rejoignez Akasha</h3>
+            </div>
+            <p className="text-sm font-medium mb-6 text-white/90 max-w-sm mx-auto">Ne perdez plus le fil de vos séries, animes et livres préférés. Sauvegardez votre progression et organisez votre bibliothèque culturelle gratuitement.</p>
+            <Button onClick={onJoin} className="w-full bg-white text-[var(--primary)] hover:text-rose-700 hover:bg-gray-100 !py-4 shadow-xl text-base font-black border-0">
                Créer un compte ou se connecter
             </Button>
           </div>
@@ -1869,7 +1928,6 @@ const SharedMediaScreen: React.FC<{ item: any, onJoin: () => void, theme: string
     </div>
   );
 };
-
 
 // ============================================================================
 // APPLICATION PRINCIPALE (RACINE ET CONTEXTE)
