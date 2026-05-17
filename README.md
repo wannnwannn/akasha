@@ -1,10 +1,11 @@
-<h4>Akasha is an ultra-fluid, cross-platform media tracker designed to centralize your cultural journey. Stop switching between apps: index your films, series, animes, mangas, and books in one personal Akashic Record.</h4>
+<h4><a href="https://your-akasha.vercel.app">Akasha</a> is an ultra-fluid, cross-platform media tracker designed to centralize your cultural journey. Stop switching between apps: index your films, series, animes, mangas, and books in one personal Akashic Record.</h4>
 <img width="1280" height="720" alt="Akasha, Your digital ether for every watch, every read, and every obsession" src="https://github.com/user-attachments/assets/3a83e6cb-8f79-43c6-8252-4ed98fe7522f" />
 <img width="1280" height="720" alt="Sync your life’s consumption in one place." src="https://github.com/user-attachments/assets/43b02efe-0be2-4529-91fb-a59f9eea701f" />
 <img width="1280" height="720" alt="All your libraries, filtered instantly without the clutter." src="https://github.com/user-attachments/assets/6892ddb9-c1b2-4161-8d6a-661596261d89" />
 <img width="1280" height="720" alt="Akasha turns your library into a living dashboard of your digital identity, giving you deep insights into your cultural footprint." src="https://github.com/user-attachments/assets/0929d1d6-1a8a-4f1b-aa04-23bfd57c962d" />
 <img width="1280" height="720" alt="real-time alerts for every upcoming release." src="https://github.com/user-attachments/assets/e031217e-eb33-439b-aa54-f1ce141293b2" />
 <img width="1280" height="721" alt="Stop scrolling. Start indexing." src="https://github.com/user-attachments/assets/5ba6656a-22b6-4e7f-bf8a-e9a5f390b418" />
+<h4><a href="https://your-akasha.vercel.app">your-akasha.vercel.app</a></h4>
 
 
 <h2>📸 Interface Preview</h2>
