@@ -1703,7 +1703,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; onClose: () => void }> =
 // ============================================================================
 // COMPOSANT PROFIL
 // ============================================================================
-const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void, onOpenWrapped: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary }) => {
+const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void, onOpenWrapped: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary, onOpenWrapped }) => {
   const { t } = useTranslation();
   const { lang, setLang } = useContext(LangContext);
   const toggleLang = () => {
