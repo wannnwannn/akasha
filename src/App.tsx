@@ -1491,7 +1491,7 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
 // ============================================================================
 const AkashaWrapped: React.FC<{ library: LibraryItem[]; onClose: () => void }> = ({ library, onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const { t } = useTranslation();
+  //const { t } = useTranslation();
 
   // --- 1. MOTEUR D'ANALYSE DES DONNÉES ---
   const insights = useMemo(() => {
