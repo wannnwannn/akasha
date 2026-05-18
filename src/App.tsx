@@ -1486,11 +1486,224 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
     </div>
   );
 };
+// ============================================================================
+// COMPOSANT AKASHA WRAPPED (EXPÉRIENCE IMMERSIVE STYLE SPOTIFY)
+// ============================================================================
+const AkashaWrapped: React.FC<{ library: LibraryItem[]; onClose: () => void }> = ({ library, onClose }) => {
+  const [currentStep, setCurrentStep] = useState(0);
+  const { t } = useTranslation();
 
+  // --- 1. MOTEUR D'ANALYSE DES DONNÉES ---
+  const insights = useMemo(() => {
+    let totalMinutes = 0;
+    let totalEpisodes = 0;
+    let totalPages = 0;
+    const genreCounts: Record<string, number> = {};
+    let maxTimeSpent = 0;
+    let obsessionItem: LibraryItem | null = null;
+    const typeCounts: Record<string, number> = { movie: 0, tv: 0, anime: 0, manga: 0, webtoon: 0, book: 0 };
+
+    library.forEach((item) => {
+      typeCounts[item.type] = (typeCounts[item.type] || 0) + 1;
+      totalEpisodes += item.type !== 'book' ? (item.progress || 0) : 0;
+      totalPages += item.type === 'book' ? (item.progress || 0) : 0;
+
+      // Calcul du temps par œuvre
+      let runtime = item.runtime || (item.type === 'movie' ? 90 : item.type === 'tv' ? 60 : 20);
+      let timeSpent = (item.progress || 0) * runtime;
+      totalMinutes += timeSpent;
+
+      if (timeSpent > maxTimeSpent && item.progress > 0) {
+        maxTimeSpent = timeSpent;
+        obsessionItem = item;
+      }
+
+      // Comptage des genres
+      if (item.genres && Array.isArray(item.genres)) {
+        item.genres.forEach((g) => {
+          genreCounts[g] = (genreCounts[g] || 0) + 1;
+        });
+      }
+    });
+
+    const topGenres = Object.entries(genreCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([name]) => name);
+
+    // Détermination du Persona Culturel
+    const favoriteType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'anime';
+    let persona = "L'Électron Libre";
+    let personaDesc = "Tu navigues d'un format à un autre sans jamais te fixer. Un vrai caméléon culturel.";
+
+    if (favoriteType === 'anime' || favoriteType === 'manga') {
+      persona = "L'Otaku Pur Sang";
+      personaDesc = "Le Japon et les webtoons n'ont aucun secret pour toi. Ton rythme cardiaque est synchronisé avec les sorties d'épisodes.";
+    } else if (favoriteType === 'movie' || favoriteType === 'tv') {
+      persona = "Le Sériphile Nocturne";
+      personaDesc = "Les marathons sous le plaid sont ta spécialité. Tu analyses la mise en scène même quand tu dors.";
+    } else if (favoriteType === 'book') {
+      persona = "L'Érudit de l'Ombre";
+      personaDesc = "L'odeur du papier (ou le rétroéclairage de ta liseuse) est ta drogue. Tu vis mille vies à la fois.";
+    }
+
+    return {
+      hoursSpent: Math.round(totalMinutes / 60),
+      equivalentDays: (totalMinutes / (60 * 24)).toFixed(1),
+      totalEpisodes,
+      totalPages,
+      topGenres,
+      obsession: obsessionItem ? { title: (obsessionItem as LibraryItem).title, cover: (obsessionItem as LibraryItem).cover_url, hours: Math.round(maxTimeSpent / 60) } : null,
+      persona,
+      personaDesc
+    };
+  }, [library]);
+
+  // --- 2. CONFIGURATION DES ÉCRANS (STORIES) ---
+  const steps = [
+    {
+      bg: "from-purple-900 via-indigo-950 to-black",
+      render: () => (
+        <div className="text-center space-y-6 animate-in fade-in zoom-in-95 duration-700">
+          <div className="inline-flex p-4 bg-white/10 rounded-3xl backdrop-blur-md mb-2 border border-white/20 animate-bounce">
+            <Trophy size={48} className="text-amber-400 fill-amber-400" />
+          </div>
+          <h2 className="text-4xl sm:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-400 to-purple-400 uppercase leading-none">
+            Akasha<br />Wrapped 2026
+          </h2>
+          <p className="text-sm sm:text-base font-bold text-indigo-200 max-w-xs mx-auto">
+            Prêt à analyser l'ADN de ton année culturelle ? Tes statistiques t'attendent.
+          </p>
+        </div>
+      )
+    },
+    {
+      bg: "from-rose-950 via-neutral-950 to-black",
+      render: () => (
+        <div className="text-center space-y-6 animate-in slide-in-from-bottom-8 duration-500">
+          <p className="text-xs font-black uppercase tracking-widest text-rose-400">Le Verdict du Temps</p>
+          <h3 className="text-3xl font-black text-white">Tu as consacré...</h3>
+          <div className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-rose-500 font-mono tracking-tighter leading-none">
+            {insights.hoursSpent}h
+          </div>
+          <p className="text-sm font-bold text-rose-200 max-w-xs mx-auto">
+            à tes passions cette année. C'est l'équivalent de <span className="text-white underline decoration-rose-500 decoration-2">{insights.equivalentDays} jours</span> complets d'immersion totale.
+          </p>
+        </div>
+      )
+    },
+    {
+      bg: "from-amber-950 via-neutral-950 to-black",
+      render: () => (
+        <div className="text-center space-y-6 w-full max-w-sm animate-in zoom-in-95 duration-500">
+          <p className="text-xs font-black uppercase tracking-widest text-amber-500">Ton Obsession Absolue</p>
+          <h3 className="text-2xl sm:text-3xl font-black text-white">L'œuvre qui a dévoré ton temps libre</h3>
+          {insights.obsession ? (
+            <div className="mt-4 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm flex items-center gap-4 text-left shadow-2xl">
+              <div className="w-16 sm:w-20 aspect-[2/3] rounded-lg overflow-hidden border border-white/20 shrink-0 bg-neutral-800">
+                {insights.obsession.cover ? (
+                  <img src={insights.obsession.cover} className="w-full h-full object-cover" alt="" />
+                ) : (
+                  <BookOpen className="text-neutral-500 m-auto h-full" size={24} />
+                )}
+              </div>
+              <div className="min-w-0">
+                <h4 className="font-black text-white text-base sm:text-lg truncate">{insights.obsession.title}</h4>
+                <p className="text-xs text-amber-400 font-bold mt-1">À elle seule : ~{insights.obsession.hours} heures</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-400 italic">Pas assez de données de visionnage pour désigner un coupable.</p>
+          )}
+        </div>
+      )
+    },
+    {
+      bg: "from-teal-950 via-neutral-950 to-black",
+      render: () => (
+        <div className="text-center space-y-6 animate-in fade-in duration-500">
+          <p className="text-xs font-black uppercase tracking-widest text-teal-400">Génétique Culturelle</p>
+          <h3 className="text-3xl font-black text-white">Ton Top Genres</h3>
+          <div className="flex flex-col gap-3 mt-4 max-w-xs mx-auto">
+            {insights.topGenres.length > 0 ? (
+              insights.topGenres.map((genre, idx) => (
+                <div key={genre} className="flex items-center justify-between bg-white/5 border border-white/10 px-5 py-3 rounded-xl backdrop-blur-md">
+                  <span className="font-bold text-white text-sm">{genre}</span>
+                  <span className="text-xs font-mono font-black text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-md">#{idx + 1}</span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-neutral-400 italic">Aucun genre prédominant détecté.</p>
+            )}
+          </div>
+        </div>
+      )
+    },
+    {
+      bg: "from-indigo-950 via-purple-950 to-neutral-950",
+      render: () => (
+        <div className="text-center space-y-6 max-w-xs mx-auto animate-in scale-in duration-600">
+          <p className="text-xs font-black uppercase tracking-widest text-purple-400">Ton Identité Akasha</p>
+          <div className="w-20 h-20 bg-gradient-to-tr from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto shadow-xl border-2 border-white/20">
+            <User size={36} className="text-white" />
+          </div>
+          <h3 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-white leading-tight">
+            {insights.persona}
+          </h3>
+          <p className="text-xs sm:text-sm text-purple-200 font-medium leading-relaxed bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+            "{insights.personaDesc}"
+          </p>
+          <div className="pt-4">
+            <Button variant="secondary" onClick={onClose} className="w-full bg-white text-purple-950 font-black hover:bg-neutral-100 border-0 shadow-lg !py-3">
+              Terminer l'expérience
+            </Button>
+          </div>
+        </div>
+      )
+    }
+  ];
+
+  const next = () => currentStep < steps.length - 1 ? setCurrentStep(currentStep + 1) : onClose();
+  const prev = () => currentStep > 0 && setCurrentStep(currentStep - 1);
+
+  return (
+    <div className={`fixed inset-0 z-50 bg-gradient-to-b ${steps[currentStep].bg} flex flex-col justify-between p-6 select-none`}>
+      {/* BARRE DE PROGRESSION DU SCRIPT */}
+      <div className="flex gap-1.5 w-full max-w-md mx-auto pt-2">
+        {steps.map((_, idx) => (
+          <div key={idx} className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
+            <div className={`h-full bg-white transition-all duration-300 ${idx <= currentStep ? 'w-full' : 'w-0'}`} />
+          </div>
+        ))}
+      </div>
+
+      {/* BOUTON FERMER DIRECT */}
+      <button onClick={onClose} className="absolute top-12 right-6 text-white/50 hover:text-white transition-colors z-30">
+        <X size={24} strokeWidth={3} />
+      </button>
+
+      {/* ZONE DE CONTENU CENTRAL */}
+      <div className="flex-1 flex items-center justify-center px-4">
+        {steps[currentStep].render()}
+      </div>
+
+      {/* NAVIGATION TACTILE / CLIC GAUCHE DROITE */}
+      <div className="absolute inset-y-0 inset-x-0 flex">
+        <div className="w-1/3 h-full cursor-w-resize" onClick={prev} />
+        <div className="w-2/3 h-full cursor-e-resize" onClick={next} />
+      </div>
+
+      {/* BAS DE PAGE DE CONTEXTE */}
+      <div className="text-center text-[10px] uppercase tracking-widest text-white/30 font-bold font-mono z-20 pointer-events-none">
+        Écran {currentStep + 1} sur {steps.length} • Appuie à droite pour avancer
+      </div>
+    </div>
+  );
+};
 // ============================================================================
 // COMPOSANT PROFIL
 // ============================================================================
-const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary }) => {
+const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void, onOpenWrapped: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary }) => {
   const { t } = useTranslation();
   const { lang, setLang } = useContext(LangContext);
   const toggleLang = () => {
@@ -1631,6 +1844,9 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 
           <Button onClick={onOpenRanking} className="mx-auto !px-6 !py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-lg shadow-orange-500/20">
             <Trophy size={18}/> {t('profile.ranking.button')}
+          </Button>
+          <Button onClick={onOpenWrapped} className="mx-auto mt-3 !px-6 !py-2 bg-gradient-to-r from-purple-600 via-rose-500 to-amber-500 hover:opacity-90 text-white border-0 shadow-xl shadow-purple-500/20 tracking-wide uppercase text-xs font-black animate-pulse">
+          ✨ Découvrir mon Akasha Wrapped
           </Button>
         </div>
 
@@ -1927,6 +2143,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile' | 'ranking'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
+  const [showWrapped, setShowWrapped] = useState(false);
 
   // CHARGEMENT DE LA MÉMOIRE DES FILTRES
   const [activeFilter, setActiveFilter] = useState<'watching'|'planning'|'completed'|'on_hold'|'favorites'|'reminders'>(
@@ -2123,7 +2340,7 @@ export default function App() {
             )}
 
             {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
-            {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} />}
+            {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} onOpenWrapped={() => setShowWrapped(true)} />}
             {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />}
           </main>
 
@@ -2138,6 +2355,12 @@ export default function App() {
               user={user || undefined}
               fetchLibrary={fetchLibrary}
               userLibrary={userLibrary}
+            />
+          )}
+          {showWrapped && (
+            <AkashaWrapped 
+              library={userLibrary} 
+              onClose={() => setShowWrapped(false)} 
             />
           )}
         </div>
