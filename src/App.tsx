@@ -12,15 +12,7 @@ import {
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
   Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages, Upload
 } from 'lucide-react';
-declare global {
-  interface ServiceWorkerRegistration {
-    readonly sync: SyncManager;
-  }
-  interface SyncManager {
-    register(tag: string): Promise<void>;
-    getTags(): Promise<string[]>;
-  }
-}
+
 // ============================================================================
 // STYLES GLOBAUX
 // ============================================================================
@@ -112,8 +104,8 @@ const STATUS_CONFIG = {
   favorites: { labelKey: 'status_favorites', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-rose-500', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-rose-500 border-x border-rose-500', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-rose-500 border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
   watching: { labelKey: 'status_watching', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--primary)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-[var(--primary)] border-x border-[var(--primary)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
   planning: { labelKey: 'status_planning', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-indigo-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
-  completed: { labelKey: 'status_completed', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-emerald-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
-  on_hold: { labelKey: 'status_on_hold', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-amber-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
+  completed: { labelKey: 'status_completed', containerBg: 'bg-[var(--panel-bg)]', containerBorder: 'border-[var(--border-color)]', tabActive: 'bg-[var(--panel-bg)] text-[var(--text-main)] border-t-2 border-emerald-500 border-x border-[var(--border-color)]', tabInactive: 'bg-[var(--bg-base)] text_[var(--text-muted)] hover:text_[var(--text-main)] border-t-2 border-transparent border-b border-b_[var(--border-color)]' },
+  on_hold: { labelKey: 'status_on_hold', containerBg: 'bg_[var(--panel-bg)]', containerBorder: 'border_[var(--border-color}]', tabActive: 'bg_[var(--panel-bg)_ text_[var(--text-main)_ border-t-2 border-amber-500 border-x	border_[ var(-border-color)_]', tabInactive: 'bg_[ var(-bg-base)_ text_[ var(-text-muted)_ hover:text_[ var(-text-main)_	border-t-2	border-transparent	border-b	border-b_[ var(-border-color)_]' },
   reminders: { labelKey: 'status_reminders', containerBg: 'bg-[var(--bg-base)]', containerBorder: 'border-transparent', tabActive: 'bg-amber-500/10 text-amber-600 dark:text-amber-500 border-t-2 border-amber-500 border-x border-amber-500/30', tabInactive: 'bg-[var(--bg-base)] text-[var(--text-muted)] hover:text-amber-500 border-t-2 border-transparent border-b border-b-[var(--border-color)]' },
 };
 
@@ -226,107 +218,6 @@ const encodeMediaForShare = (item: any) => {
   return btoa(encodeURIComponent(JSON.stringify(minimalData)));
 };
 
-const downloadBlob = (blob: Blob, filename: string) => {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-};
-
-const createShareCardBlob = async (item: any): Promise<Blob> => {
-  const width = 1200;
-  const height = 630;
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Canvas non disponible');
-
-  // Fond principal
-  ctx.fillStyle = '#0f172a';
-  ctx.fillRect(0, 0, width, height);
-  
-  // Panneau intérieur
-  ctx.fillStyle = '#111827';
-  ctx.fillRect(40, 40, width - 80, height - 80);
-  
-  // Titre
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 58px "Inter", system-ui, sans-serif';
-  const title = (item.title || 'Akasha').substring(0, 40);
-  ctx.fillText(title, 500, 140);
-  
-  // Type
-  ctx.font = 'bold 34px "Inter", system-ui, sans-serif';
-  ctx.fillStyle = '#a5b4fc';
-  ctx.fillText(item.type ? String(item.type).toUpperCase() : 'MEDIA', 500, 200);
-  
-  // Année
-  ctx.fillStyle = '#d1d5db';
-  ctx.font = '24px "Inter", system-ui, sans-serif';
-  ctx.fillText(item.year ? String(item.year) : 'N/A', 500, 240);
-  
-  // Progression
-  const progressLabel = item.totalEpisodes ? `${item.progress || 0} / ${item.totalEpisodes}` : `${item.progress || 0} épisodes`;
-  ctx.fillText(progressLabel, 500, 285);
-  
-  // Statut
-  const statusText = item.status || item.prod_status || 'Statut inconnu';
-  ctx.fillText(String(statusText).substring(0, 30), 500, 330);
-  
-  // Zone pour l'image de couverture
-  ctx.fillStyle = '#111827';
-  ctx.fillRect(60, 120, 380, 510);
-  ctx.strokeStyle = '#374151';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(60, 120, 380, 510);
-  
-  // Charger et dessiner l'image de couverture
-  if (item.cover) {
-    try {
-      const response = await fetch(item.cover, { mode: 'cors' });
-      const imgBlob = await response.blob();
-      const imgUrl = URL.createObjectURL(imgBlob);
-      const image = new Image();
-      await new Promise((resolve, reject) => {
-        image.onload = resolve;
-        image.onerror = reject;
-        image.src = imgUrl;
-      });
-      ctx.drawImage(image, 65, 125, 370, 500);
-      URL.revokeObjectURL(imgUrl);
-    } catch (err) {
-      console.warn('Impossible de charger la couverture', err);
-      ctx.fillStyle = '#1f2937';
-      ctx.fillRect(65, 125, 370, 500);
-    }
-  }
-  
-  // Barre de progression visuelle
-  if (item.totalEpisodes && item.progress) {
-    const progressPercent = (item.progress / item.totalEpisodes) * 520;
-    ctx.fillStyle = '#7c3aed';
-    ctx.fillRect(500, 360, Math.min(520, progressPercent), 12);
-  } else {
-    ctx.fillStyle = '#7c3aed';
-    ctx.fillRect(500, 360, 520, 12);
-  }
-  
-  // Retourner le Blob
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => {
-      if (blob) resolve(blob);
-      else reject(new Error('Impossible de créer l’image'));
-    }, 'image/png');
-  });
-};
-
-
-
 // ============================================================================
 // SERVICES API
 // ============================================================================
@@ -408,7 +299,8 @@ const fetchTrendingTMDB = async (lang: Lang): Promise<MediaItem[]> => {
   }));
 };
 
-const getStatusLabel = (t: (key: string) => string, status: string | undefined) => {
+const mapStatusToLabel = (status: string | undefined) => {
+  const { t } = useTranslation();
   if (!status) return t('statut-inconnu');
   const s = status.toLowerCase();
   if (s === 'completed' || s === 'finished' || s === 'ended' || s === 'released') return t('termine');
@@ -701,7 +593,6 @@ const DetailModal: React.FC<{
   const [editCoverUrl, setEditCoverUrl] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
-  const [isImageSharing, setIsImageSharing] = useState(false);
   const { t } = useTranslation();
 
   const getInitialReminderState = () => {
@@ -910,38 +801,12 @@ const DetailModal: React.FC<{
     setIsSharing(false);
   };
 
-  const handleShareImage = async () => {
-  setIsImageSharing(true);
-  try {
-    const mediaData = {
-      title: (localData as any).title,
-      cover: ('cover' in localData) ? (localData as any).cover : (localData as any).cover_url,
-      type: (localData as any).type,
-      year: (localData as any).year,
-      status: (localData as any).prod_status,
-      progress: ('progress' in localData) ? (localData as any).progress : 0,
-      totalEpisodes: normalizedTotal
-    };
-    
-    const imageBlob = await createShareCardBlob(mediaData);
-    if (imageBlob instanceof Blob) {
-      downloadBlob(imageBlob, `akasha-share-${String(mediaData.title || 'media').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.png`);
-    } else {
-      throw new Error('Le résultat n\'est pas un Blob');
-    }
-  } catch (err) {
-    console.error('Impossible de générer la carte image', err);
-    alert('Impossible de générer l’image de partage.');
-  }
-  setIsImageSharing(false);
-};
-
   const title = String(localData.title || "");
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = String(localData.description || t('description-en-cours-de-chargement'));
   const year = String(localData.year || t('annee-inconnue'));
-  const prodStatusLabel = String(getStatusLabel(t, localData.prod_status));
-  const statusColor = prodStatusLabel === t('statut-inconnu') ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
+  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status));
+  const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-y-auto" onClick={onClose}>
@@ -1041,14 +906,6 @@ const DetailModal: React.FC<{
               >
                 {isSharing ? <Loader2 size={14} className="animate-spin" /> : (shareCopied ? <Check size={14} /> : <Share size={14} />)}
                 {shareCopied ? t('lien-copie') : (isSharing ? t('creation') : t('partager'))}
-              </button>
-              <button
-                onClick={handleShareImage}
-                disabled={isImageSharing}
-                className="flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--text-primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm"
-              >
-                {isImageSharing ? <Loader2 size={14} className="animate-spin" /> : <Share size={14} />}
-                {isImageSharing ? 'Génération...' : 'Carte PNG'}
               </button>
             </div>
 
@@ -1756,7 +1613,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; onClose: () => void }> =
               </div>
             </div>
           ) : (
-            <p className="text-sm text-neutral-400 italic">Pas assez de données</p>
+            <p className="text-sm text-neutral-400 italic">Pas assez de données de visionnage pour désigner un coupable.</p>
           )}
         </div>
       )
@@ -1908,11 +1765,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   };
 
   const handleSubscribePush = async () => {
-    if (pushStatus === 'unsupported' || !VAPID_PUBLIC_KEY) {
-      console.warn(t('profile.notifications.unsupported'));
-      alert('Notifications push désactivées : backend manquant ou navigateur non pris en charge.');
-      return;
-    }
+    if (pushStatus === 'unsupported' || !VAPID_PUBLIC_KEY) { console.warn(t('profile.notifications.unsupported')); return; }
     setIsPushLoading(true);
     try {
       const permission = await Notification.requestPermission();
@@ -1957,23 +1810,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
           .filter((item: any) => !existingSet.has(`${item.source}-${item.media_id}`))
           .map((item: any) => {
             const { id, created_at, updated_at, ...rest } = item;
-            const cleaned: any = { ...rest, user_id: user.id };
-            if (cleaned.reminder_day) {
-              try {
-                const parsed = typeof cleaned.reminder_day === 'string' ? JSON.parse(cleaned.reminder_day) : cleaned.reminder_day;
-                if (!parsed || (typeof parsed !== 'object')) {
-                  cleaned.reminder_day = null;
-                  cleaned.reminder_time = null;
-                }
-              } catch {
-                cleaned.reminder_day = null;
-                cleaned.reminder_time = null;
-              }
-            }
-            if (cleaned.reminder_time && !/^[0-2]\d:[0-5]\d$/.test(String(cleaned.reminder_time))) {
-              cleaned.reminder_time = null;
-            }
-            return cleaned;
+            return { ...rest, user_id: user.id }; // On force le user_id actuel
           });
 
         if (newItems.length > 0) {
@@ -2048,17 +1885,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
              <div className="bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)]">
                <p className="text-sm text-[var(--text-main)] font-bold mb-2 flex items-center gap-2"><BellRing size={16} className="text-blue-500"/> {t('profile.notifications.heading')}</p>
                <p className="text-xs text-[var(--text-muted)] mb-4">{t('profile.notifications.description')}</p>
-               {(!VAPID_PUBLIC_KEY || pushStatus === 'unsupported') ? (
-                 <div className="text-sm font-bold text-red-600 bg-red-500/10 p-3 rounded-xl border border-red-500/20">
-                   Notifications push désactivées : backend manquant ou non pris en charge.
-                 </div>
-               ) : pushStatus === 'granted' ? (
-                 <div className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-500 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20"><Check size={18} /> {t('profile.notifications.enabled')}</div>
-               ) : pushStatus === 'denied' ? (
-                 <div className="text-xs text-red-500 text-center bg-red-500/10 p-3 rounded-xl">{t('profile.notifications.denied')}</div>
-               ) : (
-                 <Button onClick={handleSubscribePush} disabled={isPushLoading} className="w-full !py-3 bg-blue-600 hover:bg-blue-700">{isPushLoading ? <Loader2 className="animate-spin" size={18}/> : t('profile.notifications.enable_button')}</Button>
-               )}
+               {pushStatus === 'granted' ? <div className="flex items-center justify-center gap-2 text-sm font-bold text-emerald-500 bg-emerald-500/10 py-3 rounded-xl border border-emerald-500/20"><Check size={18} /> {t('profile.notifications.enabled')}</div> : pushStatus === 'denied' ? <div className="text-xs text-red-500 text-center bg-red-500/10 p-3 rounded-xl">{t('profile.notifications.denied')}</div> : <Button onClick={handleSubscribePush} disabled={isPushLoading} className="w-full !py-3 bg-blue-600 hover:bg-blue-700">{isPushLoading ? <Loader2 className="animate-spin" size={18}/> : t('profile.notifications.enable_button')}</Button>}
              </div>
           )}
         </div>
@@ -2224,21 +2051,20 @@ const SharedMediaScreen: React.FC<{ item: any, onJoin: () => void, theme: string
 
   // On revalide les données pour récupérer les genres, la durée, le créateur, etc. (non inclus dans l'URL)
   useEffect(() => {
-  const checkAndRevalidate = async () => {
-    const freshData = await revalidateMediaDetails(item, lang);
-    if (freshData) {
-      setLocalData((prev: any) => ({ ...prev, ...freshData }));
-    }
-  };
-  checkAndRevalidate();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [item, lang]);
+    const checkAndRevalidate = async () => {
+      const freshData = await revalidateMediaDetails(item, lang);
+      if (freshData) {
+        setLocalData((prev: any) => ({ ...prev, ...freshData }));
+      }
+    };
+    checkAndRevalidate();
+  }, [item.id, item.source, lang]);
 
   const title = String(localData.title || "");
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
   const description = String(localData.description || t('description-en-cours-de-chargement'));
   const year = String(localData.year || t('annee-inconnue'));
-  const prodStatusLabel = String(getStatusLabel(t, localData.prod_status));
+  const prodStatusLabel = String(mapStatusToLabel(localData.prod_status));
   const statusColor = prodStatusLabel === t('statut-inconnu') ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
   const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : localData.totalEpisodes;
 
@@ -2356,13 +2182,7 @@ export default function App() {
   const activePlayerItem = useMemo(() => userLibrary.find(i => i.id === lastInteractedId) || null, [userLibrary, lastInteractedId]);
 
   useEffect(() => {
-    if ('SyncManager' in window) {
-      navigator.serviceWorker.ready.then(reg => {
-      if (reg.sync) {
-        reg.sync.register('akasha-offline-sync').catch(() => {});
-      }
-      });
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 
     // INTERCEPTER LE LIEN PARTAGÉ
     const params = new URLSearchParams(window.location.search);
@@ -2453,8 +2273,8 @@ export default function App() {
             <div className="hidden sm:flex items-center gap-2 pr-4 border-r border-[var(--border-color)]"><AkashaLogo size={24} className="text-[var(--primary)]" /><span className="font-black tracking-widest text-[var(--text-main)] mt-0.5">AKASHA</span></div>
             <button onClick={() => setCurrentTab('dashboard')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'dashboard' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_library')}><Library size={24} strokeWidth={currentTab === 'dashboard' ? 3 : 2} /></button>
             <button onClick={() => setCurrentTab('search')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'search' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_explore')}><Search size={24} strokeWidth={currentTab === 'search' ? 3 : 2} /></button>
-            <button onClick={() => setCurrentTab('ranking')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'ranking' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_ranking')}><Trophy size={24} strokeWidth={currentTab === 'ranking' ? 3 : 2} /></button>
             <button onClick={() => setCurrentTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_profile')}><User size={24} strokeWidth={currentTab === 'profile' ? 3 : 2} /></button>
+            {currentTab === 'ranking' && <div className="hidden sm:flex flex-col items-center gap-1 text-[var(--primary)] scale-110 transition-all"><Trophy size={24} strokeWidth={3}/></div>}
             <div className="hidden sm:block w-px h-6 bg-[var(--border-color)] mx-2"></div>
             <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title="Changer le thème">{theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}</button>
           </nav>
