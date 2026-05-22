@@ -237,7 +237,7 @@ const downloadBlob = (blob: Blob, filename: string) => {
   URL.revokeObjectURL(url);
 };
 
-const createShareCardBlob = async (item: any) => {
+const createShareCardBlob = async (item: any): Promise<Blob> => {
   const width = 1200;
   const height = 630;
   const canvas = document.createElement('canvas');
@@ -246,82 +246,86 @@ const createShareCardBlob = async (item: any) => {
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas non disponible');
 
+  // Fond principal
   ctx.fillStyle = '#0f172a';
   ctx.fillRect(0, 0, width, height);
+  
+  // Panneau intérieur
   ctx.fillStyle = '#111827';
   ctx.fillRect(40, 40, width - 80, height - 80);
+  
+  // Titre
   ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 58px Inter, system-ui, sans-serif';
-  ctx.fillText(item.title || 'Akasha', 500, 140);
-
-  ctx.font = 'bold 34px Inter, system-ui, sans-serif';
+  ctx.font = 'bold 58px "Inter", system-ui, sans-serif';
+  const title = (item.title || 'Akasha').substring(0, 40);
+  ctx.fillText(title, 500, 140);
+  
+  // Type
+  ctx.font = 'bold 34px "Inter", system-ui, sans-serif';
   ctx.fillStyle = '#a5b4fc';
   ctx.fillText(item.type ? String(item.type).toUpperCase() : 'MEDIA', 500, 200);
+  
+  // Année
   ctx.fillStyle = '#d1d5db';
-  ctx.font = '24px Inter, system-ui, sans-serif';
+  ctx.font = '24px "Inter", system-ui, sans-serif';
   ctx.fillText(item.year ? String(item.year) : 'N/A', 500, 240);
-
+  
+  // Progression
   const progressLabel = item.totalEpisodes ? `${item.progress || 0} / ${item.totalEpisodes}` : `${item.progress || 0} épisodes`;
   ctx.fillText(progressLabel, 500, 285);
+  
+  // Statut
   const statusText = item.status || item.prod_status || 'Statut inconnu';
-  ctx.fillText(String(statusText), 500, 330);
-
+  ctx.fillText(String(statusText).substring(0, 30), 500, 330);
+  
+  // Zone pour l'image de couverture
   ctx.fillStyle = '#111827';
   ctx.fillRect(60, 120, 380, 510);
   ctx.strokeStyle = '#374151';
   ctx.lineWidth = 2;
   ctx.strokeRect(60, 120, 380, 510);
-
+  
+  // Charger et dessiner l'image de couverture
   if (item.cover) {
     try {
+      const response = await fetch(item.cover, { mode: 'cors' });
+      const imgBlob = await response.blob();
+      const imgUrl = URL.createObjectURL(imgBlob);
       const image = new Image();
-      image.crossOrigin = 'anonymous';
-      const promise = new Promise((resolve, reject) => {
+      await new Promise((resolve, reject) => {
         image.onload = resolve;
         image.onerror = reject;
+        image.src = imgUrl;
       });
-      image.src = item.cover;
-      await promise;
       ctx.drawImage(image, 65, 125, 370, 500);
+      URL.revokeObjectURL(imgUrl);
     } catch (err) {
       console.warn('Impossible de charger la couverture', err);
       ctx.fillStyle = '#1f2937';
       ctx.fillRect(65, 125, 370, 500);
     }
   }
-
-  ctx.fillStyle = '#7c3aed';
-  ctx.fillRect(500, 360, 520, 12);
+  
+  // Barre de progression visuelle
+  if (item.totalEpisodes && item.progress) {
+    const progressPercent = (item.progress / item.totalEpisodes) * 520;
+    ctx.fillStyle = '#7c3aed';
+    ctx.fillRect(500, 360, Math.min(520, progressPercent), 12);
+  } else {
+    ctx.fillStyle = '#7c3aed';
+    ctx.fillRect(500, 360, 520, 12);
+  }
+  
+  // Retourner le Blob
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) resolve(blob);
-      else reject(new Error('Impossible de créer l’image')); 
+      else reject(new Error('Impossible de créer l’image'));
     }, 'image/png');
   });
 };
 
-const generateShareImage = async (data: any): Promise<Blob> => {
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    try {
-      const functionUrl = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/generate-share-image`;
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify({ item: data })
-      });
-      if (response.ok) return await response.blob();
-    } catch (err) {
-      console.warn('Échec du rendu serveur, fallback canvas', err);
-    }
-  }
-  const blob = await createShareCardBlob(data);
-  if (!(blob instanceof Blob)) throw new Error('Le fallback canvas n\'a pas produit un Blob valide');
-  return blob;
-};
+
 
 // ============================================================================
 // SERVICES API
@@ -909,9 +913,7 @@ const DetailModal: React.FC<{
   const handleShareImage = async () => {
   setIsImageSharing(true);
   try {
-    // Typage explicite pour éviter l'erreur 'never'
     const mediaData = {
-      id: ('media_id' in localData) ? (localData as any).media_id : (localData as any).id,
       title: (localData as any).title,
       cover: ('cover' in localData) ? (localData as any).cover : (localData as any).cover_url,
       type: (localData as any).type,
@@ -921,7 +923,7 @@ const DetailModal: React.FC<{
       totalEpisodes: normalizedTotal
     };
     
-    const imageBlob = await generateShareImage(mediaData);
+    const imageBlob = await createShareCardBlob(mediaData);
     if (imageBlob instanceof Blob) {
       downloadBlob(imageBlob, `akasha-share-${String(mediaData.title || 'media').replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.png`);
     } else {
