@@ -62,6 +62,7 @@ const SUPABASE_URL = String(import.meta.env.VITE_SUPABASE_URL || '');
 const SUPABASE_ANON_KEY = String(import.meta.env.VITE_SUPABASE_ANON_KEY || '');
 const VAPID_PUBLIC_KEY = String(import.meta.env.VITE_VAPID_PUBLIC_KEY || '');
 const HCAPTCHA_SITE_KEY = String(import.meta.env.VITE_HCAPTCHA_SITE_KEY || '');
+const YOUTUBE_API_KEY = String(import.meta.env.VITE_YOUTUBE_API_KEY || '');
 
 if (!SUPABASE_URL || SUPABASE_URL === 'VOTRE_VRAIE_URL_SUPABASE') {
   console.error("ARRÊT CRITIQUE : Tu n'as pas entré tes vraies clés Supabase.");
@@ -92,7 +93,7 @@ interface MediaItem {
   id: string; source: 'tmdb' | 'anilist' | 'shikimori' | 'openlibrary' | 'manual'; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; total_episodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
 }
 interface LibraryItem {
-  id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string | null; notes?: string | null; reminder_day?: string | null; reminder_time?: string | null; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null;
+  id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; tags?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string | null; notes?: string | null; reminder_day?: string | null; reminder_time?: string | null; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null;
 }
 interface UserData { id: string; email?: string; user_metadata?: { timezone?: string } }
 interface SelectOption { value: string; label?: string; disabled?: boolean; labelKey?: string; }
@@ -480,24 +481,67 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
   const [totalEpisodes, setTotalEpisodes] = useState('');
   const [runtime, setRuntime] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
+  const [tagsInput, setTagsInput] = useState(''); // État pour les tags
+  const [youtubeUrl, setYoutubeUrl] = useState(''); // État pour le lien YT
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isFetchingYT, setIsFetchingYT] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Fonction de parsing de la durée ISO 8601 de YouTube
+  const parseYtDuration = (duration: string) => {
+    const match = duration.match(/PT(\d+H)?(\d+M)?(\d+S)?/);
+    if (!match) return 0;
+    const hours = (parseInt(match[1]) || 0);
+    const minutes = (parseInt(match[2]) || 0);
+    return (hours * 60) + minutes;
+  };
+
+  const handleYoutubeExtract = async (url: string) => {
+    if (!url) return;
+    const ytRegex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+    const match = url.match(ytRegex);
+    
+    if (match && match[1]) {
+      const videoId = match[1];
+      // 1. On attribue la miniature haute qualité d'office (marche sans API Key)
+      setCoverUrl(`https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`);
+      
+      // 2. Si on a une clé API, on va chercher Titre + Durée
+      if (YOUTUBE_API_KEY) {
+        setIsFetchingYT(true);
+        try {
+          const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?id=${videoId}&part=snippet,contentDetails&key=${YOUTUBE_API_KEY}`);
+          const data = await res.json();
+          if (data.items && data.items.length > 0) {
+            const video = data.items[0];
+            setTitle(video.snippet.title);
+            const durationMins = parseYtDuration(video.contentDetails.duration);
+            if (durationMins > 0) setRuntime(durationMins.toString());
+            setType('tv'); // Souvent une vidéo correspond mieux au format série ou "autre" selon ta logique
+          }
+        } catch (e) {
+          console.error("Erreur API YouTube", e);
+        } finally {
+          setIsFetchingYT(false);
+        }
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) {
-      setError("Le titre est obligatoire.");
-      return;
-    }
+    if (!title.trim()) return setError("Le titre est obligatoire.");
+    
     setIsSubmitting(true);
     setError('');
-    setSuccess('');
-
-    const newMediaId = `manual_${Date.now()}`;
+    
+    const tagsArray = tagsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    
     const payload = {
       user_id: user.id,
-      media_id: newMediaId,
+      media_id: `manual_${Date.now()}`,
       source: 'manual',
       title: title.trim(),
       type: type,
@@ -507,17 +551,18 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
       runtime: parseInt(runtime, 10) || null,
       progress: 0,
       description: "Ajouté manuellement.",
-      year: new Date().getFullYear().toString()
+      year: new Date().getFullYear().toString(),
+      tags: tagsArray,
+      custom_link: youtubeUrl.trim() || null // On stocke le lien YT dans custom_link pour y accéder plus tard
     };
 
     const { error: dbError } = await supabase.from('user_media').insert([payload]);
     setIsSubmitting(false);
 
-    if (dbError) {
-      setError(dbError.message);
-    } else {
+    if (dbError) setError(dbError.message);
+    else {
       fetchLibrary();
-      setTitle(''); setTotalEpisodes(''); setRuntime(''); setCoverUrl('');
+      setTitle(''); setTotalEpisodes(''); setRuntime(''); setCoverUrl(''); setTagsInput(''); setYoutubeUrl('');
       setSuccess("Série ajoutée à votre liste !");
       setTimeout(() => setSuccess(''), 3000);
     }
@@ -534,6 +579,14 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
       {success && <div className="mb-4 p-3 bg-emerald-500/10 text-emerald-500 text-sm font-bold rounded-xl border border-emerald-500/30 text-center">{success}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* NOUVEAU CHAMP YOUTUBE */}
+        <div className="p-4 border border-[var(--border-color)] bg-[var(--panel-bg-alt)] rounded-xl relative">
+          {isFetchingYT && <div className="absolute top-4 right-4"><Loader2 className="animate-spin text-red-500" size={16}/></div>}
+          <label className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1 block">Import Rapide YouTube</label>
+          <Input type="url" placeholder="Coller une URL YouTube..." value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); handleYoutubeExtract(e.target.value); }} />
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">Génère automatiquement la miniature, le titre et la durée.</p>
+        </div>
+
         <div>
           <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t('titre-de-loeuvre')}</label>
           <Input required type="text" placeholder={t('ex-le-seigneur-des-anneaux')} value={title} onChange={e => setTitle(e.target.value)} />
@@ -559,6 +612,12 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
             <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t('duree-minutes')}</label>
             <Input type="number" min="1" placeholder={t('optionnel')} value={runtime} onChange={e => setRuntime(e.target.value)} />
           </div>
+        </div>
+
+        {/* NOUVEAU CHAMP TAGS */}
+        <div>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Tags / Listes personnalisées</label>
+          <Input type="text" placeholder="Ex: Chef d'oeuvre, À revoir, Cyberpunk (séparés par des virgules)" value={tagsInput} onChange={e => setTagsInput(e.target.value)} />
         </div>
 
         <div>
@@ -590,6 +649,10 @@ const DetailModal: React.FC<{
   const [showFullDesc, setShowFullDesc] = useState(false);
 
   const [isEditingCover, setIsEditingCover] = useState(false);
+
+  const [isEditingType, setIsEditingType] = useState(false);
+  const [currentTags, setCurrentTags] = useState(trackedItem?.tags ? trackedItem.tags.join(', ') : '');
+
   const [editCoverUrl, setEditCoverUrl] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
@@ -834,7 +897,27 @@ const DetailModal: React.FC<{
               ) : (
                 <>
                   {cover ? <img src={String(cover)} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
-                  <div className="absolute top-2 left-2"><TypeBadge type={String(localData.type)} /></div>
+                  <div className="absolute top-2 left-2 group-badge cursor-pointer" onClick={(e) => { e.stopPropagation(); if (trackedItem) setIsEditingType(!isEditingType); }}>
+                    {isEditingType ? (
+                    <div className="bg-[var(--bg-base)] rounded shadow-lg p-1" onClick={e => e.stopPropagation()}>
+                      <CustomSelect 
+                        value={String(localData.type)} 
+                        onChange={async (newType) => {
+                        setLocalData(prev => ({ ...prev, type: newType }));
+                        setIsEditingType(false);
+                        if (trackedItem) {
+                          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { type: newType as any });
+                          await supabase.from('user_media').update({ type: newType }).match({ id: trackedItem.id });
+                        }
+                        }} 
+                        options={FORMAT_OPTIONS.filter(o => o.value !== 'all')} 
+                        className="w-32 py-1 px-2 text-xs" 
+                      />
+                    </div>
+                    ) : (
+                    <div title="Cliquez pour changer le type"><TypeBadge type={String(localData.type)} /></div>
+                    )}
+                  </div>
 
                   {/* BOUTON D'ÉDITION MANUELLE DE L'AFFICHE (UNIQUEMENT SI SOURCE MANUAL) */}
                   {localData.source === 'manual' && trackedItem && (
@@ -1020,6 +1103,24 @@ const DetailModal: React.FC<{
                   </div>
                 </div>
               )}
+              <div className="pt-2">
+                <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-1">Tags personnalisés (séparés par des virgules)</p>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Favoris été, Sci-Fi..." 
+                  value={currentTags} 
+                  onChange={(e) => setCurrentTags(e.target.value)} 
+                  onBlur={async () => {
+                    const tagsArray = currentTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
+                    if (trackedItem) {
+                    if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { tags: tagsArray });
+                    await supabase.from('user_media').update({ tags: tagsArray }).match({ id: trackedItem.id });
+                  }
+                  }} 
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl px-4 py-2 focus:outline-none focus:border-[var(--primary)] transition-all placeholder:text-[var(--text-muted)]" 
+                  onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
+                />
+              </div>
 
               <div className="pt-2">
                 <textarea placeholder={t('bloc-note-enregistre-automatiquement')} value={String(notes)} onChange={(e) => setNotes(e.target.value)} onBlur={() => saveExtras()} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" />
@@ -2152,6 +2253,16 @@ export default function App() {
   const [formatFilter, setFormatFilter] = useState<string>(
     () => getSavedFilter('akasha_formatFilter', 'all')
   );
+  const [tagFilter, setTagFilter] = useState<string>('all');
+
+  // Extraction des tags uniques
+  const allUserTags = useMemo(() => {
+    const tags = new Set<string>();
+    userLibrary.forEach(item => {
+      if (item.tags) item.tags.forEach(t => tags.add(t));
+    });
+    return Array.from(tags).sort();
+  }, [userLibrary]);
 
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | LibraryItem | null>(null);
   const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
@@ -2175,8 +2286,9 @@ export default function App() {
   const filteredLibrary = userLibrary.filter(item => {
     if (activeFilter === 'reminders') return item.reminder_day !== null && item.reminder_time !== null;
     const formatMatch = formatFilter === 'all' || item.type === formatFilter;
-    if (activeFilter === 'favorites') return item.is_favorite === true && formatMatch;
-    return item.status === activeFilter && formatMatch;
+    const tagMatch = tagFilter === 'all' || (item.tags && item.tags.includes(tagFilter)); // NOUVEAU
+    if (activeFilter === 'favorites') return item.is_favorite === true && formatMatch && tagMatch;
+    return item.status === activeFilter && formatMatch && tagMatch;
   });
 
   const activePlayerItem = useMemo(() => userLibrary.find(i => i.id === lastInteractedId) || null, [userLibrary, lastInteractedId]);
@@ -2306,7 +2418,26 @@ export default function App() {
                       );
                     })}
                   </div>
-                  <div className={`shrink-0 w-full sm:w-48 z-10 transition-opacity duration-300 ${activeFilter === 'reminders' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}><CustomSelect value={formatFilter} onChange={setFormatFilter} options={FORMAT_OPTIONS.map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm" /></div>
+                  <div className={`flex gap-2 shrink-0 w-full sm:w-auto z-10 transition-opacity duration-300 ${activeFilter === 'reminders' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+                    <div className="w-1/2 sm:w-40">
+                      <CustomSelect 
+                        value={formatFilter} 
+                        onChange={setFormatFilter} 
+                        options={FORMAT_OPTIONS.map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+                        className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm" 
+                      />
+                    </div>
+                    {allUserTags.length > 0 && (
+                      <div className="w-1/2 sm:w-40">
+                        <CustomSelect 
+                          value={tagFilter} 
+                          onChange={setTagFilter} 
+                          options={[{ value: 'all', label: 'Tous les tags' }, ...allUserTags.map(t => ({ value: t, label: t }))]} 
+                          className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm" 
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 <div className={`p-4 sm:p-6 rounded-b-2xl rounded-tr-2xl border ${STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG].containerBg} ${STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG].containerBorder} transition-colors duration-300`}>
