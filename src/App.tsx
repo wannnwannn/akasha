@@ -224,7 +224,7 @@ const encodeMediaForShare = (item: any) => {
 // SERVICES API
 // ============================================================================
 const fetchTMDB = async (query: string, lang: Lang): Promise<MediaItem[]> => {
-  const { t } = useTranslation();
+  
   if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
   const apiLang = lang === 'fr' ? 'fr-FR' : 'en-US';
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=${apiLang}&include_adult=true`);
@@ -238,7 +238,7 @@ const fetchTMDB = async (query: string, lang: Lang): Promise<MediaItem[]> => {
 };
 
 const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaItem[]> => {
-  const { t } = useTranslation();
+  
   const statusFilter = isUpcoming ? ', status_in: [NOT_YET_RELEASED, RELEASING]' : '';
   const sortFilter = isUpcoming ? ', sort: POPULARITY_DESC' : '';
   const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query: `query ($search: String) { Page(page: 1, perPage: 15) { media(search: $search, type: ANIME${statusFilter}${sortFilter}) { id title { romaji english native } coverImage { large } format startDate { year } description episodes status genres duration isAdult studios(isMain: true) { nodes { name } } } } }`, variables: query ? { search: query } : {} }) });
@@ -252,7 +252,7 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
 };
 
 const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
-  const { t } = useTranslation();
+  
   const res = await fetch(`https://shikimori.one/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
   if (!res.ok) return [];
   const data = await res.json();
@@ -264,7 +264,7 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
 };
 
 const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
-  const { t } = useTranslation();
+
   if (query.length < 4) return [];
 
   const isISBN = /^[0-9-]+$/.test(query) && query.replace(/-/g, '').length >= 10;
