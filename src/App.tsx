@@ -521,7 +521,7 @@ const TagEditor: React.FC<{ currentTags: string[], allTags: string[], onTagsChan
           <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto custom-scrollbar">
             {inputValue && !allTags.includes(inputValue.trim()) && !currentTags.includes(inputValue.trim()) && (
               <div className="px-4 py-2 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 cursor-pointer font-bold border-b border-[var(--border-color)]" onMouseDown={() => addTag(inputValue)}>
-                <Plus size={14} className="inline mr-1" /> t('creer-le-tag'){inputValue}"
+                <Plus size={14} className="inline mr-1" /> {t('creer-le-tag')}: {inputValue}
               </div>
             )}
             {availableTags.map(tag => (
@@ -2028,7 +2028,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             <Trophy size={18}/> {t('profile.ranking.button')}
           </Button>
           <Button onClick={onOpenWrapped} className="mx-auto mt-3 !px-6 !py-2 bg-gradient-to-r from-purple-600 via-rose-500 to-amber-500 hover:opacity-90 text-white border-0 shadow-xl shadow-purple-500/20 tracking-wide uppercase text-xs font-black animate-pulse">
-          t('decouvrir-mon-akasha-wrapped') </Button>
+          {t('decouvrir-mon-akasha-wrapped')} </Button>
         </div>
 
         {/* SECTION GESTION DES DONNÉES (IMPORT/EXPORT) */}
