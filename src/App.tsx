@@ -652,9 +652,9 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
         {/* NOUVEAU CHAMP YOUTUBE */}
         <div className="p-4 border border-[var(--border-color)] bg-[var(--panel-bg-alt)] rounded-xl relative">
           {isFetchingYT && <div className="absolute top-4 right-4"><Loader2 className="animate-spin text-red-500" size={16}/></div>}
-          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">t('import-rapide-youtube')</label>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t('import-rapide-youtube')}</label>
           <Input type="url" placeholder={t('coller-une-url-youtube')} value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); handleYoutubeExtract(e.target.value); }} />
-          <p className="text-[10px] text-[var(--text-muted)] mt-1">t('genere-automatiquement-la-miniature-le-titre-et-la-duree')</p>
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">{t('genere-automatiquement-la-miniature-le-titre-et-la-duree')}</p>
         </div>
 
         <div>
@@ -686,7 +686,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
 
         {/* NOUVEAU CHAMP TAGS */}
         <div>
-          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">t('tags-listes-personnalisees')</label>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">{t('tags-listes-personnalisees')}</label>
           <TagEditor currentTags={tags} allTags={allTags} onTagsChange={setTags} />
         </div>
 
