@@ -10,7 +10,7 @@ import i18n from 'i18next';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
-  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages, Upload
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages, Upload, Video
 } from 'lucide-react';
 
 // ============================================================================
@@ -112,7 +112,8 @@ const STATUS_CONFIG = {
 
 const FORMAT_OPTIONS: SelectOption[] = [
   { value: "all", labelKey: "type_all" }, { value: "movie", labelKey: "type_movie" }, { value: "tv", labelKey: "type_tv" },
-  { value: "anime", labelKey: "type_anime" }, { value: "manga", labelKey: "type_manga" }, { value: "webtoon", labelKey: "type_webtoon" }, { value: "book", labelKey: "type_book" }
+  { value: "anime", labelKey: "type_anime" }, { value: "manga", labelKey: "type_manga" }, { value: "webtoon", labelKey: "type_webtoon" }, { value: "book", labelKey: "type_book" },
+  { value: "youtube", label: "YouTube" }
 ];
 
 const STATUS_OPTIONS: SelectOption[] = [
@@ -407,6 +408,7 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
     manga: { color: 'bg-teal-500/20 text-teal-600 dark:text-teal-400 border border-teal-500/20', icon: BookOpen, label: t('type_manga') },
     webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: t('type_webtoon') },
     book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: t('type_book') },
+    youtube: { color: 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20', icon: Video, label: 'YouTube' },
     manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: 'Manual' }
   };
   const current = config[type] || config.movie;
@@ -471,9 +473,66 @@ const InlineRuntimeEdit: React.FC<{ item: LibraryItem, localRuntime: number | un
 };
 
 // ============================================================================
+// COMPOSANT D'ÉDITION DE TAGS INTELLIGENT
+// ============================================================================
+const TagEditor: React.FC<{ currentTags: string[], allTags: string[], onTagsChange: (tags: string[]) => void }> = ({ currentTags, allTags, onTagsChange }) => {
+  const [inputValue, setInputValue] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const availableTags = allTags.filter(t => !currentTags.includes(t) && t.toLowerCase().includes(inputValue.toLowerCase()));
+
+  const addTag = (tag: string) => {
+    const trimmed = tag.trim();
+    if (trimmed && !currentTags.includes(trimmed)) onTagsChange([...currentTags, trimmed]);
+    setInputValue('');
+    setShowDropdown(false);
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="relative flex flex-col gap-2">
+      {currentTags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {currentTags.map(tag => (
+            <span key={tag} className="flex items-center gap-1 bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20 px-2 py-1 rounded-md text-xs font-bold">
+              {tag} <X size={12} className="cursor-pointer hover:text-red-500" onClick={() => onTagsChange(currentTags.filter(t => t !== tag))} />
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="relative">
+        <input
+          ref={inputRef} type="text" placeholder="Ajouter ou chercher un tag..." value={inputValue}
+          onChange={e => { setInputValue(e.target.value); setShowDropdown(true); }}
+          onFocus={() => setShowDropdown(true)}
+          onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(inputValue); } }}
+          className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl px-4 py-2 focus:outline-none focus:border-[var(--primary)] transition-all placeholder:text-[var(--text-muted)]"
+        />
+        {showDropdown && (inputValue || availableTags.length > 0) && (
+          <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto custom-scrollbar">
+            {inputValue && !allTags.includes(inputValue.trim()) && !currentTags.includes(inputValue.trim()) && (
+              <div className="px-4 py-2 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 cursor-pointer font-bold border-b border-[var(--border-color)]" onMouseDown={() => addTag(inputValue)}>
+                <Plus size={14} className="inline mr-1" /> Créer le tag "{inputValue}"
+              </div>
+            )}
+            {availableTags.map(tag => (
+              <div key={tag} className="px-4 py-2 text-sm text-[var(--text-main)] hover:bg-[var(--border-color)] cursor-pointer" onMouseDown={() => addTag(tag)}>
+                {tag}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
 // COMPOSANT D'AJOUT MANUEL (INTÉGRÉ À LA PAGE)
 // ============================================================================
-const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = ({ user, fetchLibrary }) => {
+const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLibrary?: LibraryItem[]; }> = ({ user, fetchLibrary, userLibrary = [] }) => {
   const { t } = useTranslation();
   const [title, setTitle] = useState('');
   const [type, setType] = useState('movie');
@@ -481,7 +540,12 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
   const [totalEpisodes, setTotalEpisodes] = useState('');
   const [runtime, setRuntime] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
-  const [tagsInput, setTagsInput] = useState(''); // État pour les tags
+  const [tags, setTags] = useState<string[]>([]);
+  const allTags = useMemo(() => {
+    const t = new Set<string>();
+    userLibrary.forEach(item => { if (item.tags) item.tags.forEach(tag => t.add(tag)); });
+    return Array.from(t).sort();
+  }, [userLibrary]);
   const [youtubeUrl, setYoutubeUrl] = useState(''); // État pour le lien YT
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -537,7 +601,6 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
     setIsSubmitting(true);
     setError('');
     
-    const tagsArray = tagsInput.split(',').map(t => t.trim()).filter(t => t.length > 0);
     
     const payload = {
       user_id: user.id,
@@ -552,7 +615,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
       progress: 0,
       description: "Ajouté manuellement.",
       year: new Date().getFullYear().toString(),
-      tags: tagsArray,
+      tags: tags,
       custom_link: youtubeUrl.trim() || null // On stocke le lien YT dans custom_link pour y accéder plus tard
     };
 
@@ -562,7 +625,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
     if (dbError) setError(dbError.message);
     else {
       fetchLibrary();
-      setTitle(''); setTotalEpisodes(''); setRuntime(''); setCoverUrl(''); setTagsInput(''); setYoutubeUrl('');
+      setTitle(''); setTotalEpisodes(''); setRuntime(''); setCoverUrl(''); setTags([]); setYoutubeUrl('');
       setSuccess("Série ajoutée à votre liste !");
       setTimeout(() => setSuccess(''), 3000);
     }
@@ -617,7 +680,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; }> = (
         {/* NOUVEAU CHAMP TAGS */}
         <div>
           <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Tags / Listes personnalisées</label>
-          <Input type="text" placeholder="Ex: Chef d'oeuvre, À revoir, Cyberpunk (séparés par des virgules)" value={tagsInput} onChange={e => setTagsInput(e.target.value)} />
+          <TagEditor currentTags={tags} allTags={allTags} onTagsChange={setTags} />
         </div>
 
         <div>
@@ -651,7 +714,12 @@ const DetailModal: React.FC<{
   const [isEditingCover, setIsEditingCover] = useState(false);
 
   const [isEditingType, setIsEditingType] = useState(false);
-  const [currentTags, setCurrentTags] = useState(trackedItem?.tags ? trackedItem.tags.join(', ') : '');
+  const [tags, setTags] = useState<string[]>(trackedItem?.tags || []);
+  const allUserTags = useMemo(() => {
+    const t = new Set<string>();
+    userLibrary?.forEach(item => { if (item.tags) item.tags.forEach(tag => t.add(tag)); });
+    return Array.from(t).sort();
+  }, [userLibrary]);
 
   const [editCoverUrl, setEditCoverUrl] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
@@ -897,33 +965,41 @@ const DetailModal: React.FC<{
               ) : (
                 <>
                   {cover ? <img src={String(cover)} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
-                  <div className="absolute top-2 left-2 group-badge cursor-pointer" onClick={(e) => { e.stopPropagation(); if (trackedItem) setIsEditingType(!isEditingType); }}>
+                  <div className="absolute top-2 left-2 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (trackedItem) setIsEditingType(!isEditingType); }}>
                     {isEditingType ? (
                     <div className="bg-[var(--bg-base)] rounded shadow-lg p-1" onClick={e => e.stopPropagation()}>
-                      <CustomSelect 
-                        value={String(localData.type)} 
-                        onChange={async (newType) => {
-                        setLocalData(prev => ({ ...prev, type: newType }));
-                        setIsEditingType(false);
-                        if (trackedItem) {
-                          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { type: newType as any });
-                          await supabase.from('user_media').update({ type: newType }).match({ id: trackedItem.id });
-                        }
-                        }} 
-                        options={FORMAT_OPTIONS.filter(o => o.value !== 'all')} 
-                        className="w-32 py-1 px-2 text-xs" 
-                      />
+                        <CustomSelect 
+                          value={String(localData.type)} 
+                          onChange={async (newType) => {
+                          setLocalData(prev => ({ ...prev, type: newType }));
+                          setIsEditingType(false);
+                          if (trackedItem) {
+                            if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { type: newType as any });
+                            await supabase.from('user_media').update({ type: newType }).match({ id: trackedItem.id });
+                            }
+                      }} 
+                        /* C'EST ICI LA CORRECTION DE TEXTE INVISIBLE (Le .map avec la traduction) */
+                      options={FORMAT_OPTIONS.filter(o => o.value !== 'all').map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+                      className="w-32 py-1 px-2 text-xs" 
+                    />
                     </div>
                     ) : (
-                    <div title="Cliquez pour changer le type"><TypeBadge type={String(localData.type)} /></div>
-                    )}
-                  </div>
+                      <div title="Modifier le type" className="group/type relative flex items-center">
+                        <TypeBadge type={String(localData.type)} />
+                      {trackedItem && (
+                        <div className="absolute -top-1.5 -right-1.5 bg-[var(--bg-base)] text-[var(--text-main)] p-1 rounded-full shadow-md border border-[var(--border-color)] opacity-100 sm:opacity-0 sm:group-hover/type:opacity-100 transition-opacity">
+                        <Edit2 size={10} />
+                        </div>
+                      )}
+                      </div>
+                  )}
+                </div>
 
                   {/* BOUTON D'ÉDITION MANUELLE DE L'AFFICHE (UNIQUEMENT SI SOURCE MANUAL) */}
                   {localData.source === 'manual' && trackedItem && (
                     <button
                       onClick={(e) => { e.stopPropagation(); setEditCoverUrl(String(cover || '')); setIsEditingCover(true); }}
-                      className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity border border-white/20 hover:bg-black/80 shadow-lg"
+                      className="absolute top-2 right-2 bg-black/60 backdrop-blur-md text-white p-2 rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity border border-white/20 hover:bg-black/80 shadow-lg"
                       title={t('modifier-limage')}
                     >
                       <Edit2 size={16} />
@@ -1105,21 +1181,20 @@ const DetailModal: React.FC<{
               )}
               <div className="pt-2">
                 <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-1">Tags personnalisés (séparés par des virgules)</p>
-                <input 
-                  type="text" 
-                  placeholder="Ex: Favoris été, Sci-Fi..." 
-                  value={currentTags} 
-                  onChange={(e) => setCurrentTags(e.target.value)} 
-                  onBlur={async () => {
-                    const tagsArray = currentTags.split(',').map(t => t.trim()).filter(t => t.length > 0);
-                    if (trackedItem) {
-                    if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { tags: tagsArray });
-                    await supabase.from('user_media').update({ tags: tagsArray }).match({ id: trackedItem.id });
-                  }
-                  }} 
-                  className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl px-4 py-2 focus:outline-none focus:border-[var(--primary)] transition-all placeholder:text-[var(--text-muted)]" 
-                  onKeyDown={e => e.key === 'Enter' && e.currentTarget.blur()}
-                />
+                <div className="pt-4">
+                  <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">Tags / Listes personnalisées</p>
+                  <TagEditor 
+                  currentTags={tags} 
+                    allTags={allUserTags} 
+                    onTagsChange={async (newTags) => {
+                      setTags(newTags);
+                      if (trackedItem) {
+                      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { tags: newTags });
+                      await supabase.from('user_media').update({ tags: newTags }).match({ id: trackedItem.id });
+                      }
+                    }} 
+                  />
+                </div>
               </div>
 
               <div className="pt-2">
