@@ -583,7 +583,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
             setTitle(video.snippet.title);
             const durationMins = parseYtDuration(video.contentDetails.duration);
             if (durationMins > 0) setRuntime(durationMins.toString());
-            setType('tv'); // Souvent une vidéo correspond mieux au format série ou "autre" selon ta logique
+            setType('youtube'); // Souvent une vidéo correspond mieux au format série ou "autre" selon ta logique
           }
         } catch (e) {
           console.error("Erreur API YouTube", e);
@@ -645,7 +645,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
         {/* NOUVEAU CHAMP YOUTUBE */}
         <div className="p-4 border border-[var(--border-color)] bg-[var(--panel-bg-alt)] rounded-xl relative">
           {isFetchingYT && <div className="absolute top-4 right-4"><Loader2 className="animate-spin text-red-500" size={16}/></div>}
-          <label className="text-xs font-bold text-red-500 uppercase tracking-wider mb-1 block">Import Rapide YouTube</label>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Import Rapide YouTube</label>
           <Input type="url" placeholder="Coller une URL YouTube..." value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); handleYoutubeExtract(e.target.value); }} />
           <p className="text-[10px] text-[var(--text-muted)] mt-1">Génère automatiquement la miniature, le titre et la durée.</p>
         </div>
@@ -1570,7 +1570,7 @@ const DiscoverySearch: React.FC<{
           {renderCarousel(t('tendances-actuelles'), trending)}
           {renderCarousel(t('prochaines-sorties'), upcoming)}
           {community.length > 0 && renderCarousel(t('decouvertes-communautaires'), community)}
-          <ManualAddForm user={user} fetchLibrary={fetchLibrary} />
+          <ManualAddForm user={user} fetchLibrary={fetchLibrary} userLibrary={userLibrary} />
         </div>
       )}
 
@@ -1624,7 +1624,7 @@ const DiscoverySearch: React.FC<{
           <BookOpen className="mb-6 opacity-30" size={64} />
           <p className="text-lg font-medium mb-4">{t('aucun-resultat-pour')} "{debouncedQuery}"</p>
           <div className="w-full">
-            <ManualAddForm user={user} fetchLibrary={fetchLibrary} />
+            <ManualAddForm user={user} fetchLibrary={fetchLibrary} userLibrary={userLibrary} />
           </div>
         </div>
       )}
