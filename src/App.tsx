@@ -224,6 +224,7 @@ const encodeMediaForShare = (item: any) => {
 // SERVICES API
 // ============================================================================
 const fetchTMDB = async (query: string, lang: Lang): Promise<MediaItem[]> => {
+  const { t } = useTranslation();
   if (!TMDB_API_KEY || TMDB_API_KEY === 'VOTRE_TMDB_API_KEY_ICI') return [];
   const apiLang = lang === 'fr' ? 'fr-FR' : 'en-US';
   const res = await fetch(`https://api.themoviedb.org/3/search/multi?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=${apiLang}&include_adult=true`);
@@ -231,12 +232,13 @@ const fetchTMDB = async (query: string, lang: Lang): Promise<MediaItem[]> => {
   const data = await res.json();
   return data.results.filter((item: any) => item.media_type === 'movie' || item.media_type === 'tv').map((item: any) => ({
     id: String(item.id), source: 'tmdb', title: String(item.title || item.name), cover: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : null,
-    type: item.media_type, year: String(item.release_date || item.first_air_date || '').split('-')[0], description: String(item.overview || 'Aucune description disponible.'),
+    type: item.media_type, year: String(item.release_date || item.first_air_date || '').split('-')[0], description: String(item.overview || t('aucune-description-disponible')),
     totalEpisodes: item.media_type === 'movie' ? 1 : null, isAiring: false, isAdult: item.adult === true
   }));
 };
 
 const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaItem[]> => {
+  const { t } = useTranslation();
   const statusFilter = isUpcoming ? ', status_in: [NOT_YET_RELEASED, RELEASING]' : '';
   const sortFilter = isUpcoming ? ', sort: POPULARITY_DESC' : '';
   const res = await fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ query: `query ($search: String) { Page(page: 1, perPage: 15) { media(search: $search, type: ANIME${statusFilter}${sortFilter}) { id title { romaji english native } coverImage { large } format startDate { year } description episodes status genres duration isAdult studios(isMain: true) { nodes { name } } } } }`, variables: query ? { search: query } : {} }) });
@@ -244,23 +246,25 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
   const data = await res.json();
   return data.data.Page.media.map((item: any) => ({
     id: String(item.id), source: 'anilist', title: String(item.title.english || item.title.romaji || item.title.native), cover: item.coverImage.large,
-    type: 'anime', year: String(item.startDate.year || 'N/A'), description: String(item.description?.replace(/<[^>]*>?/gm, '') || 'Aucune description disponible.'),
+    type: 'anime', year: String(item.startDate.year || 'N/A'), description: String(item.description?.replace(/<[^>]*>?/gm, '') || t('aucune-description-disponible')),
     totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED', genres: item.genres, runtime: item.duration, prod_status: String(item.status), isAdult: item.isAdult === true, creator: item.studios?.nodes?.[0]?.name || null
   }));
 };
 
 const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
+  const { t } = useTranslation();
   const res = await fetch(`https://shikimori.one/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.map((item: any) => ({
     id: String(item.id), source: 'shikimori', title: String(item.name || item.russian), cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
-    type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A', description: 'Recherche des détails en arrière-plan...',
+    type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A', description: t('aucune-description-disponible'),
     totalEpisodes: item.volumes || item.chapters || null, isAiring: item.status === 'ongoing', isAdult: false
   }));
 };
 
 const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
+  const { t } = useTranslation();
   if (query.length < 4) return [];
 
   const isISBN = /^[0-9-]+$/.test(query) && query.replace(/-/g, '').length >= 10;
@@ -280,7 +284,7 @@ const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
 
     return data.docs.map((item: any) => ({
       id: String(item.key), source: 'openlibrary', title: String(item.title), cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
-      type: 'book', year: String(item.first_publish_year || 'N/A'), description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune info.',
+      type: 'book', year: String(item.first_publish_year || 'N/A'), description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : t('aucune-description-disponible'),
       totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [], isAdult: false, creator: item.author_name ? item.author_name[0] : null
     }));
   } catch (error) {
@@ -409,7 +413,7 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
     webtoon: { color: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/20', icon: Flame, label: t('type_webtoon') },
     book: { color: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/20', icon: Book, label: t('type_book') },
     youtube: { color: 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20', icon: Video, label: 'YouTube' },
-    manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: 'Manual' }
+    manual: { color: 'bg-gray-500/20 text-gray-500 border border-gray-500/20', icon: PenTool, label: t('manual') }
   };
   const current = config[type] || config.movie;
   const Icon = current.icon;
@@ -419,10 +423,11 @@ const TypeBadge: React.FC<{ type: string }> = ({ type }) => {
 const InlineEpisodeEdit: React.FC<{ item: LibraryItem, onSave: (id: string, total: number | null) => void }> = ({ item, onSave }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [value, setValue] = useState(item.total_episodes?.toString() || '');
+  const { t } = useTranslation();
 
   if (!isEditing) {
     return (
-      <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] cursor-pointer hover:text-[var(--primary)] group py-1" onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} title="Modifier le total d'épisodes">
+      <div className="flex items-center gap-2 text-xs font-mono text-[var(--text-muted)] cursor-pointer hover:text-[var(--primary)] group py-1" onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} title={t('modifier-le-total-depisodes')}>
         <span>{item.progress} / {item.total_episodes ? item.total_episodes : '?'}</span>
         <Edit2 size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
@@ -441,13 +446,14 @@ const InlineRuntimeEdit: React.FC<{ item: LibraryItem, localRuntime: number | un
   const [isEditing, setIsEditing] = useState(false);
   const defaultVal = localRuntime || (item.type === 'movie' ? 90 : item.type === 'tv' ? 60 : 20);
   const [value, setValue] = useState(defaultVal.toString());
+  const { t } = useTranslation();
 
   if (!isEditing) {
     return (
       <span
         className="flex items-center gap-1 text-[var(--text-muted)] ml-1 border-l border-[var(--border-color)] pl-2 cursor-pointer hover:text-[var(--primary)] group"
         onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-        title="Modifier la durée"
+        title={t('modifier-la-duree')}
       >
         <Clock size={12}/> {defaultVal}m
         <Edit2 size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -479,6 +485,7 @@ const TagEditor: React.FC<{ currentTags: string[], allTags: string[], onTagsChan
   const [inputValue, setInputValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { t } = useTranslation();
 
   const availableTags = allTags.filter(t => !currentTags.includes(t) && t.toLowerCase().includes(inputValue.toLowerCase()));
 
@@ -503,7 +510,7 @@ const TagEditor: React.FC<{ currentTags: string[], allTags: string[], onTagsChan
       )}
       <div className="relative">
         <input
-          ref={inputRef} type="text" placeholder="Ajouter ou chercher un tag..." value={inputValue}
+          ref={inputRef} type="text" placeholder={t('ajouter-ou-chercher-un-tag')} value={inputValue}
           onChange={e => { setInputValue(e.target.value); setShowDropdown(true); }}
           onFocus={() => setShowDropdown(true)}
           onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
@@ -514,7 +521,7 @@ const TagEditor: React.FC<{ currentTags: string[], allTags: string[], onTagsChan
           <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl shadow-2xl overflow-hidden max-h-40 overflow-y-auto custom-scrollbar">
             {inputValue && !allTags.includes(inputValue.trim()) && !currentTags.includes(inputValue.trim()) && (
               <div className="px-4 py-2 text-sm text-[var(--primary)] hover:bg-[var(--primary)]/10 cursor-pointer font-bold border-b border-[var(--border-color)]" onMouseDown={() => addTag(inputValue)}>
-                <Plus size={14} className="inline mr-1" /> Créer le tag "{inputValue}"
+                <Plus size={14} className="inline mr-1" /> t('creer-le-tag'){inputValue}"
               </div>
             )}
             {availableTags.map(tag => (
@@ -596,7 +603,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return setError("Le titre est obligatoire.");
+    if (!title.trim()) return setError(t('le-titre-est-obligatoire'));
     
     setIsSubmitting(true);
     setError('');
@@ -613,7 +620,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
       total_episodes: parseInt(totalEpisodes, 10) || null,
       runtime: parseInt(runtime, 10) || null,
       progress: 0,
-      description: "Ajouté manuellement.",
+      description: t('ajoute-manuellement'),
       year: new Date().getFullYear().toString(),
       tags: tags,
       custom_link: youtubeUrl.trim() || null // On stocke le lien YT dans custom_link pour y accéder plus tard
@@ -626,7 +633,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
     else {
       fetchLibrary();
       setTitle(''); setTotalEpisodes(''); setRuntime(''); setCoverUrl(''); setTags([]); setYoutubeUrl('');
-      setSuccess("Série ajoutée à votre liste !");
+      setSuccess(t('serie-ajoutee-a-votre-liste'));
       setTimeout(() => setSuccess(''), 3000);
     }
   };
@@ -645,9 +652,9 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
         {/* NOUVEAU CHAMP YOUTUBE */}
         <div className="p-4 border border-[var(--border-color)] bg-[var(--panel-bg-alt)] rounded-xl relative">
           {isFetchingYT && <div className="absolute top-4 right-4"><Loader2 className="animate-spin text-red-500" size={16}/></div>}
-          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Import Rapide YouTube</label>
-          <Input type="url" placeholder="Coller une URL YouTube..." value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); handleYoutubeExtract(e.target.value); }} />
-          <p className="text-[10px] text-[var(--text-muted)] mt-1">Génère automatiquement la miniature, le titre et la durée.</p>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">t('import-rapide-youtube')</label>
+          <Input type="url" placeholder={t('coller-une-url-youtube')} value={youtubeUrl} onChange={e => { setYoutubeUrl(e.target.value); handleYoutubeExtract(e.target.value); }} />
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">t('genere-automatiquement-la-miniature-le-titre-et-la-duree')</p>
         </div>
 
         <div>
@@ -679,7 +686,7 @@ const ManualAddForm: React.FC<{ user: UserData; fetchLibrary: () => void; userLi
 
         {/* NOUVEAU CHAMP TAGS */}
         <div>
-          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">Tags / Listes personnalisées</label>
+          <label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-1 block">t('tags-listes-personnalisees')</label>
           <TagEditor currentTags={tags} allTags={allTags} onTagsChange={setTags} />
         </div>
 
@@ -984,7 +991,7 @@ const DetailModal: React.FC<{
                     />
                     </div>
                     ) : (
-                      <div title="Modifier le type" className="group/type relative flex items-center">
+                      <div title={t('modifier-le-type')} className="group/type relative flex items-center">
                         <TypeBadge type={String(localData.type)} />
                       {trackedItem && (
                         <div className="absolute -top-1.5 -right-1.5 bg-[var(--bg-base)] text-[var(--text-main)] p-1 rounded-full shadow-md border border-[var(--border-color)] opacity-100 sm:opacity-0 sm:group-hover/type:opacity-100 transition-opacity">
@@ -1099,7 +1106,7 @@ const DetailModal: React.FC<{
                 </Button>
 
                 <Button variant="ghost" className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title={t('favori')}><Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} /></Button>
-                <Button variant="danger" className="!p-3.5 shrink-0 rounded-xl h-full" onClick={handleRemove} title="Supprimer de la liste"><Trash2 size={20} /></Button>
+                <Button variant="danger" className="!p-3.5 shrink-0 rounded-xl h-full" onClick={handleRemove} title={t('supprimer-de-la-liste')}><Trash2 size={20} /></Button>
               </div>
 
               <div className="flex gap-2 items-center pt-2">
@@ -1112,7 +1119,7 @@ const DetailModal: React.FC<{
                   ) : (
                     <div className="flex-1 flex items-center gap-2">
                       {customLink ? <a href={customLink.startsWith('http') ? customLink : `https://${customLink}`} target="_blank" rel="noopener noreferrer" className="flex-1 flex items-center justify-center gap-2 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white text-sm font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-[var(--shadow-color)]"><ExternalLink size={16} /> {t('ouvrir-le-lien')}</a> : <button onClick={() => setIsEditingLink(true)} className="flex-1 flex items-center justify-center gap-2 bg-[var(--panel-bg-alt)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-muted)] hover:text-[var(--text-main)] text-sm font-bold py-3 px-4 rounded-xl transition-all"><Plus size={16} /> {t('ajouter-un-lien')}</button>}
-                      <button onClick={() => setIsEditingLink(true)} className="p-3 bg-[var(--panel-bg-alt)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-muted)] hover:text-[var(--primary)] rounded-xl transition-colors" title="Modifier le lien"><Edit2 size={18} /></button>
+                      <button onClick={() => setIsEditingLink(true)} className="p-3 bg-[var(--panel-bg-alt)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-muted)] hover:text-[var(--primary)] rounded-xl transition-colors" title={t('modifier-le-lien')}><Edit2 size={18} /></button>
                     </div>
                   )}
                 </div>
@@ -1180,9 +1187,8 @@ const DetailModal: React.FC<{
                 </div>
               )}
               <div className="pt-2">
-                <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-1">Tags personnalisés (séparés par des virgules)</p>
                 <div className="pt-4">
-                  <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">Tags / Listes personnalisées</p>
+                  <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">t('tags-listes-personnalisees')</p>
                   <TagEditor 
                   currentTags={tags} 
                     allTags={allUserTags} 
@@ -1552,7 +1558,7 @@ const DiscoverySearch: React.FC<{
           <div
             onClick={() => setLocalShowNSFW(!localShowNSFW)}
             className="flex items-center justify-center gap-3 shrink-0 bg-[var(--panel-bg)] border border-[var(--border-color)] px-4 rounded-xl cursor-pointer hover:bg-[var(--bg-base)] transition-colors"
-            title="Afficher le contenu pour adultes"
+            title={t('afficher-le-contenu-pour-adultes')}
           >
             <EyeOff size={20} className={localShowNSFW ? "text-rose-500" : "text-[var(--text-muted)]"} />
             <div className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${localShowNSFW ? 'bg-rose-500' : 'bg-[var(--text-muted)]'}`}>
@@ -2022,8 +2028,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             <Trophy size={18}/> {t('profile.ranking.button')}
           </Button>
           <Button onClick={onOpenWrapped} className="mx-auto mt-3 !px-6 !py-2 bg-gradient-to-r from-purple-600 via-rose-500 to-amber-500 hover:opacity-90 text-white border-0 shadow-xl shadow-purple-500/20 tracking-wide uppercase text-xs font-black animate-pulse">
-          ✨ Découvrir mon Akasha Wrapped
-          </Button>
+          t('decouvrir-mon-akasha-wrapped') </Button>
         </div>
 
         {/* SECTION GESTION DES DONNÉES (IMPORT/EXPORT) */}
@@ -2463,7 +2468,7 @@ export default function App() {
             <button onClick={() => setCurrentTab('profile')} className={`flex flex-col items-center gap-1 transition-all ${currentTab === 'profile' ? 'text-[var(--primary)] scale-110' : 'text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('nav_profile')}><User size={24} strokeWidth={currentTab === 'profile' ? 3 : 2} /></button>
             {currentTab === 'ranking' && <div className="hidden sm:flex flex-col items-center gap-1 text-[var(--primary)] scale-110 transition-all"><Trophy size={24} strokeWidth={3}/></div>}
             <div className="hidden sm:block w-px h-6 bg-[var(--border-color)] mx-2"></div>
-            <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title="Changer le thème">{theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}</button>
+            <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title={t('changer-le-theme')}>{theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}</button>
           </nav>
 
           <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full">
@@ -2507,7 +2512,7 @@ export default function App() {
                         <CustomSelect 
                           value={tagFilter} 
                           onChange={setTagFilter} 
-                          options={[{ value: 'all', label: 'Tous les tags' }, ...allUserTags.map(t => ({ value: t, label: t }))]} 
+                          options={[{ value: 'all', label: t('tous-les-tags') }, ...allUserTags.map(t => ({ value: t, label: t }))]} 
                           className="bg-[var(--panel-bg)] border border-[var(--border-color)] hover:border-[var(--primary)] shadow-sm" 
                         />
                       </div>

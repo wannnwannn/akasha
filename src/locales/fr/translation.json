@@ -211,5 +211,21 @@
   "l": "L",
   "m": "M",
   "a-venir": "À venir",
-  "statut-annulee": "Annulé"
+  "statut-annulee": "Annulé",
+  "manual": "Manuel",
+  "modifier-le-total-depisodes": "Modifier le total d'épisodes",
+  "modifier-la-duree": "Modifier la durée",
+  "ajouter-ou-chercher-un-tag": "Ajouter ou chercher un tag...",
+  "creer-le-tag": "Créer le tag",
+  "import-rapide-youtube": "Import Rapide YouTube",
+  "coller-une-url-youtube": "Coller une URL YouTube...",
+  "genere-automatiquement-la-miniature-le-titre-et-la-duree": "Génère automatiquement la miniature, le titre et la durée.",
+  "tags-listes-personnalisees": "Tags / Listes personnalisées",
+  "modifier-le-type": "Modifier le type",
+  "supprimer-de-la-liste": "Supprimer de la liste",
+  "modifier-le-lien": "Modifier le lien",
+  "afficher-le-contenu-pour-adultes": "Afficher le contenu pour adultes",
+  "decouvrir-mon-akasha-wrapped": "✨ Découvrir mon Akasha Wrapped",
+  "changer-le-theme": "Changer le thème",
+  "tous-les-tags": "Tous les tags"
 }

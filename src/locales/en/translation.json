@@ -211,5 +211,21 @@
   "lundi": "Monday",
   "l": "m",
   "m": "t",
-  "a-venir": "Planned"
+  "a-venir": "Planned",
+  "manual": "Manual",
+  "modifier-le-total-depisodes": "Edit Episode Total",
+  "modifier-la-duree": "change the duration",
+  "ajouter-ou-chercher-un-tag": "Add or search for a tag...",
+  "creer-le-tag": "Create tag",
+  "import-rapide-youtube": "YouTube Quick Import",
+  "coller-une-url-youtube": "Paste YouTube URL...",
+  "genere-automatiquement-la-miniature-le-titre-et-la-duree": "Automatically generates the thumbnail, title and duration.",
+  "tags-listes-personnalisees": "Tags/ Custom Lists",
+  "modifier-le-type": "modify the type",
+  "supprimer-de-la-liste": "delete from the list",
+  "modifier-le-lien": "Edit Link",
+  "afficher-le-contenu-pour-adultes": "Show Adult Content",
+  "decouvrir-mon-akasha-wrapped": "✨ Discover my Akasha Wrapped",
+  "changer-le-theme": "change theme",
+  "tous-les-tags": "all tags"
 }
