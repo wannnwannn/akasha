@@ -2113,20 +2113,26 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 };
 
 // ============================================================================
-// COMPOSANT AUTHENTIFICATION
+// COMPOSANT AUTHENTIFICATION (VERSION MISE À JOUR AVEC RESET PASSWORD)
 // ============================================================================
-const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) => {
+const AuthScreen: React.FC<{ 
+  onLogin: (u: UserData) => void;
+  isResettingPassword?: boolean;
+  setIsResettingPassword?: (b: boolean) => void;
+}> = ({ onLogin, isResettingPassword = false, setIsResettingPassword }) => {
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState(''); // Pour le nouveau mot de passe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const captchaRef = useRef<any>(null);
 
   const handleAuth = async () => {
-    setLoading(true); setError('');
+    setLoading(true); setError(''); setSuccessMessage('');
     try {
       if (!captchaToken && HCAPTCHA_SITE_KEY !== '') {
         setError(t('veuillez-valider-le-captcha-pour-continuer'));
@@ -2160,12 +2166,80 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
     }
   };
 
+  // Nouvelle fonction pour envoyer le mail de récupération de mot de passe
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      setError("Veuillez entrer votre adresse email dans le champ ci-dessus.");
+      return;
+    }
+    setLoading(true); setError(''); setSuccessMessage('');
+    
+    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}`, // Utilise l'URL du site actuel
+    });
+
+    setLoading(false);
+    if (err) {
+      setError(err.message);
+    } else {
+      setSuccessMessage("Un email de récupération a été envoyé ! Vérifie ta boîte de réception.");
+    }
+  };
+
+  // Nouvelle fonction pour enregistrer le nouveau mot de passe
+  const handleUpdatePassword = async () => {
+    if (!newPassword.trim() || newPassword.length < 6) {
+      setError("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+    setLoading(true); setError('');
+    
+    const { error: err } = await supabase.auth.updateUser({
+      password: newPassword.trim()
+    });
+
+    setLoading(false);
+    if (err) {
+      setError(err.message);
+    } else {
+      alert("Mot de passe mis à jour avec succès ! Tu es maintenant connecté.");
+      if (setIsResettingPassword) setIsResettingPassword(false);
+    }
+  };
+
+  // RENDER DU FORMULAIRE DE NOUVEAU MOT DE PASSE (SI PROVENANCE DU LIEN MAIL)
+  if (isResettingPassword) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4 flex-col">
+        <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl relative overflow-hidden z-10">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-[var(--primary)] to-amber-500" />
+          <div className="text-center mb-10">
+            <div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl text-[var(--primary)]"><AkashaLogo size={48} /></div>
+            <h1 className="text-2xl font-black text-[var(--text-main)] tracking-tight uppercase">Nouveau mot de passe</h1>
+            <p className="text-[var(--text-muted)] font-medium mt-2">Saisis ton nouveau mot de passe sécurisé.</p>
+          </div>
+          {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
+          <div className="space-y-4">
+            <Input type="password" placeholder="Nouveau mot de passe (min 6 caractères)" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            <Button className="w-full !py-3.5 text-base mt-4" onClick={handleUpdatePassword} disabled={loading}>
+              {loading ? <Loader2 className="animate-spin" /> : "Mettre à jour le mot de passe"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // FORMULAIRE DE CONNEXION / INSCRIPTION CLASSIQUE
   return (
     <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4 flex-col">
       <div className="max-w-md w-full bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-8 shadow-2xl relative overflow-hidden z-10">
         <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-rose-500 via-[var(--primary)] to-amber-500" />
         <div className="text-center mb-10"><div className="w-20 h-20 bg-[var(--bg-base)] border border-[var(--border-color)] rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl text-[var(--primary)]"><AkashaLogo size={48} /></div><h1 className="text-3xl font-black text-[var(--text-main)] tracking-tight uppercase">Akasha</h1><p className="text-[var(--text-muted)] font-medium mt-2">{t('auth_title')}</p></div>
+        
         {error && <div className="bg-red-500/10 border border-red-500/30 text-red-500 p-4 rounded-xl mb-6 text-sm font-bold">{error}</div>}
+        {successMessage && <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 p-4 rounded-xl mb-6 text-sm font-bold">{successMessage}</div>}
+        
         <div className="space-y-4">
           <Input type="email" placeholder={t('auth_email')} value={email} onChange={e => setEmail(e.target.value)} />
 
@@ -2174,10 +2248,7 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
             {!isRegistering && (
               <div className="flex justify-end pr-2">
                 <button
-                  onClick={() => {
-                    const mail = email || "[MON ADRESSE EMAIL]";
-                    window.location.href = `mailto:contactwanspace@gmail.com?subject=Akasha%20-%20Mot%20de%20passe%20oublié&body=Bonjour,%20j'ai%20oublié%20mon%20mot%20de%20passe.%20Mon%20compte%20est%20:%20${mail}`;
-                  }}
+                  onClick={handleForgotPassword}
                   className="text-[11px] font-bold text-[var(--text-muted)] hover:text-[var(--primary)] transition-colors"
                 >
                   {t('auth_forgot')}
@@ -2201,14 +2272,13 @@ const AuthScreen: React.FC<{ onLogin: (u: UserData) => void }> = ({ onLogin }) =
             <Button className="w-full !py-3.5 text-base" onClick={handleAuth} disabled={loading || (isRegistering && !captchaToken && HCAPTCHA_SITE_KEY !== '')}>
               {loading ? <Loader2 className="animate-spin" /> : (isRegistering ? t('auth_register') : t('auth_login'))}
             </Button>
-            <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setCaptchaToken(null); if(captchaRef.current) captchaRef.current.resetCaptcha(); }} disabled={loading}>
+            <Button variant="ghost" className="w-full border border-[var(--border-color)]" onClick={() => { setIsRegistering(!isRegistering); setError(''); setSuccessMessage(''); setCaptchaToken(null); if(captchaRef.current) captchaRef.current.resetCaptcha(); }} disabled={loading}>
               {isRegistering ? t('auth_switch_to_login') : t('auth_register')}
             </Button>
           </div>
         </div>
       </div>
 
-      {/* COPYRIGHT & LÉGAL */}
       <div className="mt-8 text-center text-xs text-[var(--text-muted)] space-y-4 max-w-sm z-0">
         <p>© {new Date().getFullYear()} Akasha Tracker. {t('auth_copyright')}</p>
         <div className="flex justify-center gap-4 items-center opacity-40 grayscale">
@@ -2325,6 +2395,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile' | 'ranking'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
   const [showWrapped, setShowWrapped] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // CHARGEMENT DE LA MÉMOIRE DES FILTRES
   const [activeFilter, setActiveFilter] = useState<'watching'|'planning'|'completed'|'on_hold'|'favorites'|'reminders'>(
@@ -2392,7 +2463,12 @@ export default function App() {
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => { setUser(session?.user ?? null); setAuthLoading(false); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => { setUser(session?.user ?? null); });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: any, session: any) => { setUser(session?.user ?? null);
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsResettingPassword(true);
+      }
+     });
+    
     return () => subscription.unsubscribe();
   }, []);
 
@@ -2448,7 +2524,11 @@ export default function App() {
            ) : (
              <div className={theme}>
                <GlobalStyles />
-               <AuthScreen onLogin={setUser} />
+               <AuthScreen 
+               onLogin={setUser}
+               isResettingPassword={isResettingPassword}
+               setIsResettingPassword={setIsResettingPassword}
+                />
              </div>
            )}
         </>
