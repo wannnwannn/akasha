@@ -2172,18 +2172,29 @@ const AuthScreen: React.FC<{
       setError("Veuillez entrer votre adresse email dans le champ ci-dessus.");
       return;
     }
+
+    if (!captchaToken && HCAPTCHA_SITE_KEY !== '') {
+      setError(t('veuillez-valider-le-captcha-pour-continuer'));
+      return;
+    }
+
     setLoading(true); setError(''); setSuccessMessage('');
     
+    // CORRECTION : On passe captchaToken directement à la racine de l'objet de configuration
     const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}`, // Utilise l'URL du site actuel
+      redirectTo: `${window.location.origin}`,
+      captchaToken: captchaToken || undefined
     });
 
-    setLoading(false);
     if (err) {
       setError(err.message);
     } else {
       setSuccessMessage("Un email de récupération a été envoyé ! Vérifie ta boîte de réception.");
     }
+    
+    setLoading(false);
+    if (captchaRef.current) captchaRef.current.resetCaptcha();
+    setCaptchaToken(null);
   };
 
   // Nouvelle fonction pour enregistrer le nouveau mot de passe
@@ -2207,7 +2218,6 @@ const AuthScreen: React.FC<{
     }
   };
 
-  // RENDER DU FORMULAIRE DE NOUVEAU MOT DE PASSE (SI PROVENANCE DU LIEN MAIL)
   if (isResettingPassword) {
     return (
       <div className="min-h-screen bg-[var(--bg-base)] flex items-center justify-center p-4 flex-col">
@@ -2513,6 +2523,38 @@ export default function App() {
   };
 
   if (authLoading) return <div className={`min-h-screen ${theme} bg-[var(--bg-base)] flex items-center justify-center`}><GlobalStyles/><Loader2 className="animate-spin text-[var(--primary)]" size={48} /></div>;
+  if (isResettingPassword) {
+    return (
+      <div className={theme}>
+        <GlobalStyles />
+        <AuthScreen 
+          onLogin={setUser} 
+          isResettingPassword={isResettingPassword} 
+          setIsResettingPassword={setIsResettingPassword} 
+        />
+      </div>
+    );
+  }
+
+  // Si on n'est pas en reset et que l'utilisateur n'est pas connecté
+  if (!user) {
+    return (
+      <>
+         {sharedItem && !showAuthForShare ? (
+           <SharedMediaScreen item={sharedItem} onJoin={() => setShowAuthForShare(true)} theme={theme} />
+         ) : (
+           <div className={theme}>
+             <GlobalStyles />
+             <AuthScreen 
+               onLogin={setUser} 
+               isResettingPassword={isResettingPassword} 
+               setIsResettingPassword={setIsResettingPassword} 
+             />
+           </div>
+         )}
+      </>
+    );
+  }
 
   return (
     <LangContext.Provider value={{ lang, setLang, t }}>
