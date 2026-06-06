@@ -915,15 +915,20 @@ const DetailModal: React.FC<{
     let finalUrl = originalUrl;
 
     try {
-      const res = await fetch(`https://is.gd/create.php?format=json&url=${encodeURIComponent(originalUrl)}`);
+      // Utilisation de l'API TinyURL avec un fallback propre en mode 'cors'
+      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(originalUrl)}`, {
+        method: 'GET',
+        headers: { 'Accept': 'text/plain' }
+      });
+      
       if (res.ok) {
-        const data = await res.json();
-        if (data.shorturl) {
-          finalUrl = data.shorturl;
+        const text = await res.text();
+        if (text && text.startsWith('http')) {
+          finalUrl = text.trim();
         }
       }
     } catch (err) {
-      console.warn("L'API de raccourcissement a échoué (sûrement CORS ou limite rate). Fallback sur l'URL complète.");
+      console.warn("L'API de TinyURL a échoué. Fallback sur l'URL complète.", err);
     }
 
     if (navigator.clipboard && window.isSecureContext) {
