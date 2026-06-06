@@ -1193,7 +1193,7 @@ const DetailModal: React.FC<{
               )}
               <div className="pt-2">
                 <div className="pt-4">
-                  <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">t('tags-listes-personnalisees')</p>
+                  <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">{t('tags-listes-personnalisees')}</p>
                   <TagEditor 
                   currentTags={tags} 
                     allTags={allUserTags} 
