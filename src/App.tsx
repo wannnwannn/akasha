@@ -1289,18 +1289,30 @@ const RemindersList: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 };
 
 // ============================================================================
-// COMPOSANT CLASSEMENT (NOUVEAU)
+// COMPOSANT CLASSEMENT (MIS À JOUR : FILTRE PAR FORMAT ET PAR TAGS)
 // ============================================================================
-const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, updates: Partial<LibraryItem>) => void, onSelect: (m: LibraryItem) => void }> = ({ items, onUpdate, onSelect }) => {
+const RankingScreen: React.FC<{ 
+  items: LibraryItem[], 
+  onUpdate: (id: string, updates: Partial<LibraryItem>) => void, 
+  onSelect: (m: LibraryItem) => void,
+  allUserTags: string[],
+  rankingTagFilter: string,
+  setRankingTagFilter: (tag: string) => void
+}> = ({ items, onUpdate, onSelect, allUserTags, rankingTagFilter, setRankingTagFilter }) => {
   const { t } = useTranslation();
-  const [filterType, setFilterType] = useState<string>('anime');
+  const [filterType, setFilterType] = useState<string>('all'); // Changé à 'all' par défaut pour voir tout le classement d'un tag
   const [isSwapping, setIsSwapping] = useState(false);
 
   const rankedItems = useMemo(() => {
     return items
-      .filter(item => item.rating !== null && (filterType === 'all' || item.type === filterType))
+      .filter(item => {
+        const ratingMatch = item.rating !== null;
+        const typeMatch = filterType === 'all' || item.type === filterType;
+        const tagMatch = rankingTagFilter === 'all' || (item.tags && item.tags.includes(rankingTagFilter));
+        return ratingMatch && typeMatch && tagMatch;
+      })
       .sort((a, b) => (a.rating || 0) - (b.rating || 0));
-  }, [items, filterType]);
+  }, [items, filterType, rankingTagFilter]);
 
   const handleMove = async (e: React.MouseEvent, index: number, direction: 'up' | 'down') => {
     e.stopPropagation();
@@ -1338,23 +1350,47 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
-      <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="sticky top-0 sm:top-24 z-10 bg-[var(--bg-base)]/90 backdrop-blur-xl pb-4 pt-4 border-b border-[var(--border-color)] -mx-4 px-4 sm:mx-0 sm:px-0 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-[var(--text-main)] flex items-center gap-2">
             <Trophy className="text-amber-500" /> {t('nav_ranking')}
           </h2>
           <p className="text-sm text-[var(--text-muted)] mt-1">{t('organisez-vos-oeuvres-preferees')}</p>
         </div>
-        <div className="w-full sm:w-64">
-           <CustomSelect value={filterType} onChange={setFilterType} options={FORMAT_OPTIONS.map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} className="bg-[var(--panel-bg)] border border-[var(--border-color)]" />
+        
+        {/* FILTRES DE CLASSEMENT JOINTIFS */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          {/* Sélection du Format */}
+          <div className="w-full sm:w-44">
+             <CustomSelect 
+               value={filterType} 
+               onChange={setFilterType} 
+               options={FORMAT_OPTIONS.map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+               className="bg-[var(--panel-bg)] border border-[var(--border-color)] shadow-sm" 
+             />
+          </div>
+          
+          {/* Sélection du Tag (Nouveau) */}
+          {allUserTags.length > 0 && (
+            <div className="w-full sm:w-44">
+              <CustomSelect 
+                value={rankingTagFilter} 
+                onChange={setRankingTagFilter} 
+                options={[{ value: 'all', label: t('tous-les-tags') }, ...allUserTags.map(t => ({ value: t, label: t }))]} 
+                className="bg-[var(--panel-bg)] border border-[var(--border-color)] shadow-sm" 
+              />
+            </div>
+          )}
         </div>
       </div>
 
       {rankedItems.length === 0 ? (
         <div className="text-center py-20 text-[var(--text-muted)] animate-in fade-in">
           <Trophy className="mx-auto mb-6 opacity-30" size={64} />
-          <h2 className="text-xl font-black text-[var(--text-main)] mb-2">{t('aucun-classement-pour-ce-format')}</h2>
-          <p className="text-sm font-medium max-w-md mx-auto">{t('ouvrez-les-details-dune-oeuvre-de-votre-bibliotheque-et-cliquez-sur-licone-trophee-pour-lajouter-ici')}</p>
+          <h2 className="text-xl font-black text-[var(--text-main)] mb-2">Aucun classement trouvé</h2>
+          <p className="text-sm font-medium max-w-md mx-auto">
+            Ajustez vos filtres ou ajoutez des œuvres avec le tag sélectionné à votre classement depuis les fiches de détails.
+          </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
@@ -1372,10 +1408,15 @@ const RankingScreen: React.FC<{ items: LibraryItem[], onUpdate: (id: string, upd
                   <div className="h-full aspect-[2/3] shrink-0 bg-[var(--bg-base)] border-r border-[var(--border-color)]">
                     {item.cover_url ? <img src={String(item.cover_url)} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={24} />}
                   </div>
-                  <div className="flex flex-col min-w-0 pr-4 py-2">
-                    <TypeBadge type={String(item.type)} />
-                    <h3 className="font-bold text-sm sm:text-base line-clamp-2 mt-1">{String(item.title)}</h3>
-                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(item.year || 'N/A')}</p>
+                  <div className="flex-1 min-w-0 pr-4 py-2 flex flex-col justify-center">
+                    <div className="flex flex-wrap gap-1 items-center">
+                      <TypeBadge type={String(item.type)} />
+                      {item.tags && item.tags.slice(0, 2).map(tag => (
+                        <span key={tag} className="text-[9px] bg-[var(--primary)]/10 text-[var(--primary)] px-1.5 py-0.5 rounded font-bold">{tag}</span>
+                      ))}
+                    </div>
+                    <h3 className="font-bold text-sm sm:text-base line-clamp-1 mt-1">{String(item.title)}</h3>
+                    <p className="text-xs text-[var(--text-muted)] font-medium mt-0.5">{String(item.year || 'N/A')}</p>
                   </div>
                 </div>
 
@@ -2420,6 +2461,7 @@ export default function App() {
     () => getSavedFilter('akasha_formatFilter', 'all')
   );
   const [tagFilter, setTagFilter] = useState<string>('all');
+  const [rankingTagFilter, setRankingTagFilter] = useState<string>('all');
 
   // Extraction des tags uniques
   const allUserTags = useMemo(() => {
@@ -2679,7 +2721,16 @@ export default function App() {
 
             {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
             {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} onOpenWrapped={() => setShowWrapped(true)} />}
-            {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />}
+            {currentTab === 'ranking' && (
+            <RankingScreen 
+              items={userLibrary} 
+              onUpdate={handleSWRUpdate} 
+              onSelect={setSelectedMedia} 
+              allUserTags={allUserTags}
+              rankingTagFilter={rankingTagFilter}
+              setRankingTagFilter={setRankingTagFilter}
+            />
+          )}
           </main>
 
           {currentTab !== 'profile' && currentTab !== 'ranking' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
