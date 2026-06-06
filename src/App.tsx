@@ -1715,175 +1715,272 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
   );
 };
 // ============================================================================
-// COMPOSANT AKASHA WRAPPED (EXPÉRIENCE IMMERSIVE STYLE SPOTIFY)
+// COMPOSANT AKASHA WRAPPED (RÉÉCRITURE COMPLÈTE : GEN Z, OPTIMISÉ, ROAST)
 // ============================================================================
-const AkashaWrapped: React.FC<{ library: LibraryItem[]; onClose: () => void }> = ({ library, onClose }) => {
+const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: () => void }> = ({ library, year, onClose }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  //const { t } = useTranslation();
+  const { t } = useTranslation();
 
-  // --- 1. MOTEUR D'ANALYSE DES DONNÉES ---
+  // --- 1. MOTEUR D'ANALYSE DES DONNÉES FILTRÉ PAR ANNÉE ---
   const insights = useMemo(() => {
     let totalMinutes = 0;
-    let totalEpisodes = 0;
-    let totalPages = 0;
-    const genreCounts: Record<string, number> = {};
+    let videoEpisodes = 0;
+    let readChapters = 0;
+    let favCount = 0;
     let maxTimeSpent = 0;
     let obsessionItem: LibraryItem | null = null;
+    
+    const genreCounts: Record<string, number> = {};
     const typeCounts: Record<string, number> = { movie: 0, tv: 0, anime: 0, manga: 0, webtoon: 0, book: 0 };
+    const creatorCounts: Record<string, number> = {};
+    const statusCounts: Record<string, number> = {};
+    const rankings: LibraryItem[] = [];
 
-    library.forEach((item) => {
+    // On ne garde STRICTEMENT que les éléments modifiés ou créés cette année-là
+    const yearItems = library.filter(item => {
+      const dateStr = item.updated_at || item.created_at;
+      return new Date(dateStr).getFullYear() === year;
+    });
+
+    yearItems.forEach((item) => {
+      if (item.is_favorite) favCount++;
+      if (item.rating) rankings.push(item);
+      
       typeCounts[item.type] = (typeCounts[item.type] || 0) + 1;
-      totalEpisodes += item.type !== 'book' ? (item.progress || 0) : 0;
-      totalPages += item.type === 'book' ? (item.progress || 0) : 0;
+      if (item.creator) creatorCounts[item.creator] = (creatorCounts[item.creator] || 0) + 1;
+      if (item.prod_status) statusCounts[item.prod_status] = (statusCounts[item.prod_status] || 0) + 1;
 
-      // Calcul du temps par œuvre
-      let runtime = item.runtime || (item.type === 'movie' ? 90 : item.type === 'tv' ? 60 : 20);
-      let timeSpent = (item.progress || 0) * runtime;
+      if (item.genres && Array.isArray(item.genres)) {
+        item.genres.forEach((g) => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
+      }
+
+      // Séparation rigoureuse Vidéo / Lecture
+      const isRead = ['manga', 'webtoon', 'book'].includes(item.type);
+      if (isRead) readChapters += (item.progress || 0);
+      else videoEpisodes += (item.progress || 0);
+
+      // Calcul précis du temps selon le format
+      let unitTime = 20; 
+      if (item.type === 'movie') unitTime = item.runtime || 100;
+      else if (item.type === 'tv') unitTime = item.runtime || 45;
+      else if (item.type === 'anime') unitTime = item.runtime || 24;
+      else if (item.type === 'manga') unitTime = 10; // 5 min par chap
+      else if (item.type === 'webtoon') unitTime = 10; // 3 min par chap
+      else if (item.type === 'book') unitTime = 5; // 2 min par page
+
+      const timeSpent = (item.progress || 0) * unitTime;
       totalMinutes += timeSpent;
 
       if (timeSpent > maxTimeSpent && item.progress > 0) {
         maxTimeSpent = timeSpent;
         obsessionItem = item;
       }
-
-      // Comptage des genres
-      if (item.genres && Array.isArray(item.genres)) {
-        item.genres.forEach((g) => {
-          genreCounts[g] = (genreCounts[g] || 0) + 1;
-        });
-      }
     });
 
-    const topGenres = Object.entries(genreCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([name]) => name);
-
-    // Détermination du Persona Culturel
+    const topGenres = Object.entries(genreCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name]) => name);
+    const topCreator = Object.entries(creatorCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Inconnu';
     const favoriteType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'anime';
-    let persona = "L'Électron Libre";
-    let personaDesc = "Tu navigues d'un format à un autre sans jamais te fixer. Un vrai caméléon culturel.";
+    const isOngoingLover = (statusCounts['releasing'] || 0) > (statusCounts['completed'] || 0) || (statusCounts['ongoing'] || 0) > (statusCounts['finished'] || 0);
+    
+    const top3 = rankings.sort((a, b) => (a.rating || 999) - (b.rating || 999)).slice(0, 3);
 
-    if (favoriteType === 'anime' || favoriteType === 'manga') {
-      persona = "L'Otaku Pur Sang";
-      personaDesc = "Le Japon et les webtoons n'ont aucun secret pour toi. Ton rythme cardiaque est synchronisé avec les sorties d'épisodes.";
+    // Détermination du Persona Culturel (Direct, sans fioritures, intégrant ton contexte subtilement)
+    let persona = "L'Électron Libre 🌪️";
+    let personaDesc = "Impossible de cerner ton algo. Tu navigues à vue d'œil entre tous les formats.";
+
+    if (favoriteType === 'anime' || favoriteType === 'manga' || favoriteType === 'webtoon') {
+      persona = "CEO de l'Aesthetic 🎌";
+      personaDesc = "L'esthétique asiatique est validée. Mais entre deux dramas ou webtoons, n'oublie pas de préparer ton sac pour ton voyage au Japon.";
     } else if (favoriteType === 'movie' || favoriteType === 'tv') {
-      persona = "Le Sériphile Nocturne";
-      personaDesc = "Les marathons sous le plaid sont ta spécialité. Tu analyses la mise en scène même quand tu dors.";
+      persona = "Main Character Syndrome 🎬";
+      personaDesc = "Tu consommes tellement d'interfaces et de plans de caméra que tu devrais sérieusement penser à avancer sur ton propre portfolio Figma au lieu de binger.";
     } else if (favoriteType === 'book') {
-      persona = "L'Érudit de l'Ombre";
-      personaDesc = "L'odeur du papier (ou le rétroéclairage de ta liseuse) est ta drogue. Tu vis mille vies à la fois.";
+      persona = "Érudit Sombre 📖";
+      personaDesc = "Le papier te comprend mieux que les humains. Une vraie vibe de softboy reclus.";
     }
 
     return {
       hoursSpent: Math.round(totalMinutes / 60),
       equivalentDays: (totalMinutes / (60 * 24)).toFixed(1),
-      totalEpisodes,
-      totalPages,
+      videoEpisodes,
+      readChapters,
       topGenres,
+      favCount,
+      topCreator,
+      top3,
+      isOngoingLover,
       obsession: obsessionItem ? { title: (obsessionItem as LibraryItem).title, cover: (obsessionItem as LibraryItem).cover_url, hours: Math.round(maxTimeSpent / 60) } : null,
       persona,
       personaDesc
     };
-  }, [library]);
+  }, [library, year]);
 
-  // --- 2. CONFIGURATION DES ÉCRANS (STORIES) ---
+  const handleShare = async (slideTitle: string) => {
+    const text = `Mon Akasha Wrapped ${year} - ${slideTitle} 🚀\nJ'ai passé ${insights.hoursSpent}h sur mes œuvres cette année ! Et toi ?`;
+    if (navigator.share) {
+      try { await navigator.share({ title: `Akasha Wrapped ${year}`, text }); } catch (e) {}
+    } else {
+      fallbackCopyTextToClipboard(text);
+      alert('Texte copié pour flex sur tes réseaux 📸');
+    }
+  };
+
+  // --- 2. CONFIGURATION DES ÉCRANS (STORIES GEN Z) ---
   const steps = [
     {
-      bg: "from-purple-900 via-indigo-950 to-black",
+      bg: "from-indigo-950 via-purple-900 to-black",
+      title: "Lancement",
       render: () => (
         <div className="text-center space-y-6 animate-in fade-in zoom-in-95 duration-700">
-          <div className="inline-flex p-4 bg-white/10 rounded-3xl backdrop-blur-md mb-2 border border-white/20 animate-bounce">
-            <Trophy size={48} className="text-amber-400 fill-amber-400" />
+          <div className="inline-flex p-4 bg-white/10 rounded-3xl backdrop-blur-md mb-2 border border-white/20 animate-bounce shadow-[0_0_40px_rgba(168,85,247,0.5)]">
+            <Flame size={48} className="text-rose-500 fill-rose-500" />
           </div>
-          <h2 className="text-4xl sm:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-rose-400 to-purple-400 uppercase leading-none">
-            Akasha<br />Wrapped 2026
+          <h2 className="text-4xl sm:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-purple-400 to-blue-400 uppercase leading-none">
+            Akasha<br />Wrapped {year}
           </h2>
-          <p className="text-sm sm:text-base font-bold text-indigo-200 max-w-xs mx-auto">
-            Prêt à analyser l'ADN de ton année culturelle ? Tes statistiques t'attendent.
+          <p className="text-base font-bold text-indigo-200 max-w-xs mx-auto">
+            Chargement de ton aura... On va voir si t'as été productif ou si t'as juste procrastiné toute l'année.
           </p>
         </div>
       )
     },
     {
       bg: "from-rose-950 via-neutral-950 to-black",
+      title: "Screen Time",
       render: () => (
         <div className="text-center space-y-6 animate-in slide-in-from-bottom-8 duration-500">
-          <p className="text-xs font-black uppercase tracking-widest text-rose-400">Le Verdict du Temps</p>
-          <h3 className="text-3xl font-black text-white">Tu as consacré...</h3>
-          <div className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-rose-500 font-mono tracking-tighter leading-none">
+          <p className="text-xs font-black uppercase tracking-widest text-rose-400">La Réalité Fait Mal</p>
+          <h3 className="text-3xl font-black text-white">Temps de cerveau volé :</h3>
+          <div className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-rose-500 font-mono tracking-tighter leading-none drop-shadow-[0_0_20px_rgba(244,63,94,0.3)]">
             {insights.hoursSpent}h
           </div>
-          <p className="text-sm font-bold text-rose-200 max-w-xs mx-auto">
-            à tes passions cette année. C'est l'équivalent de <span className="text-white underline decoration-rose-500 decoration-2">{insights.equivalentDays} jours</span> complets d'immersion totale.
+          <p className="text-sm font-bold text-rose-200 max-w-xs mx-auto leading-relaxed border border-rose-500/20 bg-rose-500/10 p-4 rounded-2xl">
+            C'est l'équivalent de <span className="text-white underline decoration-rose-500 decoration-2">{insights.equivalentDays} jours</span> non-stop. T'as vraiment cru que tes révisions d'IUT ou tes projets allaient se faire tout seuls avec un tel screen time ? Assume.
           </p>
+        </div>
+      )
+    },
+    {
+      bg: "from-blue-950 via-slate-900 to-black",
+      title: "Régime",
+      render: () => (
+        <div className="text-center space-y-8 animate-in zoom-in-95 duration-500 w-full max-w-sm">
+          <p className="text-xs font-black uppercase tracking-widest text-blue-400">Ton Régime Alimentaire</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-blue-500/10 border border-blue-500/30 p-6 rounded-3xl flex flex-col items-center justify-center">
+              <Tv size={32} className="text-blue-400 mb-3" />
+              <span className="text-4xl font-black text-white mb-1">{insights.videoEpisodes}</span>
+              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider text-center">Épisodes / Films saignés</span>
+            </div>
+            <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-3xl flex flex-col items-center justify-center">
+              <BookOpen size={32} className="text-emerald-400 mb-3" />
+              <span className="text-4xl font-black text-white mb-1">{insights.readChapters}</span>
+              <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider text-center">Chapitres / Pages tournés</span>
+            </div>
+          </div>
+          <p className="text-sm font-medium text-slate-400 italic">Ton ophtalmo est en PLS.</p>
         </div>
       )
     },
     {
       bg: "from-amber-950 via-neutral-950 to-black",
+      title: "Obsession",
       render: () => (
-        <div className="text-center space-y-6 w-full max-w-sm animate-in zoom-in-95 duration-500">
-          <p className="text-xs font-black uppercase tracking-widest text-amber-500">Ton Obsession Absolue</p>
-          <h3 className="text-2xl sm:text-3xl font-black text-white">L'œuvre qui a dévoré ton temps libre</h3>
+        <div className="text-center space-y-6 w-full max-w-sm animate-in scale-in duration-500">
+          <p className="text-xs font-black uppercase tracking-widest text-amber-500">Ta Red Flag de l'année</p>
+          <h3 className="text-2xl sm:text-3xl font-black text-white">{t('ce-qui-a-detruit-ton-sommeil')}</h3>
           {insights.obsession ? (
-            <div className="mt-4 bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm flex items-center gap-4 text-left shadow-2xl">
-              <div className="w-16 sm:w-20 aspect-[2/3] rounded-lg overflow-hidden border border-white/20 shrink-0 bg-neutral-800">
+            <div className="mt-4 bg-gradient-to-t from-black to-white/5 border border-white/10 p-5 rounded-3xl backdrop-blur-sm flex flex-col items-center gap-4 text-center shadow-2xl relative overflow-hidden">
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+              <div className="w-32 aspect-[2/3] rounded-xl overflow-hidden border border-white/20 shrink-0 bg-neutral-800 shadow-[0_10px_30px_rgba(0,0,0,0.8)]">
                 {insights.obsession.cover ? (
                   <img src={insights.obsession.cover} className="w-full h-full object-cover" alt="" />
-                ) : (
-                  <BookOpen className="text-neutral-500 m-auto h-full" size={24} />
-                )}
+                ) : <BookOpen className="text-neutral-500 m-auto h-full" size={24} />}
               </div>
-              <div className="min-w-0">
-                <h4 className="font-black text-white text-base sm:text-lg truncate">{insights.obsession.title}</h4>
-                <p className="text-xs text-amber-400 font-bold mt-1">À elle seule : ~{insights.obsession.hours} heures</p>
+              <div className="min-w-0 w-full">
+                <h4 className="font-black text-white text-lg sm:text-xl truncate px-2">{insights.obsession.title}</h4>
+                <div className="mt-3 inline-flex items-center gap-2 bg-amber-500/20 text-amber-400 font-bold px-4 py-2 rounded-full text-sm border border-amber-500/30">
+                  <Clock size={16}/> ~{insights.obsession.hours} heures dessus
+                </div>
               </div>
             </div>
           ) : (
-            <p className="text-sm text-neutral-400 italic">Pas assez de données de visionnage pour désigner un coupable.</p>
+             <p className="text-sm text-neutral-400 italic">Aucune obsession détectée. T'as touché de l'herbe cette année ?</p>
           )}
         </div>
       )
     },
     {
-      bg: "from-teal-950 via-neutral-950 to-black",
+      bg: "from-teal-950 via-slate-900 to-black",
+      title: "Top 3 & Favs",
       render: () => (
-        <div className="text-center space-y-6 animate-in fade-in duration-500">
-          <p className="text-xs font-black uppercase tracking-widest text-teal-400">Génétique Culturelle</p>
-          <h3 className="text-3xl font-black text-white">Ton Top Genres</h3>
-          <div className="flex flex-col gap-3 mt-4 max-w-xs mx-auto">
-            {insights.topGenres.length > 0 ? (
-              insights.topGenres.map((genre, idx) => (
-                <div key={genre} className="flex items-center justify-between bg-white/5 border border-white/10 px-5 py-3 rounded-xl backdrop-blur-md">
-                  <span className="font-bold text-white text-sm">{genre}</span>
-                  <span className="text-xs font-mono font-black text-teal-400 bg-teal-400/10 px-2 py-0.5 rounded-md">#{idx + 1}</span>
+        <div className="text-center space-y-6 w-full max-w-sm animate-in fade-in duration-500">
+          <p className="text-xs font-black uppercase tracking-widest text-teal-400">Le Hall of Fame</p>
+          <div className="flex items-center justify-center gap-2 text-rose-500 font-black text-xl mb-4 bg-rose-500/10 w-fit mx-auto px-4 py-2 rounded-xl border border-rose-500/20">
+            <Heart className="fill-rose-500" /> {insights.favCount} Coups de cœur
+          </div>
+          
+          <div className="space-y-3 text-left bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-md">
+            <h4 className="font-black text-white mb-4 text-center">Ton Top 3 Absolu</h4>
+            {insights.top3.length > 0 ? insights.top3.map((item, idx) => (
+              <div key={item.id} className="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
+                <span className={`text-xl font-black ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : 'text-amber-700'}`}>#{idx+1}</span>
+                <div className="w-10 aspect-[2/3] bg-neutral-800 rounded overflow-hidden shrink-0">
+                  {item.cover_url ? <img src={item.cover_url} className="w-full h-full object-cover"/> : null}
                 </div>
-              ))
-            ) : (
-              <p className="text-sm text-neutral-400 italic">Aucun genre prédominant détecté.</p>
-            )}
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-white truncate">{item.title}</p>
+                  <p className="text-[10px] text-teal-300 uppercase tracking-widest">{item.type}</p>
+                </div>
+              </div>
+            )) : <p className="text-sm text-center text-neutral-400">Aucun classement fait cette année.</p>}
           </div>
         </div>
       )
     },
     {
-      bg: "from-indigo-950 via-purple-950 to-neutral-950",
+      bg: "from-orange-950 via-neutral-950 to-black",
+      title: "Habitudes",
+      render: () => (
+        <div className="text-center space-y-6 animate-in slide-in-from-right-8 duration-500 max-w-sm w-full">
+          <p className="text-xs font-black uppercase tracking-widest text-orange-400">Tes Habitudes Toxic</p>
+          <div className="grid gap-4">
+            <div className="bg-gradient-to-br from-white/10 to-transparent border border-white/10 p-6 rounded-3xl backdrop-blur-md text-left">
+              <p className="text-[10px] uppercase font-bold text-orange-300 mb-1">Dealer de Dopamine</p>
+              <h4 className="text-xl font-black text-white">{insights.topCreator}</h4>
+              <p className="text-xs text-slate-400 mt-2">Le studio/auteur qui a pris tout ton argent ou ton temps.</p>
+            </div>
+            <div className="bg-gradient-to-br from-white/10 to-transparent border border-white/10 p-6 rounded-3xl backdrop-blur-md text-left">
+              <p className="text-[10px] uppercase font-bold text-orange-300 mb-1">Méthode de Consommation</p>
+              <h4 className="text-xl font-black text-white">{insights.isOngoingLover ? "Masochiste de l'attente" : "Binge-Watcher patient"}</h4>
+              <p className="text-xs text-slate-400 mt-2">
+                {insights.isOngoingLover 
+                  ? "Tu aimes souffrir à attendre chaque nouvel épisode/chapitre semaine par semaine." 
+                  : "Tu attends que l'œuvre soit finie pour tout avaler d'un coup. Smart."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    {
+      bg: "from-fuchsia-950 via-purple-950 to-black",
+      title: "Persona",
       render: () => (
         <div className="text-center space-y-6 max-w-xs mx-auto animate-in scale-in duration-600">
-          <p className="text-xs font-black uppercase tracking-widest text-purple-400">Ton Identité Akasha</p>
-          <div className="w-20 h-20 bg-gradient-to-tr from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto shadow-xl border-2 border-white/20">
-            <User size={36} className="text-white" />
+          <p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">Ton Aura Finale</p>
+          <div className="w-24 h-24 bg-gradient-to-tr from-fuchsia-500 to-purple-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(217,70,239,0.4)] border-4 border-white/20">
+            <User size={40} className="text-white" />
           </div>
-          <h3 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-300 to-white leading-tight">
+          <h3 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-300 to-white leading-tight">
             {insights.persona}
           </h3>
-          <p className="text-xs sm:text-sm text-purple-200 font-medium leading-relaxed bg-white/5 border border-white/10 p-4 rounded-2xl backdrop-blur-sm">
+          <p className="text-sm text-fuchsia-200 font-medium leading-relaxed bg-white/5 border border-white/10 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
             "{insights.personaDesc}"
           </p>
-          <div className="pt-4">
-            <Button variant="secondary" onClick={onClose} className="w-full bg-white text-purple-950 font-black hover:bg-neutral-100 border-0 shadow-lg !py-3">
-              Terminer l'expérience
+          <div className="pt-6">
+            <Button variant="secondary" onClick={onClose} className="w-full bg-white text-purple-950 font-black hover:bg-neutral-200 border-0 shadow-[0_10px_20px_rgba(0,0,0,0.5)] !py-4 rounded-2xl text-lg">
+              Terminer le flex
             </Button>
           </div>
         </div>
@@ -1895,61 +1992,89 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; onClose: () => void }> =
   const prev = () => currentStep > 0 && setCurrentStep(currentStep - 1);
 
   return (
-    <div className={`fixed inset-0 z-50 bg-gradient-to-b ${steps[currentStep].bg} flex flex-col justify-between p-6 select-none`}>
+    <div className={`fixed inset-0 z-50 bg-gradient-to-b ${steps[currentStep].bg} flex flex-col justify-between p-6 select-none transition-colors duration-700`}>
       {/* BARRE DE PROGRESSION DU SCRIPT */}
-      <div className="flex gap-1.5 w-full max-w-md mx-auto pt-2">
+      <div className="flex gap-1.5 w-full max-w-md mx-auto pt-2 z-40">
         {steps.map((_, idx) => (
-          <div key={idx} className="h-1 flex-1 bg-white/20 rounded-full overflow-hidden">
+          <div key={idx} className="h-1.5 flex-1 bg-white/20 rounded-full overflow-hidden">
             <div className={`h-full bg-white transition-all duration-300 ${idx <= currentStep ? 'w-full' : 'w-0'}`} />
           </div>
         ))}
       </div>
 
-      {/* BOUTON FERMER DIRECT */}
-      <button onClick={onClose} className="absolute top-12 right-6 text-white/50 hover:text-white transition-colors z-30">
-        <X size={24} strokeWidth={3} />
-      </button>
+      {/* BOUTONS D'ACTION HAUT DE PAGE */}
+      <div className="absolute top-10 inset-x-6 flex justify-between items-center z-40 max-w-md mx-auto">
+        <button onClick={() => handleShare(steps[currentStep].title)} className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20">
+          <Share size={14}/> Partager
+        </button>
+        <button onClick={onClose} className="bg-black/50 hover:bg-black/80 backdrop-blur-md text-white p-2 rounded-full transition-colors border border-white/10">
+          <X size={20} strokeWidth={3} />
+        </button>
+      </div>
 
       {/* ZONE DE CONTENU CENTRAL */}
-      <div className="flex-1 flex items-center justify-center px-4">
+      <div className="flex-1 flex items-center justify-center px-4 z-10">
         {steps[currentStep].render()}
       </div>
 
       {/* NAVIGATION TACTILE / CLIC GAUCHE DROITE */}
-      <div className="absolute inset-y-0 inset-x-0 flex">
+      <div className="absolute inset-y-0 inset-x-0 flex z-20">
         <div className="w-1/3 h-full cursor-w-resize" onClick={prev} />
         <div className="w-2/3 h-full cursor-e-resize" onClick={next} />
       </div>
 
       {/* BAS DE PAGE DE CONTEXTE */}
-      <div className="text-center text-[10px] uppercase tracking-widest text-white/30 font-bold font-mono z-20 pointer-events-none">
-        Écran {currentStep + 1} sur {steps.length} • Appuie à droite pour avancer
+      <div className="text-center pb-4 z-30 pointer-events-none">
+        <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold font-mono">
+          Écran {currentStep + 1} sur {steps.length} • Appuie à droite pour avancer
+        </p>
+        <p className="text-xs text-white/20 font-medium mt-1 flex items-center justify-center gap-1">
+           📸 Screen pour flex sur tes réseaux
+        </p>
       </div>
     </div>
   );
 };
 // ============================================================================
-// COMPOSANT PROFIL
+// COMPOSANT PROFIL (MODIFIÉ POUR INTÉGRER LES CARTES WRAPPED PAR ANNÉE)
 // ============================================================================
-const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void, onOpenWrapped: () => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary, onOpenWrapped }) => {
+const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout: () => void, onDelete: () => void, theme: string, toggleTheme: () => void, onOpenRanking: () => void, fetchLibrary: () => void, onOpenWrapped: (year: number) => void }> = ({ user, library, onLogout, onDelete, theme, toggleTheme, onOpenRanking, fetchLibrary, onOpenWrapped }) => {
   const { t } = useTranslation();
   const { lang, setLang } = useContext(LangContext);
   const toggleLang = () => {
-  const newLang = lang === 'fr' ? 'en' : 'fr';
+    const newLang = lang === 'fr' ? 'en' : 'fr';
     i18n.changeLanguage(newLang);
     setLang(newLang);
   };
+
+  // --- LOGIQUE DES CARTES WRAPPED ---
+  const wrappedYears = useMemo(() => {
+    const years = new Set<number>();
+    library.forEach(item => {
+      const dateStr = item.updated_at || item.created_at;
+      if (dateStr) years.add(new Date(dateStr).getFullYear());
+    });
+    const sorted = Array.from(years).sort((a, b) => b - a);
+    return sorted.length > 0 ? sorted : [new Date().getFullYear()];
+  }, [library]);
+
+  const gradientClasses = [
+    "from-purple-600 via-rose-500 to-amber-500",
+    "from-blue-600 via-teal-500 to-emerald-500",
+    "from-fuchsia-600 via-pink-500 to-orange-500",
+    "from-indigo-600 via-blue-500 to-cyan-500"
+  ];
+
   const totalAdded = library.length;
   const totalCompleted = library.filter(i => i.status === 'completed').length;
   const totalEpisodesWatched = library.reduce((acc, item) => acc + (item.progress || 0), 0);
 
   const watchableItems = library.filter(i => i.type === 'tv' || i.type === 'movie' || i.type === 'anime');
   const watchTimeMinutes = watchableItems.reduce((acc, item) => {
-    let runtime = 20; // default (anime)
+    let runtime = 24; // default anime
     if (item.runtime) runtime = item.runtime;
     else if (item.type === 'movie') runtime = 90;
-    else if (item.type === 'tv') runtime = 60;
-
+    else if (item.type === 'tv') runtime = 50;
     return acc + ((item.progress || 0) * runtime);
   }, 0);
   const watchTimeHours = (watchTimeMinutes / 60).toFixed(1);
@@ -1963,7 +2088,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 
   const timezones = useMemo(() => {
     try {
-      // @ts-ignore: TS environment may not know supportedValuesOf
+      // @ts-ignore
       if (typeof Intl !== 'undefined' && Intl.supportedValuesOf) return Intl.supportedValuesOf('timeZone').map((tz: string) => ({ value: tz, label: tz.replace(/_/g, ' ') }));
     } catch (e) {}
     return [{ value: 'Europe/Paris', label: 'Europe/Paris' }, { value: 'America/New_York', label: 'America/New York' }, { value: 'Asia/Tokyo', label: 'Asia/Tokyo' }, { value: 'UTC', label: 'UTC' }];
@@ -1976,7 +2101,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   const [isStandalone, setIsStandalone] = useState(false);
   const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
   const [isPushLoading, setIsPushLoading] = useState(false);
-
   const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
@@ -1993,69 +2117,52 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   };
 
   const handleSubscribePush = async () => {
-    if (pushStatus === 'unsupported' || !VAPID_PUBLIC_KEY) { console.warn(t('profile.notifications.unsupported')); return; }
+    if (pushStatus === 'unsupported' || !VAPID_PUBLIC_KEY) return;
     setIsPushLoading(true);
     try {
       const permission = await Notification.requestPermission();
       setPushStatus(permission as any);
       if (permission === 'granted') {
         const swRegistration = await navigator.serviceWorker.getRegistration();
-        if (!swRegistration) throw new Error(t('profile.notifications.sw_missing'));
+        if (!swRegistration) throw new Error("SW manquant");
         const registration = await navigator.serviceWorker.ready;
         const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) });
-        const { error } = await supabase.from('push_subscriptions').upsert({ user_id: user.id, subscription: subscription.toJSON() }, { onConflict: 'user_id, subscription' });
-        if (error) throw error;
+        await supabase.from('push_subscriptions').upsert({ user_id: user.id, subscription: subscription.toJSON() }, { onConflict: 'user_id, subscription' });
       }
-    } catch (e: any) { console.error(t('profile.notifications.push_error'), e.message); } finally { setIsPushLoading(false); }
+    } catch (e: any) { console.error(e.message); } finally { setIsPushLoading(false); }
   };
 
-  // ================= LOGIQUE EXPORT / IMPORT =================
   const handleExport = () => {
     const dataStr = JSON.stringify(library, null, 2);
     const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
-    const exportFileDefaultName = `akasha_backup_${new Date().toISOString().split('T')[0]}.json`;
-
     const linkElement = document.createElement('a');
     linkElement.setAttribute('href', dataUri);
-    linkElement.setAttribute('download', exportFileDefaultName);
+    linkElement.setAttribute('download', `akasha_backup_${new Date().toISOString().split('T')[0]}.json`);
     linkElement.click();
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     setIsImporting(true);
     const reader = new FileReader();
     reader.onload = async (event) => {
       try {
         const data = JSON.parse(event.target?.result as string);
-        if (!Array.isArray(data)) throw new Error(t('le-fichier-nest-pas-une-liste-valide'));
-
-        // Filtrer pour éviter les doublons avec la bibliothèque existante
+        if (!Array.isArray(data)) throw new Error("Fichier invalide");
         const existingSet = new Set(library.map(item => `${item.source}-${item.media_id}`));
-        const newItems = data
-          .filter((item: any) => !existingSet.has(`${item.source}-${item.media_id}`))
-          .map((item: any) => {
+        const newItems = data.filter((item: any) => !existingSet.has(`${item.source}-${item.media_id}`)).map((item: any) => {
             const { id, created_at, updated_at, ...rest } = item;
-            return { ...rest, user_id: user.id }; // On force le user_id actuel
-          });
-
+            return { ...rest, user_id: user.id };
+        });
         if (newItems.length > 0) {
-          const { error } = await supabase.from('user_media').insert(newItems);
-          if (error) throw error;
-          alert(t('profile.alerts.import_success', { count: newItems.length }));
+          await supabase.from('user_media').insert(newItems);
+          alert(`${newItems.length} œuvres importées !`);
           fetchLibrary();
         } else {
-          alert(t('profile.alerts.import_no_new'));
+          alert("Aucune nouvelle œuvre à importer.");
         }
-      } catch (err) {
-        console.error(err);
-        alert(t('profile.alerts.import_error'));
-      } finally {
-        setIsImporting(false);
-        e.target.value = '';
-      }
+      } catch (err) { alert("Erreur d'import"); } finally { setIsImporting(false); e.target.value = ''; }
     };
     reader.readAsText(file);
   };
@@ -2063,28 +2170,46 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   return (
     <div className="max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24 sm:pb-0 pt-6">
       <div className="bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-3xl p-4 sm:p-10 shadow-2xl">
-        <div className="text-center mb-10">
+        <div className="text-center mb-8">
           <div className="w-20 h-20 bg-[var(--bg-base)] rounded-full flex items-center justify-center mx-auto mb-4 border-4 border-[var(--border-color)] shadow-xl text-[var(--primary)]">
             <User size={32} />
           </div>
           <h2 className="text-2xl font-black text-[var(--text-main)]">{t('profile.title')}</h2>
-          <p className="text-[var(--text-muted)] font-medium mt-1 mb-4">{String(user.email || "")}</p>
-
+          <p className="text-[var(--text-muted)] font-medium mt-1 mb-6">{String(user.email || "")}</p>
           <Button onClick={onOpenRanking} className="mx-auto !px-6 !py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0 shadow-lg shadow-orange-500/20">
             <Trophy size={18}/> {t('profile.ranking.button')}
           </Button>
-          <Button onClick={onOpenWrapped} className="mx-auto mt-3 !px-6 !py-2 bg-gradient-to-r from-purple-600 via-rose-500 to-amber-500 hover:opacity-90 text-white border-0 shadow-xl shadow-purple-500/20 tracking-wide uppercase text-xs font-black animate-pulse">
-          {t('decouvrir-mon-akasha-wrapped')} </Button>
         </div>
 
-        {/* SECTION GESTION DES DONNÉES (IMPORT/EXPORT) */}
+        {/* NOUVELLE SECTION WRAPPED PAR ANNÉE */}
+        <div className="mb-10 pt-4 border-t border-[var(--border-color)]">
+          <div className="flex items-center gap-2 mb-4">
+            <Flame className="text-rose-500" size={24} />
+            <h3 className="font-black text-xl text-[var(--text-main)]">Rétrospectives (Wrapped)</h3>
+          </div>
+          <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-4 snap-x pr-4">
+            {wrappedYears.map((y, i) => (
+               <div 
+                 key={y} 
+                 onClick={() => onOpenWrapped(y)} 
+                 className={`snap-start shrink-0 w-36 h-48 rounded-3xl p-5 flex flex-col justify-end cursor-pointer shadow-lg hover:-translate-y-2 hover:shadow-xl transition-all bg-gradient-to-br ${gradientClasses[i % gradientClasses.length]}`}
+               >
+                  <div className="mt-auto pointer-events-none">
+                     <h4 className="text-4xl font-black text-white leading-none drop-shadow-md">{y}</h4>
+                     <p className="text-[10px] font-black text-white/80 mt-1 uppercase tracking-widest bg-black/20 w-fit px-2 py-1 rounded border border-white/20">Wrapped</p>
+                  </div>
+               </div>
+            ))}
+          </div>
+        </div>
+
+        {/* SECTION GESTION DES DONNÉES */}
         <div className="mb-8 bg-purple-500/10 border border-purple-500/30 rounded-2xl p-5 space-y-4">
           <div className="flex items-center gap-3">
             <FolderHeart className="text-purple-500" size={24} />
             <h3 className="font-bold text-[var(--text-main)] text-lg">{t('profile.data.title')}</h3>
           </div>
           <p className="text-sm text-[var(--text-muted)]">{t('profile.data.description')}</p>
-
           <div className="flex gap-3 pt-2">
             <Button onClick={handleExport} className="flex-1 bg-purple-600 hover:bg-purple-700 !py-3">
               <Download size={18} /> {t('profile.data.export')}
@@ -2129,7 +2254,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             <div className="flex justify-between items-end mb-3"><h3 className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">{t('profile.stats.screen_vs_reading.title')}</h3></div>
             <div className="flex h-4 w-full bg-[var(--panel-bg)] rounded-full overflow-hidden border border-[var(--border-color)] mb-3">{totalInteractions === 0 ? <div className="h-full w-full bg-[var(--border-color)]" /> : <><div className="h-full bg-blue-500 transition-all duration-1000" style={{ width: `${watchRatio}%` }} /><div className="h-full bg-purple-500 transition-all duration-1000" style={{ width: `${readRatio}%` }} /></>}</div>
             <div className="flex justify-between text-xs font-bold"><div className="flex items-center gap-1.5 text-blue-500"><Tv size={14} /> {watchRatio}% {t('profile.stats.screen_vs_reading.binge_watching')}</div><div className="flex items-center gap-1.5 text-purple-500">{readRatio}% {t('profile.stats.screen_vs_reading.reading')} <BookOpen size={14} /></div></div>
-            <p className="text-center text-[10px] text-[var(--text-muted)] mt-4 font-medium italic">{t('profile.stats.screen_vs_reading.based_on', { count: totalInteractions })}</p>
           </div>
         </div>
 
@@ -2141,17 +2265,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
         </div>
 
         <div className="mb-6"><label className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-2 flex items-center gap-2"><Globe size={14}/> {t('profile.timezone.label')}</label><CustomSelect value={String(userTz)} onChange={handleTzChange} options={timezones} placement="top" className="bg-[var(--bg-base)] border-[var(--border-color)] text-[var(--text-main)]" /><p className="text-[10px] text-[var(--text-muted)] mt-2 italic">{t('profile.timezone.description')}</p></div>
-
-        {/* NOUVEAU : BOUTON TRADUCTION SUR MOBILE */}
-        <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-base)] rounded-2xl border border-[var(--border-color)] mb-8">
-          <span className="font-bold text-[var(--text-main)] flex items-center gap-2">
-            <Languages size={20} className="text-[var(--primary)]" /> {t('profile.language.mobileTitle')}
-          </span>
-          <button onClick={toggleLang} className="p-2.5 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl text-[var(--primary)] shadow-sm font-black text-xs">
-            {lang === 'fr' ? t('profile.language.short.en') : t('profile.language.short.fr')}
-          </button>
-        </div>
-
+        <div className="sm:hidden flex items-center justify-between p-4 bg-[var(--bg-base)] rounded-2xl border border-[var(--border-color)] mb-8"><span className="font-bold text-[var(--text-main)] flex items-center gap-2"><Languages size={20} className="text-[var(--primary)]" /> {t('profile.language.mobileTitle')}</span><button onClick={toggleLang} className="p-2.5 bg-[var(--panel-bg)] border border-[var(--border-color)] rounded-xl text-[var(--primary)] shadow-sm font-black text-xs">{lang === 'fr' ? t('profile.language.short.en') : t('profile.language.short.fr')}</button></div>
         <div className="space-y-3 pt-6 border-t border-[var(--border-color)]"><Button variant="secondary" className="w-full !py-3" onClick={onLogout}><LogOut size={18} /> {t('profile.actions.logout')}</Button><button onClick={onDelete} className="w-full py-3 text-xs font-bold text-[var(--text-muted)] hover:text-red-500 transition-colors">{t('profile.actions.delete')}</button></div>
       </div>
     </div>
@@ -2450,7 +2564,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile' | 'ranking'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
-  const [showWrapped, setShowWrapped] = useState(false);
+  const [wrappedYear, setWrappedYear] = useState<number | null>(null);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
   // CHARGEMENT DE LA MÉMOIRE DES FILTRES
@@ -2720,39 +2834,34 @@ export default function App() {
             )}
 
             {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
-            {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} onOpenWrapped={() => setShowWrapped(true)} />}
-            {currentTab === 'ranking' && (
-            <RankingScreen 
-              items={userLibrary} 
-              onUpdate={handleSWRUpdate} 
-              onSelect={setSelectedMedia} 
-              allUserTags={allUserTags}
-              rankingTagFilter={rankingTagFilter}
-              setRankingTagFilter={setRankingTagFilter}
-            />
-          )}
-          </main>
+          {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} onOpenWrapped={setWrappedYear} />}
+          
+          {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} allUserTags={allUserTags} rankingTagFilter={rankingTagFilter} setRankingTagFilter={setRankingTagFilter} />}
+        </main>
 
-          {currentTab !== 'profile' && currentTab !== 'ranking' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
+        {currentTab !== 'profile' && currentTab !== 'ranking' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
 
-          {selectedMedia && (
-            <DetailModal
-              item={selectedMedia}
-              onClose={() => setSelectedMedia(null)}
-              trackedItem={'status' in selectedMedia ? userLibrary.find(i => String(i.id) === String(selectedMedia.id)) : userLibrary.find(i => String(i.media_id) === String(selectedMedia.id) && String(i.source) === String(selectedMedia.source))}
-              onLibraryUpdate={handleSWRUpdate}
-              user={user || undefined}
-              fetchLibrary={fetchLibrary}
-              userLibrary={userLibrary}
-            />
-          )}
-          {showWrapped && (
-            <AkashaWrapped 
-              library={userLibrary} 
-              onClose={() => setShowWrapped(false)} 
-            />
-          )}
-        </div>
+        {selectedMedia && (
+          <DetailModal
+            item={selectedMedia}
+            onClose={() => setSelectedMedia(null)}
+            trackedItem={'status' in selectedMedia ? userLibrary.find(i => String(i.id) === String(selectedMedia.id)) : userLibrary.find(i => String(i.media_id) === String(selectedMedia.id) && String(i.source) === String(selectedMedia.source))}
+            onLibraryUpdate={handleSWRUpdate}
+            user={user || undefined}
+            fetchLibrary={fetchLibrary}
+            userLibrary={userLibrary}
+          />
+        )}
+        
+        {/* CHANGEMENT ICI : Condition sur wrappedYear au lieu de showWrapped */}
+        {wrappedYear !== null && (
+          <AkashaWrapped 
+            library={userLibrary} 
+            year={wrappedYear}
+            onClose={() => setWrappedYear(null)} 
+          />
+        )}
+      </div>
       )}
     </LangContext.Provider>
   );
