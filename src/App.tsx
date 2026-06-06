@@ -1850,12 +1850,12 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       render: () => (
         <div className="text-center space-y-6 animate-in slide-in-from-bottom-8 duration-500">
           <p className="text-xs font-black uppercase tracking-widest text-rose-400">{t('la-realite-fait-mal')}</p>
-          <h3 className="text-3xl font-black text-white">Temps de cerveau volé :</h3>
+          <h3 className="text-3xl font-black text-white">{t('temps-de-cerveau-vole')}</h3>
           <div className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-rose-500 font-mono tracking-tighter leading-none drop-shadow-[0_0_20px_rgba(244,63,94,0.3)]">
             {insights.hoursSpent}h
           </div>
           <p className="text-sm font-bold text-rose-200 max-w-xs mx-auto leading-relaxed border border-rose-500/20 bg-rose-500/10 p-4 rounded-2xl">
-            C'est l'équivalent de <span className="text-white underline decoration-rose-500 decoration-2">{insights.equivalentDays} jours</span> non-stop. T'as vraiment cru que tes révisions d'IUT ou tes projets allaient se faire tout seuls avec un tel screen time ? Assume.
+            {t('cest-lequivalent-de')} <span className="text-white underline decoration-rose-500 decoration-2">{insights.equivalentDays} {t('jours')}</span> non-stop. 
           </p>
         </div>
       )
@@ -1865,20 +1865,20 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       title: "Régime",
       render: () => (
         <div className="text-center space-y-8 animate-in zoom-in-95 duration-500 w-full max-w-sm">
-          <p className="text-xs font-black uppercase tracking-widest text-blue-400">Ton Régime Alimentaire</p>
+          <p className="text-xs font-black uppercase tracking-widest text-blue-400">{t('ton-regime-alimentaire')}</p>
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-blue-500/10 border border-blue-500/30 p-6 rounded-3xl flex flex-col items-center justify-center">
               <Tv size={32} className="text-blue-400 mb-3" />
               <span className="text-4xl font-black text-white mb-1">{insights.videoEpisodes}</span>
-              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider text-center">Épisodes / Films saignés</span>
+              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wider text-center">{t('episodes-films-saignes')}</span>
             </div>
             <div className="bg-emerald-500/10 border border-emerald-500/30 p-6 rounded-3xl flex flex-col items-center justify-center">
               <BookOpen size={32} className="text-emerald-400 mb-3" />
               <span className="text-4xl font-black text-white mb-1">{insights.readChapters}</span>
-              <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider text-center">Chapitres / Pages tournés</span>
+              <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider text-center">{t('chapitres-livres-finis')}</span>
             </div>
           </div>
-          <p className="text-sm font-medium text-slate-400 italic">Ton ophtalmo est en PLS.</p>
+          <p className="text-sm font-medium text-slate-400 italic">{t('ton-ophtalmo-est-en-pls')}</p>
         </div>
       )
     },
@@ -1887,7 +1887,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       title: "Obsession",
       render: () => (
         <div className="text-center space-y-6 w-full max-w-sm animate-in scale-in duration-500">
-          <p className="text-xs font-black uppercase tracking-widest text-amber-500">Ta Red Flag de l'année</p>
+          <p className="text-xs font-black uppercase tracking-widest text-amber-500">{t('ton-red-flag-de-lannee')}</p>
           <h3 className="text-2xl sm:text-3xl font-black text-white">{t('ce-qui-a-detruit-ton-sommeil')}</h3>
           {insights.obsession ? (
             <div className="mt-4 bg-gradient-to-t from-black to-white/5 border border-white/10 p-5 rounded-3xl backdrop-blur-sm flex flex-col items-center gap-4 text-center shadow-2xl relative overflow-hidden">
@@ -1900,12 +1900,12 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
               <div className="min-w-0 w-full">
                 <h4 className="font-black text-white text-lg sm:text-xl truncate px-2">{insights.obsession.title}</h4>
                 <div className="mt-3 inline-flex items-center gap-2 bg-amber-500/20 text-amber-400 font-bold px-4 py-2 rounded-full text-sm border border-amber-500/30">
-                  <Clock size={16}/> ~{insights.obsession.hours} heures dessus
+                  <Clock size={16}/> ~{insights.obsession.hours} {t('heures-dessus')}
                 </div>
               </div>
             </div>
           ) : (
-             <p className="text-sm text-neutral-400 italic">Aucune obsession détectée. T'as touché de l'herbe cette année ?</p>
+             <p className="text-sm text-neutral-400 italic">{t('aucune-obsession-detectee-tas-touche-de-lherbe-cette-annee')}</p>
           )}
         </div>
       )
@@ -1915,13 +1915,13 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       title: "Top 3 & Favs",
       render: () => (
         <div className="text-center space-y-6 w-full max-w-sm animate-in fade-in duration-500">
-          <p className="text-xs font-black uppercase tracking-widest text-teal-400">Le Hall of Fame</p>
+          <p className="text-xs font-black uppercase tracking-widest text-teal-400">Hall of Fame</p>
           <div className="flex items-center justify-center gap-2 text-rose-500 font-black text-xl mb-4 bg-rose-500/10 w-fit mx-auto px-4 py-2 rounded-xl border border-rose-500/20">
-            <Heart className="fill-rose-500" /> {insights.favCount} Coups de cœur
+            <Heart className="fill-rose-500" /> {insights.favCount} {t('coups-de-coeur')}
           </div>
           
           <div className="space-y-3 text-left bg-white/5 p-5 rounded-3xl border border-white/10 backdrop-blur-md">
-            <h4 className="font-black text-white mb-4 text-center">Ton Top 3 Absolu</h4>
+            <h4 className="font-black text-white mb-4 text-center">{t('ton-top-3-absolu')}</h4>
             {insights.top3.length > 0 ? insights.top3.map((item, idx) => (
               <div key={item.id} className="flex items-center gap-3 bg-black/40 p-3 rounded-xl border border-white/5">
                 <span className={`text-xl font-black ${idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : 'text-amber-700'}`}>#{idx+1}</span>
@@ -1933,7 +1933,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
                   <p className="text-[10px] text-teal-300 uppercase tracking-widest">{item.type}</p>
                 </div>
               </div>
-            )) : <p className="text-sm text-center text-neutral-400">Aucun classement fait cette année.</p>}
+            )) : <p className="text-sm text-center text-neutral-400">{t('aucun-classement-fait-cette-annee')}</p>}
           </div>
         </div>
       )
@@ -1943,20 +1943,15 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       title: "Habitudes",
       render: () => (
         <div className="text-center space-y-6 animate-in slide-in-from-right-8 duration-500 max-w-sm w-full">
-          <p className="text-xs font-black uppercase tracking-widest text-orange-400">Tes Habitudes Toxic</p>
+          <p className="text-xs font-black uppercase tracking-widest text-orange-400">{t('tes-habitudes')}</p>
           <div className="grid gap-4">
             <div className="bg-gradient-to-br from-white/10 to-transparent border border-white/10 p-6 rounded-3xl backdrop-blur-md text-left">
-              <p className="text-[10px] uppercase font-bold text-orange-300 mb-1">Dealer de Dopamine</p>
-              <h4 className="text-xl font-black text-white">{insights.topCreator}</h4>
-              <p className="text-xs text-slate-400 mt-2">Le studio/auteur qui a pris tout ton argent ou ton temps.</p>
-            </div>
-            <div className="bg-gradient-to-br from-white/10 to-transparent border border-white/10 p-6 rounded-3xl backdrop-blur-md text-left">
-              <p className="text-[10px] uppercase font-bold text-orange-300 mb-1">Méthode de Consommation</p>
-              <h4 className="text-xl font-black text-white">{insights.isOngoingLover ? "Masochiste de l'attente" : "Binge-Watcher patient"}</h4>
+              <p className="text-[10px] uppercase font-bold text-orange-300 mb-1">{t('methode-de-consommation')}</p>
+              <h4 className="text-xl font-black text-white">{insights.isOngoingLover ? t('masochiste-de-lattente') : t('binge-watcher-patient')}</h4>
               <p className="text-xs text-slate-400 mt-2">
                 {insights.isOngoingLover 
-                  ? "Tu aimes souffrir à attendre chaque nouvel épisode/chapitre semaine par semaine." 
-                  : "Tu attends que l'œuvre soit finie pour tout avaler d'un coup. Smart."}
+                  ? t('tu-aimes-souffrir-a-attendre-chaque-nouvel-episode-chapitre-semaine-par-semaine') 
+                  : t('tu-attends-que-loeuvre-soit-finie-pour-tout-avaler-dun-coup-smart')}
               </p>
             </div>
           </div>
@@ -1968,7 +1963,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       title: "Persona",
       render: () => (
         <div className="text-center space-y-6 max-w-xs mx-auto animate-in scale-in duration-600">
-          <p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">Ton Aura Finale</p>
+          <p className="text-xs font-black uppercase tracking-widest text-fuchsia-400">{t('ton-aura-finale')}</p>
           <div className="w-24 h-24 bg-gradient-to-tr from-fuchsia-500 to-purple-500 rounded-full flex items-center justify-center mx-auto shadow-[0_0_50px_rgba(217,70,239,0.4)] border-4 border-white/20">
             <User size={40} className="text-white" />
           </div>
@@ -1980,7 +1975,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
           </p>
           <div className="pt-6">
             <Button variant="secondary" onClick={onClose} className="w-full bg-white text-purple-950 font-black hover:bg-neutral-200 border-0 shadow-[0_10px_20px_rgba(0,0,0,0.5)] !py-4 rounded-2xl text-lg">
-              Terminer le flex
+              {t('terminer-le-flex')}
             </Button>
           </div>
         </div>
@@ -2005,7 +2000,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       {/* BOUTONS D'ACTION HAUT DE PAGE */}
       <div className="absolute top-10 inset-x-6 flex justify-between items-center z-40 max-w-md mx-auto">
         <button onClick={() => handleShare(steps[currentStep].title)} className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/20">
-          <Share size={14}/> Partager
+          <Share size={14}/> {t('partager')}
         </button>
         <button onClick={onClose} className="bg-black/50 hover:bg-black/80 backdrop-blur-md text-white p-2 rounded-full transition-colors border border-white/10">
           <X size={20} strokeWidth={3} />
@@ -2026,10 +2021,10 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       {/* BAS DE PAGE DE CONTEXTE */}
       <div className="text-center pb-4 z-30 pointer-events-none">
         <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold font-mono">
-          Écran {currentStep + 1} sur {steps.length} • Appuie à droite pour avancer
+          {t('ecran')} {currentStep + 1} {t('sur')} {steps.length} {t('appuie-a-droite-pour-avancer')}
         </p>
         <p className="text-xs text-white/20 font-medium mt-1 flex items-center justify-center gap-1">
-           📸 Screen pour flex sur tes réseaux
+           {t('screen-pour-flex-sur-tes-reseaux')}
         </p>
       </div>
     </div>
@@ -2185,7 +2180,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
         <div className="mb-10 pt-4 border-t border-[var(--border-color)]">
           <div className="flex items-center gap-2 mb-4">
             <Flame className="text-rose-500" size={24} />
-            <h3 className="font-black text-xl text-[var(--text-main)]">Rétrospectives (Wrapped)</h3>
+            <h3 className="font-black text-xl text-[var(--text-main)]">Wrapped</h3>
           </div>
           <div className="flex gap-4 overflow-x-auto custom-scrollbar pb-4 snap-x pr-4">
             {wrappedYears.map((y, i) => (
