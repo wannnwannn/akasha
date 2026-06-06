@@ -1785,18 +1785,18 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
     const top3 = rankings.sort((a, b) => (a.rating || 999) - (b.rating || 999)).slice(0, 3);
 
     // Détermination du Persona Culturel (Direct, sans fioritures, intégrant ton contexte subtilement)
-    let persona = "L'Électron Libre 🌪️";
-    let personaDesc = "Impossible de cerner ton algo. Tu navigues à vue d'œil entre tous les formats.";
+    let persona = t('lelectron-libre');
+    let personaDesc = t('impossible-de-cerner-ton-algo-tu-navigues-a-vue-doeil-entre-tous-les-formats');
 
     if (favoriteType === 'anime' || favoriteType === 'manga' || favoriteType === 'webtoon') {
-      persona = "CEO de l'Aesthetic 🎌";
-      personaDesc = "L'esthétique asiatique est validée. Mais entre deux dramas ou webtoons, n'oublie pas de préparer ton sac pour ton voyage au Japon.";
+      persona = t('lotaku-originel');
+      personaDesc = t('lesthetique-asiatique-est-validee-mais-entre-deux-dramas-ou-webtoons-noublie-pas-de-preparer-ton-sac-pour-ton-voyage-au-japon');
     } else if (favoriteType === 'movie' || favoriteType === 'tv') {
       persona = "Main Character Syndrome 🎬";
-      personaDesc = "Tu consommes tellement d'interfaces et de plans de caméra que tu devrais sérieusement penser à avancer sur ton propre portfolio Figma au lieu de binger.";
+      personaDesc = t('tu-consommes-tellement-dinterfaces-et-de-plans-de-camera-que-tu-devrais-serieusement-penser-a-avancer-sur-ton-propre-portfolio-figma-au-lieu-de-binger');
     } else if (favoriteType === 'book') {
-      persona = "Érudit Sombre 📖";
-      personaDesc = "Le papier te comprend mieux que les humains. Une vraie vibe de softboy reclus.";
+      persona = t('erudit-sombre');
+      personaDesc = t('le-papier-te-comprend-mieux-que-les-humains-une-vraie-vibe-de-softboy-reclus');
     }
 
     return {
@@ -1816,12 +1816,12 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
   }, [library, year]);
 
   const handleShare = async (slideTitle: string) => {
-    const text = `Mon Akasha Wrapped ${year} - ${slideTitle} 🚀\nJ'ai passé ${insights.hoursSpent}h sur mes œuvres cette année ! Et toi ?`;
+    const text = `{t('mon-akasha-wrapped')} ${year} - ${slideTitle} 🚀\n{t('jai-passe')} ${insights.hoursSpent}h {t('sur-mes-oeuvres-cette-annee')}`;
     if (navigator.share) {
       try { await navigator.share({ title: `Akasha Wrapped ${year}`, text }); } catch (e) {}
     } else {
       fallbackCopyTextToClipboard(text);
-      alert('Texte copié pour flex sur tes réseaux 📸');
+      alert(t('texte-copie-pour-flex-sur-tes-reseaux'));
     }
   };
 
@@ -1839,7 +1839,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
             Akasha<br />Wrapped {year}
           </h2>
           <p className="text-base font-bold text-indigo-200 max-w-xs mx-auto">
-            Chargement de ton aura... On va voir si t'as été productif ou si t'as juste procrastiné toute l'année.
+            {t('chargement-de-ton-aura-on-va-voir-si-tas-ete-productif-ou-si-tas-juste-procrastine-toute-lannee-0')}
           </p>
         </div>
       )
@@ -1849,7 +1849,7 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
       title: "Screen Time",
       render: () => (
         <div className="text-center space-y-6 animate-in slide-in-from-bottom-8 duration-500">
-          <p className="text-xs font-black uppercase tracking-widest text-rose-400">La Réalité Fait Mal</p>
+          <p className="text-xs font-black uppercase tracking-widest text-rose-400">{t('la-realite-fait-mal')}</p>
           <h3 className="text-3xl font-black text-white">Temps de cerveau volé :</h3>
           <div className="text-7xl sm:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-rose-500 font-mono tracking-tighter leading-none drop-shadow-[0_0_20px_rgba(244,63,94,0.3)]">
             {insights.hoursSpent}h
