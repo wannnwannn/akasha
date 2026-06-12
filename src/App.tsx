@@ -9,7 +9,7 @@ import i18n from 'i18next';
 
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
-  PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame,
+  PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame, ChevronLeft,
   Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages, Upload, Video
 } from 'lucide-react';
 
@@ -1577,44 +1577,75 @@ const DiscoverySearch: React.FC<{
 
   const renderCarousel = (title: string, items: (MediaItem | LibraryItem)[]) => {
     if (items.length === 0) return null;
+    
+    // On génère un ID unique pour chaque carrousel afin que le clic sache lequel scroller
+    const carouselId = `carousel-${title.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
     return (
       <div className="mb-10">
         <h2 className="text-xl font-black text-[var(--text-main)] mb-5 flex items-center gap-2">{String(title)} <ChevronRight size={20} className="text-[var(--primary)]"/></h2>
-        <div className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory">
-          {items.map(media => {
-            const cover = 'cover' in media ? media.cover : media.cover_url;
-            const isExplicit = ('isAdult' in media && media.isAdult) || media.source === 'shikimori';
-            const needsBlur = !localShowNSFW && isExplicit;
-            const tracked = userLibrary.find(item => item.media_id === media.id && item.source === media.source);
+        
+        {/* Wrapper en "relative group" pour détecter le survol */}
+        <div className="relative group">
+          
+          {/* FADE & FLÈCHE GAUCHE */}
+          <div className="absolute left-0 top-0 bottom-6 w-24 sm:w-32 bg-gradient-to-r from-[var(--bg-base)] to-transparent z-20 flex items-center justify-start px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none hidden sm:flex">
+            <button 
+              onClick={() => { const c = document.getElementById(carouselId); if(c) c.scrollBy({ left: -c.clientWidth * 0.8, behavior: 'smooth' }); }} 
+              className="pointer-events-auto w-10 h-10 flex items-center justify-center bg-[var(--panel-bg)]/80 hover:bg-[var(--primary)] text-[var(--text-main)] hover:text-white rounded-full backdrop-blur-md border border-[var(--border-color)] shadow-lg transition-all transform -translate-x-2 group-hover:translate-x-0"
+            >
+              <ChevronLeft size={24} />
+            </button>
+          </div>
 
-            return (
-              <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
-                <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
-                  {cover ? (
-                    <img src={String(cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
-                  ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                  <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
+          {/* CONTENEUR DÉFILABLE EXISTANT */}
+          <div id={carouselId} className="flex gap-4 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory scroll-smooth">
+            {items.map(media => {
+              const cover = 'cover' in media ? media.cover : media.cover_url;
+              const isExplicit = ('isAdult' in media && media.isAdult) || media.source === 'shikimori';
+              const needsBlur = !localShowNSFW && isExplicit;
+              const tracked = userLibrary.find(item => item.media_id === media.id && item.source === media.source);
 
-                  {tracked && (
-                    <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
-                      <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
-                    </button>
-                  )}
+              return (
+                <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group/card cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
+                  <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
+                    {cover ? (
+                      <img src={String(cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover/card:scale-105'}`} />
+                    ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                    <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
-                  {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{t('en-prod')}</span>}
-                  {needsBlur && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div>
-                    </div>
-                  )}
+                    {tracked && (
+                      <button onClick={(e) => { e.stopPropagation(); onToggleFavorite(tracked.id, !!tracked.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10">
+                        <Heart size={16} className={tracked.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} />
+                      </button>
+                    )}
+
+                    {media.isAiring && <span className="absolute bottom-2 left-2 text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">{t('en-prod')}</span>}
+                    {needsBlur && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="bg-[var(--panel-bg)]/80 backdrop-blur-md p-3 rounded-full border border-[var(--border-color)]"><EyeOff size={24} className="text-[var(--text-main)]" /></div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3.5">
+                    <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
+                    <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p>
+                  </div>
                 </div>
-                <div className="p-3.5">
-                  <h3 className="font-bold text-[var(--text-main)] text-sm line-clamp-1">{String(media.title)}</h3>
-                  <p className="text-xs text-[var(--text-muted)] font-medium mt-1">{String(media.year)}</p>
-                </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
+
+          {/* FADE & FLÈCHE DROITE */}
+          <div className="absolute right-0 top-0 bottom-6 w-24 sm:w-32 bg-gradient-to-l from-[var(--bg-base)] to-transparent z-20 flex items-center justify-end px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none hidden sm:flex">
+            <button 
+              onClick={() => { const c = document.getElementById(carouselId); if(c) c.scrollBy({ left: c.clientWidth * 0.8, behavior: 'smooth' }); }} 
+              className="pointer-events-auto w-10 h-10 flex items-center justify-center bg-[var(--panel-bg)]/80 hover:bg-[var(--primary)] text-[var(--text-main)] hover:text-white rounded-full backdrop-blur-md border border-[var(--border-color)] shadow-lg transition-all transform translate-x-2 group-hover:translate-x-0"
+            >
+              <ChevronRight size={24} />
+            </button>
+          </div>
+
         </div>
       </div>
     );
