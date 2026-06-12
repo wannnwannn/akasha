@@ -2285,12 +2285,14 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
     fetchLibrary(); // Un dernier rafraîchissement global pour tout afficher
     alert("Importation et téléchargement des affiches terminés !");
   };
+
+
+
   // smart import pour les plateformes externes
   const handleSmartImport = async (e: React.ChangeEvent<HTMLInputElement>, sourceFormat: string) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
     
-    // On remet le select à zéro pour pouvoir re-cliquer
     setImportSource('');
     
     const reader = new FileReader();
@@ -2301,30 +2303,31 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
       try {
         // --- 1. ROUTAGE SELON LE FORMAT ---
         if (sourceFormat === 'letterboxd') {
-          // Parse CSV basique (Séparé par des virgules)
           const lines = content.split('\n');
           const headers = lines[0].split(',');
           const nameIndex = headers.findIndex(h => h.includes('Name') || h.includes('Title'));
           const yearIndex = headers.findIndex(h => h.includes('Year'));
           
-          parsedItems = lines.slice(1).filter(l => l.trim()).map((line, idx) => {
-            // Regex pour gérer les virgules à l'intérieur des guillemets d'un CSV
+          parsedItems = lines.slice(1).filter(l => l.trim()).map((line) => {
             const columns = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+            const title = columns[nameIndex]?.replace(/"/g, '').trim() || 'Inconnu';
+            const year = columns[yearIndex]?.replace(/"/g, '').trim() || '';
+            
             return {
               user_id: user.id,
-              media_id: `lb_${Date.now()}_${idx}`,
-              source: 'tmdb', // On cherchera sur TMDB
+              // On arrête d'utiliser Date.now(). On crée un ID déterministe basé sur le titre.
+              media_id: `lb_${title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}_${year}`,
+              source: 'tmdb', 
               type: 'movie',
-              title: columns[nameIndex]?.replace(/"/g, '') || 'Inconnu',
-              year: columns[yearIndex]?.replace(/"/g, '') || '',
-              status: 'completed', // Letterboxd = vu
+              title: title,
+              year: year,
+              status: 'completed', 
               progress: 1,
-              cover_url: null // Pas de cover au départ
+              cover_url: null 
             };
           });
 
         } else if (sourceFormat === 'mal') {
-          // Parse XML (MyAnimeList)
           const parser = new DOMParser();
           const xmlDoc = parser.parseFromString(content, "text/xml");
           const animes = Array.from(xmlDoc.getElementsByTagName('anime'));
@@ -2332,36 +2335,52 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
           parsedItems = animes.map((anime) => {
             const statusRaw = anime.getElementsByTagName('my_status')[0]?.textContent || '';
             const statusMap: any = { 'Completed': 'completed', 'Watching': 'watching', 'Plan to Watch': 'planning', 'On-Hold': 'on_hold' };
+            const title = anime.getElementsByTagName('series_title')[0]?.textContent?.trim() || 'Inconnu';
+            
             return {
               user_id: user.id,
-              media_id: `mal_${anime.getElementsByTagName('series_animedb_id')[0]?.textContent || Date.now()}`,
-              source: 'anilist', // On cherchera sur AniList pour uniformiser
+              media_id: `mal_${anime.getElementsByTagName('series_animedb_id')[0]?.textContent || title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
+              source: 'anilist',
               type: 'anime',
-              title: anime.getElementsByTagName('series_title')[0]?.textContent || 'Inconnu',
+              title: title,
               progress: parseInt(anime.getElementsByTagName('my_watched_episodes')[0]?.textContent || '0', 10),
               status: statusMap[statusRaw] || 'completed',
               cover_url: null
             };
           });
-        } 
-        // Note: Tu peux ajouter les blocs 'tvtime', 'mdl', 'anilist' ici en suivant la même logique d'extraction de texte.
-        else {
+        } else {
            alert("Ce parseur n'est pas encore finalisé pour cette plateforme.");
            return;
         }
 
         if (parsedItems.length === 0) throw new Error("Aucune donnée valide trouvée.");
 
-        // --- 2. IMPORT OPTIMISTE (AFFICHAGE IMMÉDIAT) ---
-        // On push tout sans les images dans Supabase
-        const { error } = await supabase.from('user_media').upsert(parsedItems, { onConflict: 'user_id, media_id, source' });
+        // --- 1.5 DÉDUPLICATION INTELLIGENTE (LE FIX EST ICI) ---
+        // On crée un annuaire des titres que l'utilisateur possède DÉJÀ (en minuscules pour éviter les erreurs de majuscules)
+        const existingTitles = new Set(library.map((item: LibraryItem) => item.title.toLowerCase().trim()));
+        
+        // On filtre la liste du fichier : on ne garde QUE ce qui n'est pas dans l'annuaire
+        const newItemsToImport = parsedItems.filter(item => {
+          const itemTitle = (item.title || '').toLowerCase().trim();
+          return !existingTitles.has(itemTitle);
+        });
+
+        // Si tout a été filtré, on arrête tout proprement
+        if (newItemsToImport.length === 0) {
+          alert("Bonne nouvelle : toutes les œuvres de ce fichier sont déjà dans votre bibliothèque ! Aucun doublon n'a été créé.");
+          return;
+        }
+
+        // --- 2. IMPORT OPTIMISTE ---
+        // On envoie uniquement les nouvelles œuvres
+        const { error } = await supabase.from('user_media').upsert(newItemsToImport, { onConflict: 'user_id, media_id, source' });
         if (error) throw error;
         
-        // On met à jour l'UI pour que l'utilisateur voie ses films/animes immédiatement
         fetchLibrary();
 
         // --- 3. ENRICHISSEMENT EN ARRIÈRE-PLAN ---
-        processEnrichmentQueue(parsedItems);
+        // On ne cherche les images que pour les nouvelles œuvres
+        processEnrichmentQueue(newItemsToImport);
 
       } catch (err) {
         console.error(err);
@@ -2369,7 +2388,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset l'input file
+    e.target.value = ''; 
   };
 
   return (
