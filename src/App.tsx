@@ -2329,9 +2329,8 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
       let parsedItems: Partial<LibraryItem>[] = [];
 
       try {
-        // --- 1. LETTERBOXD (Correction de la Watchlist) ---
+        // --- 1. LETTERBOXD ---
         if (sourceFormat === 'letterboxd') {
-          // On détermine le statut d'après le nom du fichier
           const isWatchlist = file.name.toLowerCase().includes('watchlist');
           const defaultStatus = isWatchlist ? 'planning' : 'completed';
           const defaultProgress = isWatchlist ? 0 : 1;
@@ -2387,50 +2386,63 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             };
           });
 
-        // --- 3. TV TIME (CSV - Regroupement par série via TV Time Out) ---
+        // --- 3. TV TIME (CSV - Séparation Vus / Total) ---
         } else if (sourceFormat === 'tvtime') {
           const lines = content.split('\n');
-          // On nettoie les guillemets potentiels dans les en-têtes
           const headers = lines[0].toLowerCase().replace(/"/g, '').split(',');
           
-          // Recherche chirurgicale du vrai nom, en EXCLUANT explicitement les colonnes d'ID
           let nameIndex = headers.findIndex(h => h === 'series_name' || h === 'show_name' || h === 'tv show name');
-          
-          // Fallback ultra-strict au cas où l'extension change son format
-          if (nameIndex === -1) {
-            nameIndex = headers.findIndex(h => (h.includes('name') || h.includes('title') || h.includes('show')) && !h.includes('id'));
-          }
-
+          if (nameIndex === -1) nameIndex = headers.findIndex(h => (h.includes('name') || h.includes('title') || h.includes('show')) && !h.includes('id'));
           if (nameIndex === -1) throw new Error("Impossible de trouver la colonne du titre dans ce fichier TV Time.");
+
+          // Identification stricte de la colonne validant le visionnage
+          const seenIndex = headers.findIndex(h => h === 'seen' || h === 'watched' || h === 'is_seen');
 
           const showsMap = new Map();
           
-          // TV Time exporte une ligne PAR ÉPISODE vu. On doit les additionner.
           lines.slice(1).filter(l => l.trim()).forEach((line) => {
-            // Regex pour diviser le CSV même si les titres contiennent des virgules
             const columns = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
             if (!columns[nameIndex]) return;
 
             const title = columns[nameIndex].replace(/"/g, '').trim();
             if (!title || title === '') return;
 
-            if (!showsMap.has(title)) {
-              showsMap.set(title, { progress: 1 });
+            // Déduction de l'état "vu"
+            let isSeen = false;
+            if (seenIndex !== -1 && columns[seenIndex]) {
+                const val = columns[seenIndex].replace(/"/g, '').trim().toLowerCase();
+                if (val === 'true' || val === '1' || val === 'yes') isSeen = true;
             } else {
-              showsMap.get(title).progress += 1;
+                isSeen = true; // Fallback par défaut si la colonne manque
+            }
+
+            if (!showsMap.has(title)) {
+              showsMap.set(title, { progress: isSeen ? 1 : 0, total: 1 });
+            } else {
+              const data = showsMap.get(title);
+              data.total += 1;
+              if (isSeen) data.progress += 1;
             }
           });
 
-          parsedItems = Array.from(showsMap.entries()).map(([title, data]) => ({
-              user_id: user.id,
-              media_id: `tvt_${title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
-              source: 'tmdb', 
-              type: 'tv', 
-              title: title,
-              status: 'watching', 
-              progress: data.progress,
-              cover_url: null 
-          }));
+          parsedItems = Array.from(showsMap.entries()).map(([title, data]) => {
+              // Ajustement du statut en fonction du ratio vus/total
+              let status: 'watching' | 'completed' | 'planning' = 'watching';
+              if (data.progress === 0) status = 'planning';
+              else if (data.progress >= data.total && data.total > 0) status = 'completed';
+
+              return {
+                  user_id: user.id,
+                  media_id: `tvt_${title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
+                  source: 'tmdb', 
+                  type: 'tv', 
+                  title: title,
+                  status: status, 
+                  progress: data.progress,
+                  total_episodes: data.total, // Injection du vrai total
+                  cover_url: null 
+              };
+          });
 
         // --- 4. MYDRAMALIST (CSV) ---
         } else if (sourceFormat === 'mdl') {
@@ -2469,26 +2481,26 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
              };
           });
 
-        // --- 5. ANILIST (JSON) ---
-        // --- 5. ANILIST (JSON - Export Natif / RGPD) ---
+        // --- 5. ANILIST (JSON - Export RGPD) ---
         } else if (sourceFormat === 'anilist') {
           const anilistData = JSON.parse(content);
-          
+
           if (!anilistData.lists) {
             throw new Error("Format AniList invalide. Ce fichier ne contient pas l'objet 'lists'.");
           }
 
-          // AniList Status: 1=Watching, 2=Completed, 3=On Hold, 4=Dropped, 5=Plan to Watch, 6=Repeating
+          // Correction stricte du mapping entier RGPD
+          // 0 = Watching, 1 = Plan to Watch, 2 = Completed, 3 = Dropped, 4 = Paused
           const statusMap: Record<number, 'watching' | 'completed' | 'on_hold' | 'planning'> = { 
-            1: 'watching', 2: 'completed', 3: 'on_hold', 4: 'on_hold', 5: 'planning', 6: 'watching' 
+            0: 'watching', 1: 'planning', 2: 'completed', 3: 'on_hold', 4: 'on_hold', 5: 'watching' 
           };
 
           parsedItems = anilistData.lists.map((entry: any) => ({
              user_id: user.id,
              media_id: `al_${entry.series_id}`,
              source: 'anilist',
-             type: 'anime', // Type par défaut, l'enrichissement corrigera si c'est un manga
-             title: `[ID:${entry.series_id}]`, // Titre temporaire vital pour tromper l'UI
+             type: 'anime', 
+             title: `[ID:${entry.series_id}]`, 
              progress: entry.progress || 0,
              status: statusMap[entry.status] || 'completed',
              cover_url: null
