@@ -2238,17 +2238,16 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
       let coverFound = null;
       let descriptionFound = '';
       let realMediaId = item.media_id;
+      let totalEpsFound = null; // On prépare la capture du total
 
       try {
-        // Recherche silencieuse selon le type
         if (item.type === 'movie' || item.type === 'tv') {
-          // On réutilise ta fonction existante en lui passant lang = 'en' ou 'fr'
           const results = await fetchTMDB(item.title || '', lang); 
           if (results && results.length > 0) {
-            // On prend le meilleur résultat
             coverFound = results[0].cover;
             descriptionFound = results[0].description;
             realMediaId = results[0].id; 
+            totalEpsFound = results[0].totalEpisodes;
           }
         } else if (item.type === 'anime' || item.type === 'manga') {
           const results = await fetchAniList(item.title || '');
@@ -2256,33 +2255,34 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             coverFound = results[0].cover;
             descriptionFound = results[0].description;
             realMediaId = results[0].id;
+            totalEpsFound = results[0].totalEpisodes;
           }
         }
 
-        // Si on a trouvé des données, on met à jour la ligne dans Supabase
+        const updates: any = { 
+          cover_url: coverFound, 
+          description: descriptionFound,
+          media_id: realMediaId 
+        };
+
+        // Si l'API nous donne un total d'épisode et qu'on ne l'avait pas via le fichier, on l'écrase
+        if (totalEpsFound) updates.total_episodes = totalEpsFound;
+
+        // Mise à jour ciblée sur l'ID d'origine pour ne pas créer de clones
         if (coverFound || realMediaId !== item.media_id) {
-           await supabase.from('user_media').update({ 
-             cover_url: coverFound, 
-             description: descriptionFound,
-             media_id: realMediaId // Optionnel : on remplace l'ID temporaire par le vrai ID de l'API
-           }).match({ user_id: user?.id, title: item.title });
+           await supabase.from('user_media').update(updates).match({ user_id: user?.id, media_id: item.media_id });
         }
 
       } catch (e) {
-        // En cas d'erreur de rate-limit (trop de requêtes), on ignore et on passe au suivant
         console.warn(`Impossible de fetcher l'image pour ${item.title}`);
       }
 
-      // Mise à jour de la barre de progression à chaque itération
       setEnrichmentProgress(prev => ({ ...prev, current: i + 1 }));
-
-      // Pause vitale de 300ms pour ne pas se faire bannir par les API (Rate Limiting)
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
-    // Fin du traitement
     setEnrichmentProgress({ active: false, current: 0, total: 0 });
-    fetchLibrary(); // Un dernier rafraîchissement global pour tout afficher
+    fetchLibrary(); 
     alert("Importation et téléchargement des affiches terminés !");
   };
 
@@ -2301,7 +2301,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
       let parsedItems: Partial<LibraryItem>[] = [];
 
       try {
-        // --- 1. ROUTAGE SELON LE FORMAT ---
         if (sourceFormat === 'letterboxd') {
           const lines = content.split('\n');
           const headers = lines[0].split(',');
@@ -2315,7 +2314,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             
             return {
               user_id: user.id,
-              // On arrête d'utiliser Date.now(). On crée un ID déterministe basé sur le titre.
               media_id: `lb_${title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}_${year}`,
               source: 'tmdb', 
               type: 'movie',
@@ -2323,6 +2321,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
               year: year,
               status: 'completed', 
               progress: 1,
+              total_episodes: 1, // Un film compte toujours pour 1
               cover_url: null 
             };
           });
@@ -2337,13 +2336,18 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             const statusMap: any = { 'Completed': 'completed', 'Watching': 'watching', 'Plan to Watch': 'planning', 'On-Hold': 'on_hold' };
             const title = anime.getElementsByTagName('series_title')[0]?.textContent?.trim() || 'Inconnu';
             
+            // LECTURE CORRECTE DES CHIFFRES
+            const watchedEps = parseInt(anime.getElementsByTagName('my_watched_episodes')[0]?.textContent || '0', 10);
+            const totalEps = parseInt(anime.getElementsByTagName('series_episodes')[0]?.textContent || '0', 10);
+            
             return {
               user_id: user.id,
               media_id: `mal_${anime.getElementsByTagName('series_animedb_id')[0]?.textContent || title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
               source: 'anilist',
               type: 'anime',
               title: title,
-              progress: parseInt(anime.getElementsByTagName('my_watched_episodes')[0]?.textContent || '0', 10),
+              progress: watchedEps,
+              total_episodes: totalEps > 0 ? totalEps : null,
               status: statusMap[statusRaw] || 'completed',
               cover_url: null
             };
@@ -2355,31 +2359,32 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 
         if (parsedItems.length === 0) throw new Error("Aucune donnée valide trouvée.");
 
-        // --- 1.5 DÉDUPLICATION INTELLIGENTE (LE FIX EST ICI) ---
-        // On crée un annuaire des titres que l'utilisateur possède DÉJÀ (en minuscules pour éviter les erreurs de majuscules)
-        const existingTitles = new Set(library.map((item: LibraryItem) => item.title.toLowerCase().trim()));
+        // --- DÉDUPLICATION BLINDÉE ---
+        // On détruit tout ce qui n'est pas une lettre ou un chiffre pour la comparaison
+        const normalizeStr = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const existingTitles = new Set(library.map((item: LibraryItem) => normalizeStr(item.title)));
         
-        // On filtre la liste du fichier : on ne garde QUE ce qui n'est pas dans l'annuaire
-        const newItemsToImport = parsedItems.filter(item => {
-          const itemTitle = (item.title || '').toLowerCase().trim();
-          return !existingTitles.has(itemTitle);
+        const newItemsToImport: Partial<LibraryItem>[] = [];
+        const seenInFile = new Set<string>();
+
+        parsedItems.forEach(item => {
+          const normTitle = normalizeStr(item.title || '');
+          // Si l'oeuvre n'est ni dans la BDD, ni vue précédemment dans ce même fichier
+          if (!existingTitles.has(normTitle) && !seenInFile.has(normTitle)) {
+            seenInFile.add(normTitle);
+            newItemsToImport.push(item);
+          }
         });
 
-        // Si tout a été filtré, on arrête tout proprement
         if (newItemsToImport.length === 0) {
           alert("Bonne nouvelle : toutes les œuvres de ce fichier sont déjà dans votre bibliothèque ! Aucun doublon n'a été créé.");
           return;
         }
 
-        // --- 2. IMPORT OPTIMISTE ---
-        // On envoie uniquement les nouvelles œuvres
         const { error } = await supabase.from('user_media').upsert(newItemsToImport, { onConflict: 'user_id, media_id, source' });
         if (error) throw error;
         
         fetchLibrary();
-
-        // --- 3. ENRICHISSEMENT EN ARRIÈRE-PLAN ---
-        // On ne cherche les images que pour les nouvelles œuvres
         processEnrichmentQueue(newItemsToImport);
 
       } catch (err) {
