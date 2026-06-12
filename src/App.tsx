@@ -10,7 +10,7 @@ import i18n from 'i18next';
 import {
   Search, Plus, Check, LogOut, Tv, Film, BookOpen, Book, Trophy,
   PlayCircle, Loader2, Library, X, Minus, Edit2, Trash2, ChevronRight, Clock, EyeOff, User, FolderHeart, Sun, Moon, Flame, ChevronLeft,
-  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages, Upload, Video
+  Link as LinkIcon, Bell, ExternalLink, Globe, Heart, Download, Share, Smartphone, BellRing, Calendar as CalendarIcon, BellOff, ChevronUp, ChevronDown, PenTool, Languages, Video
 } from 'lucide-react';
 
 // ============================================================================
@@ -2115,6 +2115,19 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
     i18n.changeLanguage(newLang);
     setLang(newLang);
   };
+  // importations
+  const [importSource, setImportSource] = useState<string>('');
+  const [enrichmentProgress, setEnrichmentProgress] = useState({ active: false, current: 0, total: 0 });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const IMPORT_OPTIONS = [
+    { value: '', label: 'Importer depuis...' },
+    { value: 'letterboxd', label: 'Letterboxd (CSV)' },
+    { value: 'tvtime', label: 'TV Time (CSV)' },
+    { value: 'mal', label: 'MyAnimeList (XML)' },
+    { value: 'mdl', label: 'MyDramaList (CSV)' },
+    { value: 'anilist', label: 'AniList (JSON)' }
+  ];
 
   // --- LOGIQUE DES CARTES WRAPPED ---
   const wrappedYears = useMemo(() => {
@@ -2176,7 +2189,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   const [isStandalone, setIsStandalone] = useState(false);
   const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
   const [isPushLoading, setIsPushLoading] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
+  //const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone) setIsStandalone(true);
@@ -2216,30 +2229,147 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
     linkElement.click();
   };
 
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+ 
+  const processEnrichmentQueue = async (itemsToEnrich: Partial<LibraryItem>[]) => {
+    setEnrichmentProgress({ active: true, current: 0, total: itemsToEnrich.length });
+
+    for (let i = 0; i < itemsToEnrich.length; i++) {
+      const item = itemsToEnrich[i];
+      let coverFound = null;
+      let descriptionFound = '';
+      let realMediaId = item.media_id;
+
+      try {
+        // Recherche silencieuse selon le type
+        if (item.type === 'movie' || item.type === 'tv') {
+          // On réutilise ta fonction existante en lui passant lang = 'en' ou 'fr'
+          const results = await fetchTMDB(item.title || '', lang); 
+          if (results && results.length > 0) {
+            // On prend le meilleur résultat
+            coverFound = results[0].cover;
+            descriptionFound = results[0].description;
+            realMediaId = results[0].id; 
+          }
+        } else if (item.type === 'anime' || item.type === 'manga') {
+          const results = await fetchAniList(item.title || '');
+          if (results && results.length > 0) {
+            coverFound = results[0].cover;
+            descriptionFound = results[0].description;
+            realMediaId = results[0].id;
+          }
+        }
+
+        // Si on a trouvé des données, on met à jour la ligne dans Supabase
+        if (coverFound || realMediaId !== item.media_id) {
+           await supabase.from('user_media').update({ 
+             cover_url: coverFound, 
+             description: descriptionFound,
+             media_id: realMediaId // Optionnel : on remplace l'ID temporaire par le vrai ID de l'API
+           }).match({ user_id: user?.id, title: item.title });
+        }
+
+      } catch (e) {
+        // En cas d'erreur de rate-limit (trop de requêtes), on ignore et on passe au suivant
+        console.warn(`Impossible de fetcher l'image pour ${item.title}`);
+      }
+
+      // Mise à jour de la barre de progression à chaque itération
+      setEnrichmentProgress(prev => ({ ...prev, current: i + 1 }));
+
+      // Pause vitale de 300ms pour ne pas se faire bannir par les API (Rate Limiting)
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    // Fin du traitement
+    setEnrichmentProgress({ active: false, current: 0, total: 0 });
+    fetchLibrary(); // Un dernier rafraîchissement global pour tout afficher
+    alert("Importation et téléchargement des affiches terminés !");
+  };
+  // smart import pour les plateformes externes
+  const handleSmartImport = async (e: React.ChangeEvent<HTMLInputElement>, sourceFormat: string) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-    setIsImporting(true);
+    if (!file || !user) return;
+    
+    // On remet le select à zéro pour pouvoir re-cliquer
+    setImportSource('');
+    
     const reader = new FileReader();
     reader.onload = async (event) => {
+      const content = event.target?.result as string;
+      let parsedItems: Partial<LibraryItem>[] = [];
+
       try {
-        const data = JSON.parse(event.target?.result as string);
-        if (!Array.isArray(data)) throw new Error("Fichier invalide");
-        const existingSet = new Set(library.map(item => `${item.source}-${item.media_id}`));
-        const newItems = data.filter((item: any) => !existingSet.has(`${item.source}-${item.media_id}`)).map((item: any) => {
-            const { id, created_at, updated_at, ...rest } = item;
-            return { ...rest, user_id: user.id };
-        });
-        if (newItems.length > 0) {
-          await supabase.from('user_media').insert(newItems);
-          alert(`${newItems.length} œuvres importées !`);
-          fetchLibrary();
-        } else {
-          alert("Aucune nouvelle œuvre à importer.");
+        // --- 1. ROUTAGE SELON LE FORMAT ---
+        if (sourceFormat === 'letterboxd') {
+          // Parse CSV basique (Séparé par des virgules)
+          const lines = content.split('\n');
+          const headers = lines[0].split(',');
+          const nameIndex = headers.findIndex(h => h.includes('Name') || h.includes('Title'));
+          const yearIndex = headers.findIndex(h => h.includes('Year'));
+          
+          parsedItems = lines.slice(1).filter(l => l.trim()).map((line, idx) => {
+            // Regex pour gérer les virgules à l'intérieur des guillemets d'un CSV
+            const columns = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+            return {
+              user_id: user.id,
+              media_id: `lb_${Date.now()}_${idx}`,
+              source: 'tmdb', // On cherchera sur TMDB
+              type: 'movie',
+              title: columns[nameIndex]?.replace(/"/g, '') || 'Inconnu',
+              year: columns[yearIndex]?.replace(/"/g, '') || '',
+              status: 'completed', // Letterboxd = vu
+              progress: 1,
+              cover_url: null // Pas de cover au départ
+            };
+          });
+
+        } else if (sourceFormat === 'mal') {
+          // Parse XML (MyAnimeList)
+          const parser = new DOMParser();
+          const xmlDoc = parser.parseFromString(content, "text/xml");
+          const animes = Array.from(xmlDoc.getElementsByTagName('anime'));
+          
+          parsedItems = animes.map((anime) => {
+            const statusRaw = anime.getElementsByTagName('my_status')[0]?.textContent || '';
+            const statusMap: any = { 'Completed': 'completed', 'Watching': 'watching', 'Plan to Watch': 'planning', 'On-Hold': 'on_hold' };
+            return {
+              user_id: user.id,
+              media_id: `mal_${anime.getElementsByTagName('series_animedb_id')[0]?.textContent || Date.now()}`,
+              source: 'anilist', // On cherchera sur AniList pour uniformiser
+              type: 'anime',
+              title: anime.getElementsByTagName('series_title')[0]?.textContent || 'Inconnu',
+              progress: parseInt(anime.getElementsByTagName('my_watched_episodes')[0]?.textContent || '0', 10),
+              status: statusMap[statusRaw] || 'completed',
+              cover_url: null
+            };
+          });
+        } 
+        // Note: Tu peux ajouter les blocs 'tvtime', 'mdl', 'anilist' ici en suivant la même logique d'extraction de texte.
+        else {
+           alert("Ce parseur n'est pas encore finalisé pour cette plateforme.");
+           return;
         }
-      } catch (err) { alert("Erreur d'import"); } finally { setIsImporting(false); e.target.value = ''; }
+
+        if (parsedItems.length === 0) throw new Error("Aucune donnée valide trouvée.");
+
+        // --- 2. IMPORT OPTIMISTE (AFFICHAGE IMMÉDIAT) ---
+        // On push tout sans les images dans Supabase
+        const { error } = await supabase.from('user_media').upsert(parsedItems, { onConflict: 'user_id, media_id, source' });
+        if (error) throw error;
+        
+        // On met à jour l'UI pour que l'utilisateur voie ses films/animes immédiatement
+        fetchLibrary();
+
+        // --- 3. ENRICHISSEMENT EN ARRIÈRE-PLAN ---
+        processEnrichmentQueue(parsedItems);
+
+      } catch (err) {
+        console.error(err);
+        alert("Erreur lors de la lecture du fichier. Vérifiez le format.");
+      }
     };
     reader.readAsText(file);
+    e.target.value = ''; // Reset l'input file
   };
 
   return (
@@ -2285,18 +2415,57 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             <h3 className="font-bold text-[var(--text-main)] text-lg">{t('profile.data.title')}</h3>
           </div>
           <p className="text-sm text-[var(--text-muted)]">{t('profile.data.description')}</p>
-          <div className="flex gap-3 pt-2">
+          
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <Button onClick={handleExport} className="flex-1 bg-purple-600 hover:bg-purple-700 !py-3">
               <Download size={18} /> {t('profile.data.export')}
             </Button>
+            
             <div className="flex-1 relative">
-              <input type="file" accept=".json" onChange={handleImport} disabled={isImporting} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-              <Button className="w-full bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] hover:bg-[var(--bg-base)] !py-3">
-                {isImporting ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
-                {t('profile.data.import')}
-              </Button>
+              <input 
+                type="file" 
+                accept=".json,.csv,.xml" 
+                ref={fileInputRef}
+                onChange={(e) => handleSmartImport(e, importSource)} 
+                className="hidden" 
+              />
+              <CustomSelect 
+                value={importSource} 
+                onChange={(val) => { 
+                  if(val) {
+                    setImportSource(val);
+                    fileInputRef.current?.click(); // Ouvre l'explorateur de fichiers dès qu'une source est choisie
+                  }
+                }} 
+                options={IMPORT_OPTIONS} 
+                className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] w-full !py-3" 
+                placement="top"
+              />
             </div>
           </div>
+
+          {/* BARRE DE PROGRESSION ENRICHISSEMENT (BACKGROUND) */}
+          {enrichmentProgress.active && (
+            <div className="mt-4 p-4 bg-[var(--bg-base)] border border-amber-500/30 rounded-xl animate-in fade-in">
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-xs font-bold text-amber-500 flex items-center gap-2">
+                  <Loader2 size={14} className="animate-spin" /> Récupération des affiches...
+                </span>
+                <span className="text-xs font-bold text-[var(--text-main)]">
+                  {enrichmentProgress.current} / {enrichmentProgress.total}
+                </span>
+              </div>
+              <div className="h-2 w-full bg-[var(--panel-bg)] rounded-full overflow-hidden border border-[var(--border-color)]">
+                <div 
+                  className="h-full bg-amber-500 rounded-full transition-all duration-300" 
+                  style={{ width: `${(enrichmentProgress.current / enrichmentProgress.total) * 100}%` }} 
+                />
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] mt-2 italic">
+                Ne fermez pas l'application. Les œuvres sont déjà dans vos listes, nous téléchargeons juste les images.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="mb-8 bg-blue-500/10 border border-blue-500/30 rounded-2xl p-5 space-y-4">
