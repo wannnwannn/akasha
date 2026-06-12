@@ -2301,7 +2301,13 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
       let parsedItems: Partial<LibraryItem>[] = [];
 
       try {
+        // --- 1. LETTERBOXD (Correction de la Watchlist) ---
         if (sourceFormat === 'letterboxd') {
+          // On détermine le statut d'après le nom du fichier
+          const isWatchlist = file.name.toLowerCase().includes('watchlist');
+          const defaultStatus = isWatchlist ? 'planning' : 'completed';
+          const defaultProgress = isWatchlist ? 0 : 1;
+
           const lines = content.split('\n');
           const headers = lines[0].split(',');
           const nameIndex = headers.findIndex(h => h.includes('Name') || h.includes('Title'));
@@ -2319,13 +2325,14 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
               type: 'movie',
               title: title,
               year: year,
-              status: 'completed', 
-              progress: 1,
-              total_episodes: 1, // Un film compte toujours pour 1
+              status: defaultStatus, 
+              progress: defaultProgress,
+              total_episodes: 1,
               cover_url: null 
             };
           });
 
+        // --- 2. MYANIMELIST (XML) ---
         } else if (sourceFormat === 'mal') {
           const parser = new DOMParser();
           const xmlDoc = parser.parseFromString(content, "text/xml");
@@ -2336,7 +2343,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
             const statusMap: any = { 'Completed': 'completed', 'Watching': 'watching', 'Plan to Watch': 'planning', 'On-Hold': 'on_hold' };
             const title = anime.getElementsByTagName('series_title')[0]?.textContent?.trim() || 'Inconnu';
             
-            // LECTURE CORRECTE DES CHIFFRES
             const watchedEps = parseInt(anime.getElementsByTagName('my_watched_episodes')[0]?.textContent || '0', 10);
             const totalEps = parseInt(anime.getElementsByTagName('series_episodes')[0]?.textContent || '0', 10);
             
@@ -2352,6 +2358,114 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
               cover_url: null
             };
           });
+
+        // --- 3. TV TIME (CSV - Regroupement par série) ---
+        } else if (sourceFormat === 'tvtime') {
+          const lines = content.split('\n');
+          const headers = lines[0].toLowerCase().split(',');
+          // TV Time utilise souvent 'tv show name' ou 'movie name'
+          const nameIndex = headers.findIndex(h => h.includes('tv show') || h.includes('series') || h.includes('movie') || h.includes('name'));
+          
+          const showsMap = new Map();
+          
+          lines.slice(1).filter(l => l.trim()).forEach((line) => {
+            const columns = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+            const title = columns[nameIndex]?.replace(/"/g, '').trim();
+            if (!title) return;
+
+            // Puisque TV Time liste chaque épisode vu, on additionne les occurrences
+            if (!showsMap.has(title)) {
+              showsMap.set(title, { progress: 1 });
+            } else {
+              showsMap.get(title).progress += 1;
+            }
+          });
+
+          parsedItems = Array.from(showsMap.entries()).map(([title, data]) => ({
+              user_id: user.id,
+              media_id: `tvt_${title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
+              source: 'tmdb', 
+              type: 'tv', // Par défaut TV, l'enrichissement corrigera si c'est un film
+              title: title,
+              status: 'watching', // Par défaut watching car TV Time ne donne pas le statut global
+              progress: data.progress,
+              cover_url: null 
+          }));
+
+        // --- 4. MYDRAMALIST (CSV) ---
+        } else if (sourceFormat === 'mdl') {
+          const lines = content.split('\n');
+          const headers = lines[0].toLowerCase().split(',');
+          
+          const titleIdx = headers.findIndex(h => h.includes('title') || h.includes('name'));
+          const statusIdx = headers.findIndex(h => h.includes('status'));
+          const progressIdx = headers.findIndex(h => h.includes('watched') || h.includes('episode'));
+          const typeIdx = headers.findIndex(h => h.includes('type'));
+          const yearIdx = headers.findIndex(h => h.includes('year'));
+
+          parsedItems = lines.slice(1).filter(l => l.trim()).map((line) => {
+             const cols = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+             const title = cols[titleIdx]?.replace(/"/g, '').trim() || 'Inconnu';
+             const rawStatus = cols[statusIdx]?.replace(/"/g, '').trim().toLowerCase() || '';
+             
+             let status: 'completed' | 'watching' | 'planning' | 'on_hold' = 'completed';
+             if (rawStatus.includes('watch') && !rawStatus.includes('plan')) status = 'watching';
+             else if (rawStatus.includes('plan')) status = 'planning';
+             else if (rawStatus.includes('hold')) status = 'on_hold';
+
+             const rawType = cols[typeIdx]?.replace(/"/g, '').trim().toLowerCase() || '';
+             const type = rawType.includes('movie') ? 'movie' : 'tv'; 
+             
+             return {
+                user_id: user.id,
+                media_id: `mdl_${title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
+                source: 'tmdb',
+                type: type,
+                title: title,
+                year: cols[yearIdx]?.replace(/"/g, '').trim(),
+                status: status,
+                progress: parseInt(cols[progressIdx]?.replace(/"/g, '') || '0', 10),
+                cover_url: null
+             };
+          });
+
+        // --- 5. ANILIST (JSON) ---
+        } else if (sourceFormat === 'anilist') {
+          const anilistData = JSON.parse(content);
+          let listEntries: any[] = [];
+          
+          // AniList peut exporter un array direct, ou un objet "MediaListCollection"
+          if (Array.isArray(anilistData)) {
+             listEntries = anilistData;
+          } else if (anilistData.data?.MediaListCollection?.lists) {
+             anilistData.data.MediaListCollection.lists.forEach((list: any) => {
+                listEntries.push(...list.entries);
+             });
+          }
+
+          parsedItems = listEntries.map(entry => {
+             const media = entry.media || entry;
+             const title = media.title?.english || media.title?.romaji || media.title?.userPreferred || 'Inconnu';
+             const rawStatus = (entry.status || '').toLowerCase();
+             
+             let status: 'completed' | 'watching' | 'planning' | 'on_hold' = 'completed';
+             if (rawStatus === 'current' || rawStatus === 'watching' || rawStatus === 'reading') status = 'watching';
+             if (rawStatus === 'planning' || rawStatus === 'plantowatch') status = 'planning';
+             if (rawStatus === 'paused' || rawStatus === 'on_hold') status = 'on_hold';
+
+             return {
+                user_id: user.id,
+                media_id: `al_${media.id || title.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}`,
+                source: 'anilist',
+                type: (media.type === 'MANGA') ? 'manga' : 'anime',
+                title: title,
+                progress: entry.progress || 0,
+                total_episodes: media.episodes || media.chapters || null,
+                status: status,
+                cover_url: media.coverImage?.large || null
+             };
+          });
+
         } else {
            alert("Ce parseur n'est pas encore finalisé pour cette plateforme.");
            return;
@@ -2360,7 +2474,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
         if (parsedItems.length === 0) throw new Error("Aucune donnée valide trouvée.");
 
         // --- DÉDUPLICATION BLINDÉE ---
-        // On détruit tout ce qui n'est pas une lettre ou un chiffre pour la comparaison
         const normalizeStr = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
         const existingTitles = new Set(library.map((item: LibraryItem) => normalizeStr(item.title)));
         
@@ -2369,7 +2482,6 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 
         parsedItems.forEach(item => {
           const normTitle = normalizeStr(item.title || '');
-          // Si l'oeuvre n'est ni dans la BDD, ni vue précédemment dans ce même fichier
           if (!existingTitles.has(normTitle) && !seenInFile.has(normTitle)) {
             seenInFile.add(normTitle);
             newItemsToImport.push(item);
@@ -2389,7 +2501,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 
       } catch (err) {
         console.error(err);
-        alert("Erreur lors de la lecture du fichier. Vérifiez le format.");
+        alert("Erreur lors de la lecture du fichier. Vérifiez le format. (JSON/CSV/XML invalide)");
       }
     };
     reader.readAsText(file);
