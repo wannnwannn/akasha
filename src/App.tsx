@@ -93,7 +93,7 @@ interface MediaItem {
   id: string; source: 'tmdb' | 'anilist' | 'shikimori' | 'openlibrary' | 'manual'; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; total_episodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
 }
 interface LibraryItem {
-  id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; tags?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string | null; notes?: string | null; reminder_day?: string | null; reminder_time?: string | null; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null;
+  id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; tags?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string | null; notes?: string | null; reminder_day?: string | null; reminder_time?: string | null; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null; rewatch_count?: number;
 }
 interface UserData { id: string; email?: string; user_metadata?: { timezone?: string } }
 interface SelectOption { value: string; label?: string; disabled?: boolean; labelKey?: string; }
@@ -1191,6 +1191,44 @@ const DetailModal: React.FC<{
                   </div>
                 </div>
               )}
+              {trackedItem.status === 'completed' || (trackedItem.rewatch_count && trackedItem.rewatch_count > 0) ? (
+                <div className="pt-4 border-t border-[var(--border-color)]">
+                  <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">Historique de visionnage</p>
+                  <div className="flex items-center gap-3 bg-indigo-500/10 border border-indigo-500/20 p-3 rounded-xl">
+                    <div className="flex-1 flex items-center gap-2">
+                      <Clock size={16} className="text-indigo-500" />
+                      <span className="text-sm font-bold text-[var(--text-main)]">Revu</span>
+                      <input
+                        type="number"
+                        min="0"
+                        className="w-12 bg-[var(--bg-base)] text-xs text-[var(--text-main)] border border-indigo-500/50 rounded px-1 outline-none text-center py-1 font-mono"
+                        value={trackedItem.rewatch_count || 0}
+                        onChange={async (e) => {
+                          const val = parseInt(e.target.value, 10) || 0;
+                          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { rewatch_count: val });
+                          await supabase.from('user_media').update({ rewatch_count: val }).match({ id: trackedItem.id });
+                        }}
+                      />
+                      <span className="text-sm font-bold text-[var(--text-main)]">fois</span>
+                    </div>
+                    {trackedItem.status === 'completed' && (
+                      <button
+                        onClick={async () => {
+                          const currentCount = trackedItem.rewatch_count || 0;
+                          const updates = { status: 'watching' as any, progress: 0, rewatch_count: currentCount + 1, updated_at: new Date().toISOString() };
+                          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
+                          await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
+                        }}
+                        className="text-xs font-bold bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg transition-colors shadow-md"
+                      >
+                        Revoir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+
               <div className="pt-2">
                 <div className="pt-4">
                   <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">{t('tags-listes-personnalisees')}</p>
@@ -1754,21 +1792,26 @@ const AkashaWrapped: React.FC<{ library: LibraryItem[]; year: number; onClose: (
         item.genres.forEach((g) => { genreCounts[g] = (genreCounts[g] || 0) + 1; });
       }
 
+      // Calcul du vrai progrès avec le Rewatch
+      const rewatches = item.rewatch_count || 0;
+      const totalEps = item.total_episodes || item.progress || 0;
+      const trueProgress = (item.progress || 0) + (rewatches * totalEps);
+
       // Séparation rigoureuse Vidéo / Lecture
       const isRead = ['manga', 'webtoon', 'book'].includes(item.type);
-      if (isRead) readChapters += (item.progress || 0);
-      else videoEpisodes += (item.progress || 0);
+      if (isRead) readChapters += trueProgress;
+      else videoEpisodes += trueProgress;
 
       // Calcul précis du temps selon le format
       let unitTime = 20; 
       if (item.type === 'movie') unitTime = item.runtime || 100;
       else if (item.type === 'tv') unitTime = item.runtime || 45;
       else if (item.type === 'anime') unitTime = item.runtime || 24;
-      else if (item.type === 'manga') unitTime = 10; // 5 min par chap
-      else if (item.type === 'webtoon') unitTime = 10; // 3 min par chap
-      else if (item.type === 'book') unitTime = 5; // 2 min par page
+      else if (item.type === 'manga') unitTime = 10; 
+      else if (item.type === 'webtoon') unitTime = 10; 
+      else if (item.type === 'book') unitTime = 5; 
 
-      const timeSpent = (item.progress || 0) * unitTime;
+      const timeSpent = trueProgress * unitTime;
       totalMinutes += timeSpent;
 
       if (timeSpent > maxTimeSpent && item.progress > 0) {
@@ -2062,7 +2105,13 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
 
   const totalAdded = library.length;
   const totalCompleted = library.filter(i => i.status === 'completed').length;
-  const totalEpisodesWatched = library.reduce((acc, item) => acc + (item.progress || 0), 0);
+  const getTrueProgress = (item: LibraryItem) => {
+    const rewatches = item.rewatch_count || 0;
+    const totalEps = item.total_episodes || item.progress || 0;
+    return (item.progress || 0) + (rewatches * totalEps);
+  };
+
+  const totalEpisodesWatched = library.reduce((acc, item) => acc + getTrueProgress(item), 0);
 
   const watchableItems = library.filter(i => i.type === 'tv' || i.type === 'movie' || i.type === 'anime');
   const watchTimeMinutes = watchableItems.reduce((acc, item) => {
@@ -2070,13 +2119,13 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
     if (item.runtime) runtime = item.runtime;
     else if (item.type === 'movie') runtime = 90;
     else if (item.type === 'tv') runtime = 50;
-    return acc + ((item.progress || 0) * runtime);
+    return acc + (getTrueProgress(item) * runtime);
   }, 0);
   const watchTimeHours = (watchTimeMinutes / 60).toFixed(1);
 
   const completionRate = totalAdded > 0 ? Math.round((totalCompleted / totalAdded) * 100) : 0;
-  const watchProgress = watchableItems.reduce((acc, item) => acc + (item.progress || 0), 0);
-  const readProgress = library.filter(i => ['manga', 'webtoon', 'book'].includes(i.type)).reduce((acc, item) => acc + (item.progress || 0), 0);
+  const watchProgress = watchableItems.reduce((acc, item) => acc + getTrueProgress(item), 0);
+  const readProgress = library.filter(i => ['manga', 'webtoon', 'book'].includes(i.type)).reduce((acc, item) => acc + getTrueProgress(item), 0);
   const totalInteractions = watchProgress + readProgress;
   const watchRatio = totalInteractions > 0 ? Math.round((watchProgress / totalInteractions) * 100) : 0;
   const readRatio = totalInteractions > 0 ? 100 - watchRatio : 0;
