@@ -864,7 +864,7 @@ const DetailModal: React.FC<{
     }
     fetchLibrary();
     setIsActing(false);
-    if (!trackedItem) onClose();
+    
   };
 
   const handleRemove = async () => {
