@@ -970,11 +970,13 @@ const DetailModal: React.FC<{
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-y-auto" onClick={onClose}>
-      <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 my-auto" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 left-4 z-20 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)]"><X size={20} strokeWidth={3} /></button>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-hidden" onClick={onClose}>
+      {/* Flex Column pour séparer le contenu du footer fixe */}
+      <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 my-auto flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="absolute top-4 left-4 z-30 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)] shadow-sm"><X size={20} strokeWidth={3} /></button>
 
-        <div ref={modalContentRef} className="flex flex-col p-6 sm:p-8 overflow-y-auto max-h-[90vh] custom-scrollbar">
+        {/* CORPS CENTRAL SCROLLABLE (flex-1) */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8">
           <div className="flex justify-center mb-6 mt-4">
              <div className="w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)] group">
 
@@ -1105,33 +1107,8 @@ const DetailModal: React.FC<{
             {description.length > 150 && <button onClick={() => setShowFullDesc(!showFullDesc)} className="text-xs font-bold text-[var(--primary)] hover:text-[var(--primary-hover)] mt-2 transition-colors">{showFullDesc ? t('voir-moins') : t('voir-plus')}</button>}
           </div>
 
-          {!trackedItem && (
-            <div className="space-y-4">
-              <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider text-center">{t('ajouter-a-ma-liste')}</p>
-              {isActing ? <div className="flex justify-center p-4"><Loader2 className="animate-spin text-[var(--primary)]" /></div> : <CustomSelect value="" onChange={handleAddOrUpdate} options={STATUS_OPTIONS.map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] !text-white border border-transparent shadow-lg shadow-[var(--shadow-color)] text-center justify-center" />}
-            </div>
-          )}
-
           {trackedItem && (
             <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
-              <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">{t('statut-de-la-serie')}</p>
-              <div className="flex gap-2 w-full items-center">
-                <div className="flex-1"><CustomSelect value={String(trackedItem.status)} onChange={handleAddOrUpdate} options={STATUS_OPTIONS.filter(o => o.value !== "").map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)]" /></div>
-
-                {/* Nouveau bouton de Classement (Trophy) juste à côté des favoris */}
-                <Button
-                  variant="ghost"
-                  className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`}
-                  onClick={trackedItem.rating !== null ? handleRemoveFromRanking : handleAddToRanking}
-                  title={trackedItem.rating !== null ? "t('retirer-du-classement')" : t('ajouter-au-classement')}
-                >
-                  <Trophy size={20} className={trackedItem.rating !== null ? "fill-amber-500 text-amber-500" : ""} />
-                </Button>
-
-                <Button variant="ghost" className={`!p-3.5 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title={t('favori')}><Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} /></Button>
-                <Button variant="danger" className="!p-3.5 shrink-0 rounded-xl h-full" onClick={handleRemove} title={t('supprimer-de-la-liste')}><Trash2 size={20} /></Button>
-              </div>
-
               <div className="flex gap-2 items-center pt-2">
                 <div className="flex-1 flex items-center gap-2">
                   {isEditingLink ? (
@@ -1268,6 +1245,49 @@ const DetailModal: React.FC<{
                 <textarea placeholder={t('bloc-note-enregistre-automatiquement')} value={String(notes)} onChange={(e) => setNotes(e.target.value)} onBlur={() => saveExtras()} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" />
               </div>
 
+            </div>
+          )}
+        </div> {/* FIN DU CORPS SCROLLABLE */}
+
+        {/* FOOTER STICKY (ACTIONS PRINCIPALES) */}
+        <div className="shrink-0 p-4 sm:p-6 bg-[var(--panel-bg)]/95 backdrop-blur-xl border-t border-[var(--border-color)] z-20 rounded-b-3xl">
+          {!trackedItem ? (
+            <div className="space-y-3">
+              <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider text-center">{t('ajouter-a-ma-liste')}</p>
+              {isActing ? (
+                <div className="flex justify-center p-2"><Loader2 className="animate-spin text-[var(--primary)]" /></div>
+              ) : (
+                <CustomSelect 
+                  placement="top" 
+                  value="" 
+                  onChange={handleAddOrUpdate} 
+                  options={STATUS_OPTIONS.map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+                  className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] !text-white border border-transparent shadow-lg shadow-[var(--shadow-color)] text-center justify-center" 
+                />
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-2 w-full items-center h-12">
+                <div className="flex-1 h-full">
+                  <CustomSelect 
+                    placement="top" 
+                    value={String(trackedItem.status)} 
+                    onChange={handleAddOrUpdate} 
+                    options={STATUS_OPTIONS.filter(o => o.value !== "").map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+                    className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)] h-full" 
+                  />
+                </div>
+                <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={trackedItem.rating !== null ? handleRemoveFromRanking : handleAddToRanking} title={trackedItem.rating !== null ? t('retirer-du-classement') : t('ajouter-au-classement')}>
+                  <Trophy size={20} className={trackedItem.rating !== null ? "fill-amber-500 text-amber-500" : ""} />
+                </Button>
+                <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title={t('favori')}>
+                  <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} />
+                </Button>
+                <Button variant="danger" className="!p-3 shrink-0 rounded-xl h-full" onClick={handleRemove} title={t('supprimer-de-la-liste')}>
+                  <Trash2 size={20} />
+                </Button>
+              </div>
             </div>
           )}
         </div>
