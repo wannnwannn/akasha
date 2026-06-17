@@ -25,8 +25,8 @@ const GlobalStyles = () => (
       --text-main: #0f172a;
       --text-muted: #64748b;
       --border-color: #cbd5e1;
-      --primary: #bb2d40;
-      --primary-hover: #960f21;
+      --primary: #ce4257;
+      --primary-hover: #e05268;
       --shadow-color: rgba(252, 11, 43, 0.15);
     }
     .dark {
