@@ -3067,7 +3067,9 @@ export default function App() {
 
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | LibraryItem | null>(null);
   const [lastInteractedId, setLastInteractedId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [theme, setTheme] = useState<'dark' | 'light'>(
+    () => getSavedFilter('akasha_theme', 'dark') as 'dark' | 'light'
+  );
   const [lang, setLang] = useState<Lang>('fr');
 
   // GESTION DU LIEN PARTAGÉ
@@ -3083,6 +3085,10 @@ export default function App() {
   useEffect(() => {
     try { localStorage.setItem('akasha_formatFilter', formatFilter); } catch {}
   }, [formatFilter]);
+
+  useEffect(() => {
+    try { localStorage.setItem('akasha_theme', theme); } catch {}
+  }, [theme]);
 
   const filteredLibrary = userLibrary.filter(item => {
     if (activeFilter === 'reminders') return item.reminder_day !== null && item.reminder_time !== null;
