@@ -718,6 +718,24 @@ const DetailModal: React.FC<{
   const [isActing, setIsActing] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
 
+  // SCROLL AUTOMATIQUE
+  const modalContentRef = useRef<HTMLDivElement>(null);
+  const wasTracked = useRef(!!trackedItem);
+
+  useEffect(() => {
+    // Si l'élément n'était pas dans la liste, et qu'il vient d'y être ajouté
+    if (!wasTracked.current && trackedItem) {
+      // Un délai de 100ms permet au DOM d'injecter les nouveaux boutons avant de scroller
+      setTimeout(() => {
+        modalContentRef.current?.scrollTo({ 
+          top: modalContentRef.current.scrollHeight, 
+          behavior: 'smooth' 
+        });
+      }, 100);
+    }
+    wasTracked.current = !!trackedItem;
+  }, [trackedItem]);
+
   const [isEditingCover, setIsEditingCover] = useState(false);
 
   const [isEditingType, setIsEditingType] = useState(false);
@@ -956,7 +974,7 @@ const DetailModal: React.FC<{
       <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 my-auto" onClick={e => e.stopPropagation()}>
         <button onClick={onClose} className="absolute top-4 left-4 z-20 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)]"><X size={20} strokeWidth={3} /></button>
 
-        <div className="flex flex-col p-6 sm:p-8 overflow-y-auto max-h-[90vh] custom-scrollbar">
+        <div ref={modalContentRef} className="flex flex-col p-6 sm:p-8 overflow-y-auto max-h-[90vh] custom-scrollbar">
           <div className="flex justify-center mb-6 mt-4">
              <div className="w-48 aspect-[2/3] relative rounded-xl overflow-hidden shadow-2xl shadow-black/50 border border-[var(--border-color)] group">
 
