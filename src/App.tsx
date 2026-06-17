@@ -797,7 +797,21 @@ const DetailModal: React.FC<{
       }
     };
   }, []);
-  // ---------------------------------------------------------
+  
+  //BLOQUER LE SCROLL DE L'ARRIÈRE-PLAN
+  useEffect(() => {
+    // On sauvegarde la propriété d'origine
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    
+    // On coupe littéralement le défilement de la page principale
+    document.body.style.overflow = 'hidden';
+    
+    // Cleanup : React exécutera cette fonction quand la modale se fermera
+    return () => {
+      document.body.style.overflow = originalStyle;
+    };
+  }, []);
+  // -----------------------------------------------------
 
   const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : (localData as any).totalEpisodes;
 
@@ -890,7 +904,6 @@ const DetailModal: React.FC<{
     setIsActing(true);
     await supabase.from('user_media').delete().match({ id: trackedItem.id });
     fetchLibrary();
-    onClose();
   };
 
   const toggleFavoriteModal = async () => {
