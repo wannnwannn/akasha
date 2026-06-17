@@ -900,10 +900,18 @@ const DetailModal: React.FC<{
   };
 
   const handleRemove = async () => {
-    if (!trackedItem || !fetchLibrary) return;
+    if (!trackedItem || !user) return;
     setIsActing(true);
-    await supabase.from('user_media').delete().match({ id: trackedItem.id });
-    fetchLibrary();
+    
+    try {
+      await supabase.from('user_media').delete().match({ id: trackedItem.id });
+      // On recharge la base de données globale
+      if (fetchLibrary) fetchLibrary();
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsActing(false);
+    }
   };
 
   const toggleFavoriteModal = async () => {
