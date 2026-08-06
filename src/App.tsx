@@ -1151,13 +1151,13 @@ const DetailModal: React.FC<{
                           await supabase.from('user_media').update({ type: newType }).match({ id: trackedItem.id });
                         }
                       }}
-                      className="appearance-none bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-bold px-4 py-1.5 rounded-full outline-none cursor-pointer pr-8 transition-all shadow-lg text-center"
+                      className="appearance-none bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-bold px-4 py-1.5 rounded-full outline-none cursor-pointer pr-8 transition-all shadow-lg text-center [&>option]:bg-[var(--panel-bg)] [&>option]:text-[var(--text-main)]"
                     >
-                      <option value="ANIME" className="bg-[var(--panel-bg)] text-[var(--text-main)]">Anime</option>
-                      <option value="MANGA" className="bg-[var(--panel-bg)] text-[var(--text-main)]">Manga</option>
-                      <option value="FILM" className="bg-[var(--panel-bg)] text-[var(--text-main)]">Film</option>
-                      <option value="SERIE" className="bg-[var(--panel-bg)] text-[var(--text-main)]">Série</option>
-                      <option value="WEBCOMIC" className="bg-[var(--panel-bg)] text-[var(--text-main)]">Webcomic</option>
+                      <option value="ANIME">Anime</option>
+                      <option value="MANGA">Manga</option>
+                      <option value="FILM">Film</option>
+                      <option value="SERIE">Série</option>
+                      <option value="WEBCOMIC">Webcomic</option>
                     </select>
                     <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none group-hover:translate-y-[1px] transition-transform" />
                   </div>
