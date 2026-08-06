@@ -1824,8 +1824,43 @@ const DiscoverySearch: React.FC<{
         </div>
       </div>
 
-      {loading && <div className="flex justify-center py-8"><Loader2 className="animate-spin text-[var(--primary)]" size={32} /></div>}
-      {!debouncedQuery && loadingFeeds && <div className="flex justify-center py-20"><Loader2 className="animate-spin text-[var(--primary)]" size={40} /></div>}
+      {/* 1. SKELETON POUR LA RECHERCHE ACTIVE (Grille) */}
+      {/* Affiché uniquement si on charge et qu'on a pas encore de résultats locaux pour éviter les sauts d'image */}
+      {debouncedQuery && loading && filteredResults.length === 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 pt-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="animate-breathe flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] shadow-lg">
+              <div className="aspect-[2/3] w-full bg-[var(--border-color)]/30"></div>
+              <div className="p-3.5 flex flex-col gap-3">
+                <div className="h-4 bg-[var(--border-color)]/30 rounded w-3/4"></div>
+                <div className="h-3 bg-[var(--border-color)]/30 rounded w-1/2"></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 2. SKELETON POUR L'ACCUEIL (Carrousels) */}
+      {!debouncedQuery && loadingFeeds && (
+        <div className="animate-in fade-in pt-4 space-y-10 overflow-hidden">
+          {[1, 2, 3].map((carousel) => (
+            <div key={carousel}>
+              <div className="h-6 bg-[var(--border-color)]/30 rounded w-48 mb-5 animate-breathe"></div>
+              <div className="flex gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="shrink-0 w-36 sm:w-44 animate-breathe flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] shadow-lg">
+                    <div className="aspect-[2/3] w-full bg-[var(--border-color)]/30"></div>
+                    <div className="p-3.5 flex flex-col gap-3">
+                      <div className="h-4 bg-[var(--border-color)]/30 rounded w-3/4"></div>
+                      <div className="h-3 bg-[var(--border-color)]/30 rounded w-1/2"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {!debouncedQuery && !loadingFeeds && (
         <div className="animate-in fade-in pt-4">
@@ -3379,7 +3414,7 @@ export default function App() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
                       
-                      {/* SKELETON SCREEN (Affiché pendant le chargement) */}
+                      {/* SKELETON SCREEN */}
                       {isLibraryLoading ? (
                         Array.from({ length: 10 }).map((_, i) => (
                           <div key={i} className="animate-breathe flex flex-row sm:flex-col bg-[var(--bg-base)]/50 rounded-2xl overflow-hidden border border-[var(--border-color)] h-[140px] sm:h-auto sm:aspect-[2/3] shadow-md">
