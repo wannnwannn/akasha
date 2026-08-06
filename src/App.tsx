@@ -3117,6 +3117,7 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'search' | 'profile' | 'ranking'>('dashboard');
   const [userLibrary, setUserLibrary] = useState<LibraryItem[]>([]);
+  const [isLibraryLoading, setIsLibraryLoading] = useState(true);
   const [wrappedYear, setWrappedYear] = useState<number | null>(null);
   const [isResettingPassword, setIsResettingPassword] = useState(false);
 
@@ -3210,6 +3211,7 @@ export default function App() {
       setUserLibrary(data as LibraryItem[]);
       setLastInteractedId(prev => prev || (data.length > 0 ? data[0].id : null));
     }
+    setIsLibraryLoading(false);
   }, [user]);
 
   useEffect(() => { fetchLibrary(); }, [fetchLibrary]);
@@ -3368,24 +3370,47 @@ export default function App() {
                     <RemindersList items={filteredLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
-                      {filteredLibrary.map(item => {
-                        const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
-                        return (
-                          <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
-                            <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
-                              {item.cover_url ? <img src={String(item.cover_url)} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
-                              <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
-                              <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>
-                              <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
-                            </div>
-                            <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
-                              <div className="flex flex-col"><h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3><div className="w-fit" onClick={e => e.stopPropagation()}><InlineEpisodeEdit item={item} onSave={async (id, newTotal) => { setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem)); await supabase.from('user_media').update({ total_episodes: newTotal }).match({ id }); }}/></div></div>
-                              <div className="flex items-center gap-3 w-full mt-auto" onClick={e => e.stopPropagation()}><div className="flex-1 h-1.5 sm:h-2 bg-[var(--border-color)] rounded-full overflow-hidden"><div className="h-full bg-[var(--primary)] rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} /></div><div className="flex flex-row gap-1.5 items-center shrink-0"><button onClick={() => updateProgress(item, -1)} disabled={item.progress <= 0} className="p-2 sm:p-2 bg-[var(--panel-bg)] hover:bg-[var(--border-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><Minus size={18} strokeWidth={3}/></button><button onClick={() => updateProgress(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-10 h-10 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl text-white transition-transform active:scale-95 shadow-lg shadow-[var(--shadow-color)]"><Plus size={20} strokeWidth={3}/></button></div></div>
-                            </div>
+                      
+                      {/* SKELETON SCREEN (Affiché pendant le chargement) */}
+                      {isLibraryLoading ? (
+                        Array.from({ length: 10 }).map((_, i) => (
+                          <div key={i} className="animate-pulse flex flex-row sm:flex-col bg-[var(--bg-base)]/50 rounded-2xl overflow-hidden border border-[var(--border-color)] h-[140px] sm:h-auto sm:aspect-[2/3] shadow-md">
+                             <div className="w-28 sm:w-full h-full sm:h-[70%] bg-[var(--border-color)]/30 shrink-0 border-r sm:border-b sm:border-r-0 border-[var(--border-color)]"></div>
+                             <div className="flex-1 p-3.5 sm:p-4 flex flex-col gap-3">
+                               <div className="h-4 bg-[var(--border-color)]/30 rounded w-3/4"></div>
+                               <div className="h-3 bg-[var(--border-color)]/30 rounded w-1/2 mt-auto"></div>
+                             </div>
                           </div>
-                        )
-                      })}
-                      {filteredLibrary.length === 0 && <div className="col-span-full py-20 text-center text-[var(--text-muted)] font-medium">{t('aucun-media-trouve-avec-ces-filtres')}</div>}
+                        ))
+                      ) : (
+                        <>
+                          {/* LES VRAIES CARTES */}
+                          {filteredLibrary.map(item => {
+                            const progressPercent = item.total_episodes ? Math.min(100, (item.progress / item.total_episodes) * 100) : 0;
+                            return (
+                              <div key={item.id} onClick={() => setSelectedMedia(item)} className="cursor-pointer bg-[var(--bg-base)]/80 backdrop-blur-sm rounded-2xl overflow-hidden border border-[var(--border-color)] group hover:border-[var(--primary)] transition-all flex flex-row sm:flex-col relative h-[140px] sm:h-auto shadow-md">
+                                <div className="w-28 sm:w-full shrink-0 relative bg-[var(--bg-base)] sm:aspect-[2/3] overflow-hidden border-r sm:border-b sm:border-r-0 border-[var(--border-color)]">
+                                  {item.cover_url ? <img src={String(item.cover_url)} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
+                                  <div className="absolute top-2 left-2 hidden sm:block z-10"><TypeBadge type={item.type} /></div>
+                                  <button onClick={(e) => { e.stopPropagation(); handleToggleFavorite(item.id, !!item.is_favorite); }} className="absolute top-2 right-2 z-20 p-2 bg-black/40 hover:bg-black/60 backdrop-blur-md rounded-full text-white transition-all border border-white/10"><Heart size={16} className={item.is_favorite ? "fill-rose-500 text-rose-500" : "text-white"} /></button>
+                                  <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-base)] via-transparent to-transparent opacity-80 sm:hidden" />
+                                </div>
+                                <div className="p-3.5 sm:p-4 flex flex-col flex-1 min-w-0 justify-between gap-3 bg-[var(--bg-base)]/80 z-10">
+                                  <div className="flex flex-col"><h3 className="font-bold text-[var(--text-main)] text-sm sm:text-base line-clamp-2 leading-tight mb-1">{item.title}</h3><div className="w-fit" onClick={e => e.stopPropagation()}><InlineEpisodeEdit item={item} onSave={async (id, newTotal) => { setUserLibrary(prev => prev.map(libItem => libItem.id === id ? { ...libItem, total_episodes: newTotal } : libItem)); await supabase.from('user_media').update({ total_episodes: newTotal }).match({ id }); }}/></div></div>
+                                  <div className="flex items-center gap-3 w-full mt-auto" onClick={e => e.stopPropagation()}><div className="flex-1 h-1.5 sm:h-2 bg-[var(--border-color)] rounded-full overflow-hidden"><div className="h-full bg-[var(--primary)] rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} /></div><div className="flex flex-row gap-1.5 items-center shrink-0"><button onClick={() => updateProgress(item, -1)} disabled={item.progress <= 0} className="p-2 sm:p-2 bg-[var(--panel-bg)] hover:bg-[var(--border-color)] border border-[var(--border-color)] rounded-lg text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors"><Minus size={18} strokeWidth={3}/></button><button onClick={() => updateProgress(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-10 h-10 sm:w-10 sm:h-10 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] rounded-xl text-white transition-transform active:scale-95 shadow-lg shadow-[var(--shadow-color)]"><Plus size={20} strokeWidth={3}/></button></div></div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                          
+                          {/* MESSAGE VIDE (Uniquement si le chargement est terminé) */}
+                          {filteredLibrary.length === 0 && !isLibraryLoading && (
+                            <div className="col-span-full py-20 text-center text-[var(--text-muted)] font-medium">
+                              {t('aucun-media-trouve-avec-ces-filtres')}
+                            </div>
+                          )}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
