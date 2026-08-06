@@ -1339,49 +1339,49 @@ const DetailModal: React.FC<{
                 </div>
               )}
               
-              <div className="flex gap-2 w-full items-center h-12">
-                {showDeleteConfirm ? (
-                  <div className="flex items-center justify-between w-full h-full bg-red-500/10 border border-red-500/30 rounded-xl px-4 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
-                    <span className="text-sm font-bold text-red-500 truncate mr-2">{t('etes-vous-sur')}</span>
-                    <div className="flex gap-2 shrink-0">
-                      <button 
-                        onClick={() => setShowDeleteConfirm(false)} 
-                        className="px-3 py-1.5 bg-[var(--panel-bg-alt)] hover:bg-[var(--border-color)] text-[var(--text-main)] text-xs font-bold rounded-lg transition-colors border border-[var(--border-color)]"
-                      >
+              <div className="flex w-full items-center h-12 relative">
+                
+                {/* BLOC GAUCHE : Statut, Trophée, Favori */}
+                <div className={`flex gap-2 h-full transition-all duration-300 ease-in-out overflow-hidden ${showDeleteConfirm ? 'w-0 opacity-0 pointer-events-none' : 'w-full opacity-100 pr-14'}`}>
+                  <div className="flex-1 min-w-[100px] h-full">
+                    <CustomSelect 
+                      placement="top" 
+                      value={String(trackedItem.status)} 
+                      onChange={handleAddOrUpdate} 
+                      options={STATUS_OPTIONS.filter(o => o.value !== "").map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+                      className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)] h-full" 
+                    />
+                  </div>
+                  <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={trackedItem.rating !== null ? handleRemoveFromRanking : handleAddToRanking} title={trackedItem.rating !== null ? t('retirer-du-classement') : t('ajouter-au-classement')}>
+                    <Trophy size={20} className={trackedItem.rating !== null ? "fill-amber-500 text-amber-500" : ""} />
+                  </Button>
+                  <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title={t('favori')}>
+                    <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} />
+                  </Button>
+                </div>
+
+                {/* BLOC DROITE : Poubelle extensible */}
+                <div className={`absolute right-0 h-full bg-red-500/10 border border-red-500/30 rounded-xl transition-all duration-300 ease-in-out overflow-hidden ${showDeleteConfirm ? 'w-full' : 'w-12'}`}>
+                  
+                  {/* Contenu étendu (Confirmation) */}
+                  <div className={`absolute inset-0 flex items-center justify-between px-4 transition-opacity duration-300 whitespace-nowrap ${showDeleteConfirm ? 'opacity-100 delay-100' : 'opacity-0 pointer-events-none'}`}>
+                    <span className="text-sm font-bold text-red-500">{t('etes-vous-sur')}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => setShowDeleteConfirm(false)} className="px-3 py-1.5 bg-[var(--panel-bg-alt)] border border-[var(--border-color)] text-[var(--text-main)] text-xs font-bold rounded-lg transition-colors hover:bg-[var(--border-color)]">
                         {t('non')}
                       </button>
-                      <button 
-                        onClick={handleRemove} 
-                        className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg shadow-md transition-transform active:scale-95"
-                      >
+                      <button onClick={() => { setShowDeleteConfirm(false); handleRemove(); }} className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg shadow-md hover:bg-red-600 transition-transform active:scale-95">
                         {t('oui')}
                       </button>
                     </div>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex-1 h-full">
-                      <CustomSelect 
-                        placement="top" 
-                        value={String(trackedItem.status)} 
-                        onChange={handleAddOrUpdate} 
-                        options={STATUS_OPTIONS.filter(o => o.value !== "").map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
-                        className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)] h-full" 
-                      />
-                    </div>
-                    <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={trackedItem.rating !== null ? handleRemoveFromRanking : handleAddToRanking} title={trackedItem.rating !== null ? t('retirer-du-classement') : t('ajouter-au-classement')}>
-                      <Trophy size={20} className={trackedItem.rating !== null ? "fill-amber-500 text-amber-500" : ""} />
-                    </Button>
-                    <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title={t('favori')}>
-                      <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} />
-                    </Button>
-                    
-                    {/* LE BOUTON SUPPRIMER NE DÉCLENCHE PLUS LA SUPPRESSION DIRECTE */}
-                    <Button variant="danger" className="!p-3 shrink-0 rounded-xl h-full" onClick={() => setShowDeleteConfirm(true)} title={t('supprimer-de-la-liste')}>
-                      <Trash2 size={20} />
-                    </Button>
-                  </>
-                )}
+
+                  {/* Contenu réduit (Icône corbeille) */}
+                  <button onClick={() => setShowDeleteConfirm(true)} className={`absolute inset-0 w-full h-full flex items-center justify-center text-red-500 hover:bg-red-500/20 transition-opacity duration-200 ${showDeleteConfirm ? 'opacity-0 pointer-events-none' : 'opacity-100 delay-100'}`} title={t('supprimer-de-la-liste')}>
+                    <Trash2 size={20} />
+                  </button>
+
+                </div>
               </div>
             </div>
           )}
@@ -3404,8 +3404,7 @@ export default function App() {
           <DetailModal
             item={selectedMedia}
             onClose={() => setSelectedMedia(null)}
-            trackedItem={'status' in selectedMedia ? userLibrary.find(i => String(i.id) === String(selectedMedia.id)) : userLibrary.find(i => String(i.media_id) === String(selectedMedia.id) && String(i.source) === String(selectedMedia.source))}
-            onLibraryUpdate={handleSWRUpdate}
+            trackedItem={userLibrary.find(i => String(i.media_id) === String(('media_id' in selectedMedia) ? selectedMedia.media_id : selectedMedia.id) && String(i.source) === String(selectedMedia.source))}            onLibraryUpdate={handleSWRUpdate}
             user={user || undefined}
             fetchLibrary={fetchLibrary}
             userLibrary={userLibrary}
