@@ -3518,7 +3518,7 @@ export default function App() {
 
                 <div className={`p-4 sm:p-6 rounded-b-2xl rounded-tr-2xl border ${STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG].containerBg} ${STATUS_CONFIG[activeFilter as keyof typeof STATUS_CONFIG].containerBorder} transition-colors duration-300`}>
                   {/* ANIMATION DE CHANGEMENT DE FILTRE (GLISSEMENT DES CARTES UNIQUEMENT) */}
-                  <div key={activeFilter} className={`animate-in fade-in duration-500 fill-mode-forwards ${filterDirection === 'right' ? 'slide-in-from-right-8' : 'slide-in-from-left-8'}`}>
+                  <div key={activeFilter} className={`w-full ${filterDirection === 'right' ? 'animate-page-right' : 'animate-page-left'}`}>
 
                     {activeFilter === 'reminders' ? (
                       <RemindersList items={filteredLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} />
