@@ -55,7 +55,7 @@ const GlobalStyles = () => (
       50% { opacity: 0.35; }
     }
     .animate-breathe {
-      animation: breathe 1.8s ease-in-out infinite;
+      animation: breathe 0.5s ease-in-out infinite;
     }
   `}</style>
 );
