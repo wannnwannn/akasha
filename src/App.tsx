@@ -838,7 +838,8 @@ const DetailModal: React.FC<{
   const [isEditingCover, setIsEditingCover] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  const [isEditingTotal, setIsEditingTotal] = useState(false);
+  const [isEditingType, setIsEditingType] = useState(false);
+  
   const [tags, setTags] = useState<string[]>(trackedItem?.tags || []);
   const allUserTags = useMemo(() => {
     const t = new Set<string>();
@@ -933,8 +934,6 @@ const DetailModal: React.FC<{
   // -----------------------------------------------------
 
   const normalizedTotal = ('total_episodes' in localData) ? localData.total_episodes : (localData as any).totalEpisodes;
-  const [tempTotal, setTempTotal] = useState(normalizedTotal || '');
-
 
   useEffect(() => {
     const checkAndRevalidate = async () => {
@@ -1139,28 +1138,35 @@ const DetailModal: React.FC<{
               ) : (
                 <>
                   {cover ? <img src={String(cover)} alt={title} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[var(--bg-base)] flex items-center justify-center"><BookOpen size={48} className="text-[var(--text-muted)]"/></div>}
-                  {/* SÉLECTEUR DE FORMAT INTÉGRÉ À L'IMAGE (GLASSMORPHISM) */}
-                  <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 group">
-                    <select 
-                      value={String(localData.type || '')} 
-                      onChange={async (e) => {
-                        const newType = e.target.value;
-                        setLocalData(prev => ({ ...prev, type: newType }));
-                        if (trackedItem) {
-                          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { type: newType as any });
-                          await supabase.from('user_media').update({ type: newType }).match({ id: trackedItem.id });
-                        }
-                      }}
-                      className="appearance-none bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-bold px-4 py-1.5 rounded-full outline-none cursor-pointer pr-8 transition-all shadow-lg text-center [&>option]:bg-[var(--panel-bg)] [&>option]:text-[var(--text-main)]"
-                    >
-                      <option value="ANIME">Anime</option>
-                      <option value="MANGA">Manga</option>
-                      <option value="FILM">Film</option>
-                      <option value="SERIE">Série</option>
-                      <option value="WEBCOMIC">Webcomic</option>
-                    </select>
-                    <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white pointer-events-none group-hover:translate-y-[1px] transition-transform" />
-                  </div>
+                  <div className="absolute top-2 left-2 z-20 cursor-pointer" onClick={(e) => { e.stopPropagation(); if (trackedItem) setIsEditingType(!isEditingType); }}>
+                    {isEditingType ? (
+                    <div className="bg-[var(--bg-base)] rounded shadow-lg p-1" onClick={e => e.stopPropagation()}>
+                        <CustomSelect 
+                          value={String(localData.type)} 
+                          onChange={async (newType) => {
+                          setLocalData(prev => ({ ...prev, type: newType }));
+                          setIsEditingType(false);
+                          if (trackedItem) {
+                            if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { type: newType as any });
+                            await supabase.from('user_media').update({ type: newType }).match({ id: trackedItem.id });
+                            }
+                      }} 
+                        /* C'EST ICI LA CORRECTION DE TEXTE INVISIBLE (Le .map avec la traduction) */
+                      options={FORMAT_OPTIONS.filter(o => o.value !== 'all').map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+                      className="w-32 py-1 px-2 text-xs" 
+                    />
+                    </div>
+                    ) : (
+                      <div title={t('modifier-le-type')} className="group/type relative flex items-center">
+                        <TypeBadge type={String(localData.type)} />
+                      {trackedItem && (
+                        <div className="absolute -top-1.5 -right-1.5 bg-[var(--bg-base)] text-[var(--text-main)] p-1 rounded-full shadow-md border border-[var(--border-color)] opacity-100 sm:opacity-0 sm:group-hover/type:opacity-100 transition-opacity">
+                        <Edit2 size={10} />
+                        </div>
+                      )}
+                      </div>
+                  )}
+                </div>
 
                   {/* BOUTON D'ÉDITION MANUELLE DE L'AFFICHE (UNIQUEMENT SI SOURCE MANUAL) */}
                   {localData.source === 'manual' && trackedItem && (
@@ -1181,58 +1187,25 @@ const DetailModal: React.FC<{
           <div className="text-center mb-6">
             <h2 className="text-2xl sm:text-3xl font-black text-[var(--text-main)] mb-3 leading-tight tracking-tight">{title}</h2>
             <div className="flex flex-wrap items-center justify-center gap-2 mb-4">
-              
-              {/* Badge de statut de production */}
               {localData.type !== 'book' && <span className={`text-[10px] uppercase tracking-widest font-black px-2.5 py-1 rounded-md ${String(statusColor)}`}>{prodStatusLabel}</span>}
-              
-              {/* Badge d'épisodes éditable */}
-              {(normalizedTotal || localData.type !== 'book') && (
-                isEditingTotal ? (
-                  <input
-                    type="number"
-                    autoFocus
-                    className="w-16 h-[26px] px-1 text-center text-xs font-bold bg-[var(--bg-base)] border border-[var(--primary)] text-[var(--text-main)] rounded-md outline-none animate-in zoom-in-95"
-                    value={tempTotal}
-                    onChange={(e) => setTempTotal(e.target.value)}
-                    onBlur={async () => {
-                      setIsEditingTotal(false);
-                      const newTotal = parseInt(String(tempTotal), 10);
-                      if (!isNaN(newTotal) && trackedItem) {
-                        setLocalData(prev => ({ ...prev, total_episodes: newTotal }));
-                        if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { total_episodes: newTotal });
-                        await supabase.from('user_media').update({ total_episodes: newTotal }).match({ id: trackedItem.id });
-                      }
-                    }}
-                    onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                  />
-                ) : (
-                  <button 
-                    onClick={() => {
-                      setTempTotal(normalizedTotal || '');
-                      setIsEditingTotal(true);
-                    }}
-                    className="flex items-center gap-1 px-3 py-1 h-[26px] bg-[var(--bg-base)] border border-[var(--border-color)] rounded-md text-xs font-bold text-[var(--text-main)] hover:border-[var(--primary)] transition-colors group"
-                    title="Modifier le total"
-                  >
-                    {normalizedTotal ? `${String(normalizedTotal)} ${localData.type === 'book' ? 'pages' : 'ép'}` : '? ép'}
-                    <Edit2 size={10} className="opacity-0 group-hover:opacity-100 transition-opacity text-[var(--text-muted)]" />
-                  </button>
-                )
-              )}
 
-              {/* Badge de durée éditable (InlineRuntimeEdit) proprement séparé */}
-              {localData.type !== 'book' && (
-                <InlineRuntimeEdit
-                  item={localData}
-                  localRuntime={localData.runtime}
-                  onSave={async (newRuntime) => {
-                    setLocalData(prev => ({ ...prev, runtime: newRuntime }));
-                    if (trackedItem) {
-                      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { runtime: newRuntime });
-                      await supabase.from('user_media').update({ runtime: newRuntime }).match({ id: trackedItem.id });
-                    }
-                  }}
-                />
+              {(normalizedTotal || localData.type !== 'book') && (
+                <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">
+                  {normalizedTotal ? `${String(normalizedTotal)} ${localData.type === 'book' ? 'pages' : 'ép'}` : '? ép'}
+                  {localData.type !== 'book' && (
+                    <InlineRuntimeEdit
+                      item={localData}
+                      localRuntime={localData.runtime}
+                      onSave={async (newRuntime) => {
+                        setLocalData(prev => ({ ...prev, runtime: newRuntime }));
+                        if (trackedItem) {
+                          if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { runtime: newRuntime });
+                          await supabase.from('user_media').update({ runtime: newRuntime }).match({ id: trackedItem.id });
+                        }
+                      }}
+                    />
+                  )}
+                </span>
               )}
 
               <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">{year} • {String(localData.source).toUpperCase()}</span>
