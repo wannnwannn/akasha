@@ -168,7 +168,7 @@
   "date-precise": "Specific date",
   "configurer-un-rappel-push": "Set up a push notification",
   "desactiver-ce-rappel": "Turn off this reminder",
-  "bloc-note-enregistre-automatiquement": "Notepad (Saved automatically)...",
+  "bloc-note-enregistre-automatiquement": "Write your theories, leave a rating, and much more, here.",
   "aucun-rappel-actif": "No active reminders",
   "vous-pouvez-configurer-des-alertes-push-sur-chaque-oeuvre-pour-etre-notifie-de-la-sortie-des-nouveaux-episodes-ou-chapitres": "You can set up push notifications for each title to be notified when new episodes or chapters are released.",
   "aujourdhui": "Today",
@@ -273,5 +273,6 @@
   "oui": "yes",
   "etes-vous-sur": "Are you sure ?",
   "enregistrement": "Saving...",
-  "sauvegarde": "Saved"
+  "sauvegarde": "Saved",
+  "bloc-note": "Notepad"
 }

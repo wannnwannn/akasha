@@ -167,7 +167,7 @@
   "date-precise": "Date précise",
   "configurer-un-rappel-push": "Configurer un rappel Push",
   "desactiver-ce-rappel": "Désactiver ce rappel",
-  "bloc-note-enregistre-automatiquement": "Bloc note (Enregistré automatiquement)...",
+  "bloc-note-enregistre-automatiquement": "Écrivez vos théories, donnez une note et bien plus, ici.",
   "aucun-rappel-actif": "Aucun rappel actif",
   "vous-pouvez-configurer-des-alertes-push-sur-chaque-oeuvre-pour-etre-notifie-de-la-sortie-des-nouveaux-episodes-ou-chapitres": "Vous pouvez configurer des alertes Push sur chaque œuvre pour être notifié de la sortie des nouveaux épisodes ou chapitres.",
   "aujourdhui": "Aujourd'hui",
@@ -272,5 +272,6 @@
   "oui": "oui",
   "etes-vous-sur": "Êtes-vous sûr ?",
   "enregistrement": "Enregistrement...",
-  "sauvegarde": "Sauvegardé"
+  "sauvegarde": "Sauvegardé",
+  "bloc-note": "Bloc-notes"
 }
