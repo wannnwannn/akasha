@@ -105,6 +105,35 @@ const GlobalStyles = () => (
     .animate-breathe {
       animation: breathe 0.5s ease-in-out infinite;
     }
+
+    @keyframes bottomSheetDown {
+      from { transform: translateY(0); }
+      to { transform: translateY(100%); }
+    }
+    @keyframes modalZoomOut {
+      from { transform: scale(1); opacity: 1; }
+      to { transform: scale(0.95); opacity: 0; }
+    }
+    
+    /* Animations de fermeture */
+    .animate-modal-out {
+      animation: bottomSheetDown 0.3s cubic-bezier(0.8, 0, 0.8, 0.2) forwards;
+      will-change: transform;
+    }
+    
+    @media (min-width: 640px) {
+      .animate-modal-out {
+        animation: modalZoomOut 0.2s ease-in forwards;
+        will-change: transform, opacity;
+      }
+    }
+
+    /* Réparation du flou sur mobile (Forçage WebKit et opacité réduite) */
+    .mobile-blur-fix {
+      background-color: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
   `}</style>
 );
 
@@ -786,6 +815,7 @@ const DetailModal: React.FC<{
   const [localData, setLocalData] = useState(item as LibraryItem);
   const [isActing, setIsActing] = useState(false);
   const [showFullDesc, setShowFullDesc] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   // SCROLL AUTOMATIQUE
   const modalContentRef = useRef<HTMLDivElement>(null);
@@ -866,9 +896,12 @@ const DetailModal: React.FC<{
   // --- FERMETURE SÉCURISÉE (ANTI-PERTE DE DONNÉES) ---
   const safeClose = useCallback(() => {
     if (notes !== initialNotes.current) {
-      saveExtras({ notesStr: notes }); // Force l'enregistrement si on quitte trop vite
+      saveExtras({ notesStr: notes });
     }
-    onClose();
+    setIsExiting(true); // Déclenche l'animation
+    setTimeout(() => {
+      onClose(); // Tue le composant après 300ms
+    }, 300);
   }, [notes, onClose]);
 
   const onCloseRef = useRef(safeClose);
@@ -1077,9 +1110,9 @@ const DetailModal: React.FC<{
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-hidden" onClick={safeClose}>
+    <div className={`fixed inset-0 z-50 flex items-end sm:items-center justify-center mobile-blur-fix p-0 sm:p-6 overflow-hidden transition-opacity duration-300 ${isExiting ? 'opacity-0' : 'opacity-100'}`} onClick={safeClose}>
       {/* Flex Column pour séparer le contenu du footer fixe */}
-      <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative mt-auto mb-0 sm:my-auto flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-modal" onClick={e => e.stopPropagation()}>
+      <div className={`bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative mt-auto mb-0 sm:my-auto flex flex-col h-[92dvh] sm:h-auto sm:max-h-[85vh] ${isExiting ? 'animate-modal-out' : 'animate-modal'}`} onClick={e => e.stopPropagation()}>
         <button onClick={safeClose} className="absolute top-4 left-4 z-30 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)] shadow-sm"><X size={20} strokeWidth={3} /></button>
 
         {/* CORPS CENTRAL SCROLLABLE (flex-1) */}
