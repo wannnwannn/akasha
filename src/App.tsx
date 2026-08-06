@@ -52,10 +52,10 @@ const GlobalStyles = () => (
 
     @keyframes breathe {
       0%, 100% { opacity: 1; }
-      50% { opacity: 0.85; }
+      50% { opacity: 0.35; }
     }
     .animate-breathe {
-      animation: breathe 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+      animation: breathe 1.8s ease-in-out infinite;
     }
   `}</style>
 );
