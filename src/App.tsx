@@ -40,7 +40,21 @@ const GlobalStyles = () => (
       --primary-hover: #e05268;
       --shadow-color: rgba(206, 66, 87, 0.25);
     }
-    body { background-color: var(--bg-base); color: var(--text-main); }
+    /* L'overflow-x est sur le body pour ne pas casser tes barres de recherche Sticky */
+    body { background-color: var(--bg-base); color: var(--text-main); overflow-x: hidden; }
+
+    /* MOTEUR D'ANIMATION DE PAGE NATIF */
+    @keyframes pageSlideRight {
+      from { transform: translateX(80px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes pageSlideLeft {
+      from { transform: translateX(-80px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .animate-page-right { animation: pageSlideRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+    .animate-page-left { animation: pageSlideLeft 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg-base); }
     ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
@@ -3430,11 +3444,11 @@ export default function App() {
             <button onClick={toggleTheme} className="hidden sm:flex flex-col items-center gap-1 text-[var(--text-muted)] hover:text-[var(--primary)] transition-all" title={t('changer-le-theme')}>{theme === 'dark' ? <Sun size={22} /> : <Moon size={22} />}</button>
           </nav>
 
-          {/* overflow-x-hidden est OBLIGATOIRE pour ne pas avoir de barre de scroll horizontale pendant le glissement */}
-          <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full overflow-x-hidden">
+          {/* CORRECTION : Suppression de l'overflow ici pour sauver les éléments Sticky */}
+          <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full">
             
-            {/* ANIMATION DE CHANGEMENT DE PAGE (GLISSEMENT TOTAL) */}
-            <div key={currentTab} className={`w-full animate-in fade-in duration-500 ${pageDirection === 'right' ? 'slide-in-from-right-16' : 'slide-in-from-left-16'}`}>
+            {/* UTILISATION DE NOTRE MOTEUR D'ANIMATION CSS PERSONNALISÉ ET INFAILLIBLE */}
+            <div key={currentTab} className={`w-full ${pageDirection === 'right' ? 'animate-page-right' : 'animate-page-left'}`}>
               
               {currentTab === 'dashboard' && (
                 <div>
