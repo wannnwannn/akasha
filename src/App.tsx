@@ -774,6 +774,9 @@ const DetailModal: React.FC<{
   const initialReminder = getInitialReminderState();
 
   const [notes, setNotes] = useState(trackedItem?.notes || '');
+  const initialNotes = useRef(trackedItem?.notes || '');
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced'>('idle');
+
   const [customLink, setCustomLink] = useState(trackedItem?.custom_link || '');
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [showReminder, setShowReminder] = useState(false);
@@ -784,26 +787,39 @@ const DetailModal: React.FC<{
   const [reminderExactDate, setReminderExactDate] = useState<string>(initialReminder.exactDate);
   const [reminderTime, setReminderTime] = useState(trackedItem?.reminder_time || '18:00');
 
-  // --- NOUVEAU : GESTION DU BOUTON RETOUR NATIF (MOBILE) ---
-  const onCloseRef = useRef(onClose);
-  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+ // --- AUTO-SAVE DU BLOC-NOTE ---
+  useEffect(() => {
+    if (notes === initialNotes.current) return;
+    
+    setSyncStatus('syncing');
+    const timer = setTimeout(() => {
+      saveExtras({ notesStr: notes });
+      initialNotes.current = notes;
+      setSyncStatus('synced');
+      setTimeout(() => setSyncStatus('idle'), 2000);
+    }, 800); // S'active 800ms après ta dernière frappe
+    
+    return () => clearTimeout(timer);
+  }, [notes]);
+
+  // --- FERMETURE SÉCURISÉE (ANTI-PERTE DE DONNÉES) ---
+  const safeClose = useCallback(() => {
+    if (notes !== initialNotes.current) {
+      saveExtras({ notesStr: notes }); // Force l'enregistrement si on quitte trop vite
+    }
+    onClose();
+  }, [notes, onClose]);
+
+  const onCloseRef = useRef(safeClose);
+  useEffect(() => { onCloseRef.current = safeClose; }, [safeClose]);
 
   useEffect(() => {
-    // L'astuce vitale pour Android/iOS : modifier l'URL avec un hash
     window.history.pushState({ modal: 'detail' }, '', window.location.pathname + window.location.search + '#modal');
-
-    const handlePopState = () => {
-      onCloseRef.current();
-    };
-
+    const handlePopState = () => onCloseRef.current();
     window.addEventListener('popstate', handlePopState);
-
     return () => {
       window.removeEventListener('popstate', handlePopState);
-      // Si on ferme avec la croix, l'URL a encore le hash, on force le retour en arrière pour nettoyer l'historique
-      if (window.location.hash === '#modal') {
-        window.history.back();
-      }
+      if (window.location.hash === '#modal') window.history.back();
     };
   }, []);
   
@@ -1000,10 +1016,10 @@ const DetailModal: React.FC<{
   const statusColor = prodStatusLabel === "Statut inconnu" ? "bg-[var(--border-color)] text-[var(--text-main)]" : prodStatusLabel.includes("cours") || prodStatusLabel.includes("production") ? "bg-[var(--primary)] text-white" : prodStatusLabel.includes("venir") ? "bg-amber-500 text-black" : "bg-emerald-600 text-white";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-hidden" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-hidden" onClick={safeClose}>
       {/* Flex Column pour séparer le contenu du footer fixe */}
       <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 my-auto flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="absolute top-4 left-4 z-30 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)] shadow-sm"><X size={20} strokeWidth={3} /></button>
+        <button onClick={safeClose} className="absolute top-4 left-4 z-30 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)] shadow-sm"><X size={20} strokeWidth={3} /></button>
 
         {/* CORPS CENTRAL SCROLLABLE (flex-1) */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-8">
@@ -1271,8 +1287,20 @@ const DetailModal: React.FC<{
                 </div>
               </div>
 
-              <div className="pt-2">
-                <textarea placeholder={t('bloc-note-enregistre-automatiquement')} value={String(notes)} onChange={(e) => setNotes(e.target.value)} onBlur={() => saveExtras()} className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" />
+              <div className="pt-4">
+                <div className="flex justify-between items-end mb-2 px-1">
+                  <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">{t('bloc-note')}</p>
+                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider h-4 transition-opacity duration-300">
+                    {syncStatus === 'syncing' && <><Loader2 size={12} className="animate-spin text-[var(--primary)]" /> <span className="text-[var(--primary)]">{t('enregistrement')}</span></>}
+                    {syncStatus === 'synced' && <><Check size={12} className="text-emerald-500" /> <span className="text-emerald-500">{t('sauvegarde')}</span></>}
+                  </div>
+                </div>
+                <textarea 
+                  placeholder={t('bloc-note-enregistre-automatiquement')} 
+                  value={String(notes)} 
+                  onChange={(e) => setNotes(e.target.value)} 
+                  className="w-full bg-[var(--bg-base)] border border-[var(--border-color)] text-[var(--text-main)] text-sm rounded-xl p-4 min-h-[120px] focus:outline-none focus:border-[var(--primary)] transition-all resize-y placeholder:text-[var(--text-muted)] font-medium custom-scrollbar" 
+                />
               </div>
 
             </div>

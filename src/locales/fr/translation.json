@@ -270,5 +270,7 @@
   "progression": "Progression",
   "non": "non",
   "oui": "oui",
-  "etes-vous-sur": "Êtes-vous sûr ?"
+  "etes-vous-sur": "Êtes-vous sûr ?",
+  "enregistrement": "Enregistrement...",
+  "sauvegarde": "Sauvegardé"
 }
