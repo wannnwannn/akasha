@@ -43,7 +43,7 @@ const GlobalStyles = () => (
     /* L'overflow-x est sur le body pour ne pas casser tes barres de recherche Sticky */
     body { background-color: var(--bg-base); color: var(--text-main); overflow-x: hidden; }
 
-    /* MOTEUR D'ANIMATION DE PAGE NATIF */
+    /* MOTEUR D'ANIMATION DE PAGE NATIF (GPU ACCÉLÉRÉ) */
     @keyframes pageSlideRight {
       from { transform: translateX(80px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
@@ -52,8 +52,42 @@ const GlobalStyles = () => (
       from { transform: translateX(-80px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
-    .animate-page-right { animation: pageSlideRight 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
-    .animate-page-left { animation: pageSlideLeft 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
+    
+    /* Le 'will-change' élimine le temps d'attente au clic */
+    .animate-page-right { 
+      animation: pageSlideRight 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+      will-change: transform, opacity;
+    }
+    .animate-page-left { 
+      animation: pageSlideLeft 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; 
+      will-change: transform, opacity;
+    }
+
+    /* ------------------------------------------------ */
+    /* ANIMATION MODALE (BOTTOM SHEET & DESKTOP) */
+    /* ------------------------------------------------ */
+    @keyframes bottomSheetUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    @keyframes modalZoomIn {
+      from { transform: scale(0.95); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Sur mobile : Glissement pur depuis le bas */
+    .animate-modal {
+      animation: bottomSheetUp 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      will-change: transform;
+    }
+    
+    /* Sur grand écran (sm) : Élévation centrale rapide */
+    @media (min-width: 640px) {
+      .animate-modal {
+        animation: modalZoomIn 0.2s ease-out forwards;
+        will-change: transform, opacity;
+      }
+    }
 
     ::-webkit-scrollbar { width: 8px; height: 8px; }
     ::-webkit-scrollbar-track { background: var(--bg-base); }
@@ -1045,7 +1079,7 @@ const DetailModal: React.FC<{
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md p-0 sm:p-6 transition-all overflow-hidden" onClick={safeClose}>
       {/* Flex Column pour séparer le contenu du footer fixe */}
-      <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300 my-auto flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+      <div className="bg-[var(--panel-bg)] sm:border border-[var(--border-color)] rounded-t-3xl sm:rounded-3xl w-full max-w-xl shadow-2xl relative mt-auto mb-0 sm:my-auto flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-modal" onClick={e => e.stopPropagation()}>
         <button onClick={safeClose} className="absolute top-4 left-4 z-30 bg-[var(--bg-base)]/80 backdrop-blur-md p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-main)] transition-colors border border-[var(--border-color)] shadow-sm"><X size={20} strokeWidth={3} /></button>
 
         {/* CORPS CENTRAL SCROLLABLE (flex-1) */}
