@@ -737,6 +737,7 @@ const DetailModal: React.FC<{
   }, [trackedItem]);
 
   const [isEditingCover, setIsEditingCover] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const [isEditingType, setIsEditingType] = useState(false);
   const [tags, setTags] = useState<string[]>(trackedItem?.tags || []);
@@ -1290,7 +1291,7 @@ const DetailModal: React.FC<{
           ) : (
             <div className="flex flex-col gap-3">
               
-              {/* NOUVEAU : BARRE DE PROGRESSION STICKY (Apparaît si "En cours" ou "En pause") */}
+              {/* BARRE DE PROGRESSION STICKY (Apparaît si "En cours" ou "En pause") */}
               {(trackedItem.status === 'watching' || trackedItem.status === 'on_hold') && (
                 <div className="flex items-center gap-3 w-full animate-in fade-in slide-in-from-bottom-2">
                   <span className="text-xs font-mono font-bold text-[var(--text-muted)] w-10 text-right shrink-0">
@@ -1339,24 +1340,48 @@ const DetailModal: React.FC<{
               )}
               
               <div className="flex gap-2 w-full items-center h-12">
-                <div className="flex-1 h-full">
-                  <CustomSelect 
-                    placement="top" 
-                    value={String(trackedItem.status)} 
-                    onChange={handleAddOrUpdate} 
-                    options={STATUS_OPTIONS.filter(o => o.value !== "").map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
-                    className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)] h-full" 
-                  />
-                </div>
-                <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={trackedItem.rating !== null ? handleRemoveFromRanking : handleAddToRanking} title={trackedItem.rating !== null ? t('retirer-du-classement') : t('ajouter-au-classement')}>
-                  <Trophy size={20} className={trackedItem.rating !== null ? "fill-amber-500 text-amber-500" : ""} />
-                </Button>
-                <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title={t('favori')}>
-                  <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} />
-                </Button>
-                <Button variant="danger" className="!p-3 shrink-0 rounded-xl h-full" onClick={handleRemove} title={t('supprimer-de-la-liste')}>
-                  <Trash2 size={20} />
-                </Button>
+                {showDeleteConfirm ? (
+                  <div className="flex items-center justify-between w-full h-full bg-red-500/10 border border-red-500/30 rounded-xl px-4 animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                    <span className="text-sm font-bold text-red-500 truncate mr-2">{t('etes-vous-sur')}</span>
+                    <div className="flex gap-2 shrink-0">
+                      <button 
+                        onClick={() => setShowDeleteConfirm(false)} 
+                        className="px-3 py-1.5 bg-[var(--panel-bg-alt)] hover:bg-[var(--border-color)] text-[var(--text-main)] text-xs font-bold rounded-lg transition-colors border border-[var(--border-color)]"
+                      >
+                        {t('non')}
+                      </button>
+                      <button 
+                        onClick={handleRemove} 
+                        className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-lg shadow-md transition-transform active:scale-95"
+                      >
+                        {t('oui')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex-1 h-full">
+                      <CustomSelect 
+                        placement="top" 
+                        value={String(trackedItem.status)} 
+                        onChange={handleAddOrUpdate} 
+                        options={STATUS_OPTIONS.filter(o => o.value !== "").map(o => ({...o, label: o.labelKey ? t(o.labelKey) : o.label}))} 
+                        className="bg-[var(--panel-bg-alt)] border border-[var(--border-color)] h-full" 
+                      />
+                    </div>
+                    <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.rating !== null ? 'border-amber-500 bg-amber-500/10 text-amber-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={trackedItem.rating !== null ? handleRemoveFromRanking : handleAddToRanking} title={trackedItem.rating !== null ? t('retirer-du-classement') : t('ajouter-au-classement')}>
+                      <Trophy size={20} className={trackedItem.rating !== null ? "fill-amber-500 text-amber-500" : ""} />
+                    </Button>
+                    <Button variant="ghost" className={`!p-3 shrink-0 rounded-xl h-full border ${trackedItem.is_favorite ? 'border-rose-500 bg-rose-500/10 text-rose-500' : 'border-[var(--border-color)] bg-[var(--panel-bg-alt)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} onClick={toggleFavoriteModal} title={t('favori')}>
+                      <Heart size={20} className={trackedItem.is_favorite ? "fill-rose-500 text-rose-500" : ""} />
+                    </Button>
+                    
+                    {/* LE BOUTON SUPPRIMER NE DÉCLENCHE PLUS LA SUPPRESSION DIRECTE */}
+                    <Button variant="danger" className="!p-3 shrink-0 rounded-xl h-full" onClick={() => setShowDeleteConfirm(true)} title={t('supprimer-de-la-liste')}>
+                      <Trash2 size={20} />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           )}

@@ -268,5 +268,8 @@
   "sur": "on",
   "appuie-a-droite-pour-avancer": "Swipe right to proceed",
   "screen-pour-flex-sur-tes-reseaux": "📸 Grab a screenshot, go flex on your feeds bestie",
-  "progression": "Progress"
+  "progression": "Progress",
+  "non": "no",
+  "oui": "yes",
+  "etes-vous-sur": "Are you sure ?"
 }
