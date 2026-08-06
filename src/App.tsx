@@ -49,6 +49,14 @@ const GlobalStyles = () => (
     .custom-scrollbar::-webkit-scrollbar { height: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; margin-inline: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+
+    @keyframes breathe {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.85; }
+    }
+    .animate-breathe {
+      animation: breathe 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
   `}</style>
 );
 
@@ -3374,7 +3382,7 @@ export default function App() {
                       {/* SKELETON SCREEN (Affiché pendant le chargement) */}
                       {isLibraryLoading ? (
                         Array.from({ length: 10 }).map((_, i) => (
-                          <div key={i} className="animate-pulse flex flex-row sm:flex-col bg-[var(--bg-base)]/50 rounded-2xl overflow-hidden border border-[var(--border-color)] h-[140px] sm:h-auto sm:aspect-[2/3] shadow-md">
+                          <div key={i} className="animate-breathe flex flex-row sm:flex-col bg-[var(--bg-base)]/50 rounded-2xl overflow-hidden border border-[var(--border-color)] h-[140px] sm:h-auto sm:aspect-[2/3] shadow-md">
                              <div className="w-28 sm:w-full h-full sm:h-[70%] bg-[var(--border-color)]/30 shrink-0 border-r sm:border-b sm:border-r-0 border-[var(--border-color)]"></div>
                              <div className="flex-1 p-3.5 sm:p-4 flex flex-col gap-3">
                                <div className="h-4 bg-[var(--border-color)]/30 rounded w-3/4"></div>
