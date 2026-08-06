@@ -1806,7 +1806,7 @@ const DiscoverySearch: React.FC<{
                 <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="snap-start shrink-0 w-36 sm:w-44 group/card cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                   <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
                     {cover ? (
-                      <img src={String(cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover/card:scale-105'}`} />
+                      <FadeInImage src={String(cover)} className={`absolute inset-0 w-full h-full object-cover ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover/card:scale-105'}`} />
                     ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                     <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
@@ -1937,7 +1937,7 @@ const DiscoverySearch: React.FC<{
               <div key={`${media.source}-${media.id}`} onClick={() => setSelectedMedia(media)} className="group cursor-pointer flex flex-col bg-[var(--panel-bg)] rounded-2xl overflow-hidden border border-[var(--border-color)] hover:border-[var(--primary)] transition-all shadow-lg">
                 <div className="aspect-[2/3] w-full bg-[var(--bg-base)] relative overflow-hidden">
                   {media.cover ? (
-                    <img src={String(media.cover)} className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
+                    <FadeInImage src={String(media.cover)} className={`absolute inset-0 w-full h-full object-cover ${needsBlur ? 'blur-2xl scale-125 opacity-40' : 'group-hover:scale-105'}`} />
                   ) : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}
                   <div className="absolute top-2 left-2"><TypeBadge type={String(media.type)} /></div>
 
@@ -2007,7 +2007,7 @@ const PersistentPlayer: React.FC<{ item: LibraryItem | null, onUpdate: (item: Li
     <div className="fixed bottom-24 sm:bottom-6 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md z-40 animate-in slide-in-from-bottom-10 fade-in duration-300">
       <div className="bg-[var(--panel-bg)]/95 backdrop-blur-xl border border-[var(--border-color)] shadow-2xl shadow-[var(--shadow-color)] rounded-2xl overflow-hidden flex items-center p-3 gap-4 relative">
         <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ background: `linear-gradient(90deg, var(--primary) ${progressPercent}%, transparent ${progressPercent}%)`}} />
-        <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">{item.cover_url ? <FadeInImage src={String(item.cover_url)} className="absolute inset-0 w-full h-full object-cover group-hover:scale-105" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={40} />}</div>
+        <div className="w-12 h-16 shrink-0 rounded-lg overflow-hidden bg-[var(--bg-base)] shadow-md z-10 border border-[var(--border-color)]">{item.cover_url ? <img src={String(item.cover_url)} className="w-full h-full object-cover" /> : <BookOpen className="text-[var(--text-muted)] m-auto h-full" size={20} />}</div>
         <div className="flex-1 min-w-0 z-10"><p className="text-[10px] text-[var(--primary)] font-bold uppercase tracking-wider mb-0.5 flex items-center gap-1"><PlayCircle size={10} /> {t('reprendre')}</p><h4 className="font-bold text-[var(--text-main)] text-sm line-clamp-1 truncate">{String(item.title)}</h4><div className="flex items-center gap-2 mt-1.5"><span className="text-xs font-mono font-bold text-[var(--text-muted)]">{item.progress} / {item.total_episodes || '?'}</span><div className="flex-1 h-1.5 bg-[var(--bg-base)] rounded-full overflow-hidden border border-[var(--border-color)]"><div className="h-full bg-[var(--primary)] rounded-full" style={{ width: `${progressPercent}%` }} /></div></div></div>
         <div className="flex items-center gap-1.5 shrink-0 z-10"><button onClick={() => onUpdate(item, -1)} disabled={item.progress <= 0} className="w-10 h-10 flex items-center justify-center bg-[var(--bg-base)] hover:bg-[var(--border-color)] text-[var(--text-main)] border border-[var(--border-color)] rounded-xl disabled:opacity-50 transition-colors"><Minus size={18} strokeWidth={3}/></button><button onClick={() => onUpdate(item, 1)} disabled={item.total_episodes !== null && item.progress >= item.total_episodes} className="w-12 h-12 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-xl shadow-lg shadow-[var(--shadow-color)] disabled:opacity-50 transition-transform active:scale-95"><Plus size={24} strokeWidth={3}/></button></div>
       </div>
