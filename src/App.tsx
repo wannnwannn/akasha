@@ -1128,59 +1128,6 @@ const DetailModal: React.FC<{
             {description.length > 150 && <button onClick={() => setShowFullDesc(!showFullDesc)} className="text-xs font-bold text-[var(--primary)] hover:text-[var(--primary-hover)] mt-2 transition-colors">{showFullDesc ? t('voir-moins') : t('voir-plus')}</button>}
           </div>
 
-          {/* --- NOUVEAU : BARRE DE PROGRESSION (Uniquement En cours / En pause) --- */}
-          {trackedItem && (trackedItem.status === 'watching' || trackedItem.status === 'on_hold') && (
-            <div className="mb-6 bg-[var(--bg-base)] p-4 rounded-xl border border-[var(--border-color)] flex flex-col gap-3 animate-in fade-in">
-              <div className="flex justify-between items-center px-1">
-                <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{t('progression')}</span>
-                <span className="text-sm font-mono font-bold text-[var(--text-main)]">
-                  {trackedItem.progress} / {trackedItem.total_episodes || '?'}
-                </span>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex-1 h-2 bg-[var(--panel-bg)] rounded-full overflow-hidden border border-[var(--border-color)]">
-                  <div 
-                    className="h-full bg-[var(--primary)] rounded-full transition-all duration-300" 
-                    style={{ width: `${trackedItem.total_episodes ? Math.min(100, (trackedItem.progress / trackedItem.total_episodes) * 100) : 0}%` }} 
-                  />
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <button 
-                    onClick={async () => {
-                      const newProgress = Math.max(0, trackedItem.progress - 1);
-                      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { progress: newProgress, updated_at: new Date().toISOString() });
-                      await supabase.from('user_media').update({ progress: newProgress, updated_at: new Date().toISOString() }).match({ id: trackedItem.id });
-                    }} 
-                    disabled={trackedItem.progress <= 0} 
-                    className="w-10 h-10 flex items-center justify-center bg-[var(--panel-bg)] hover:bg-[var(--border-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-50 transition-colors"
-                  >
-                    <Minus size={18} strokeWidth={3}/>
-                  </button>
-                  <button 
-                    onClick={async () => {
-                      const newProgress = trackedItem.progress + 1;
-                      if (trackedItem.total_episodes && newProgress > trackedItem.total_episodes) return;
-                      
-                      const updates: Partial<LibraryItem> = { progress: newProgress, updated_at: new Date().toISOString() };
-                      
-                      // Auto-complétion intelligente si on atteint la fin
-                      if (trackedItem.total_episodes && newProgress === trackedItem.total_episodes) {
-                        updates.status = 'completed';
-                      }
-                      
-                      if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
-                      await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
-                    }} 
-                    disabled={trackedItem.total_episodes !== null && trackedItem.progress >= trackedItem.total_episodes} 
-                    className="w-12 h-12 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-xl shadow-lg shadow-[var(--shadow-color)] disabled:opacity-50 transition-transform active:scale-95"
-                  >
-                    <Plus size={24} strokeWidth={3}/>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
           {trackedItem && (
             <div className="space-y-4 pt-4 border-t border-[var(--border-color)]">
               <div className="flex gap-2 items-center pt-2">
@@ -1342,6 +1289,55 @@ const DetailModal: React.FC<{
             </div>
           ) : (
             <div className="flex flex-col gap-3">
+              
+              {/* NOUVEAU : BARRE DE PROGRESSION STICKY (Apparaît si "En cours" ou "En pause") */}
+              {(trackedItem.status === 'watching' || trackedItem.status === 'on_hold') && (
+                <div className="flex items-center gap-3 w-full animate-in fade-in slide-in-from-bottom-2">
+                  <span className="text-xs font-mono font-bold text-[var(--text-muted)] w-10 text-right shrink-0">
+                    {trackedItem.progress}/{trackedItem.total_episodes || '?'}
+                  </span>
+                  <div className="flex-1 h-2 bg-[var(--bg-base)] rounded-full overflow-hidden border border-[var(--border-color)]">
+                    <div 
+                      className="h-full bg-[var(--primary)] rounded-full transition-all duration-300" 
+                      style={{ width: `${trackedItem.total_episodes ? Math.min(100, (trackedItem.progress / trackedItem.total_episodes) * 100) : 0}%` }} 
+                    />
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button 
+                      onClick={async () => {
+                        const newProgress = Math.max(0, trackedItem.progress - 1);
+                        if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, { progress: newProgress, updated_at: new Date().toISOString() });
+                        await supabase.from('user_media').update({ progress: newProgress, updated_at: new Date().toISOString() }).match({ id: trackedItem.id });
+                      }} 
+                      disabled={trackedItem.progress <= 0} 
+                      className="w-10 h-10 flex items-center justify-center bg-[var(--panel-bg-alt)] hover:bg-[var(--border-color)] border border-[var(--border-color)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] disabled:opacity-50 transition-colors"
+                    >
+                      <Minus size={18} strokeWidth={3}/>
+                    </button>
+                    <button 
+                      onClick={async () => {
+                        const newProgress = trackedItem.progress + 1;
+                        if (trackedItem.total_episodes && newProgress > trackedItem.total_episodes) return;
+                        
+                        const updates: Partial<LibraryItem> = { progress: newProgress, updated_at: new Date().toISOString() };
+                        
+                        // Auto-complétion si on atteint la fin
+                        if (trackedItem.total_episodes && newProgress === trackedItem.total_episodes) {
+                          updates.status = 'completed';
+                        }
+                        
+                        if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
+                        await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
+                      }} 
+                      disabled={trackedItem.total_episodes !== null && trackedItem.progress >= trackedItem.total_episodes} 
+                      className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white rounded-xl shadow-md shadow-[var(--shadow-color)] disabled:opacity-50 transition-transform active:scale-95"
+                    >
+                      <Plus size={20} strokeWidth={3}/>
+                    </button>
+                  </div>
+                </div>
+              )}
+              
               <div className="flex gap-2 w-full items-center h-12">
                 <div className="flex-1 h-full">
                   <CustomSelect 
