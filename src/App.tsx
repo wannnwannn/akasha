@@ -3434,7 +3434,7 @@ export default function App() {
           <main className="max-w-7xl mx-auto px-4 py-6 sm:pt-28 flex-grow w-full overflow-x-hidden">
             
             {/* ANIMATION DE CHANGEMENT DE PAGE (GLISSEMENT TOTAL) */}
-            <div key={currentTab} className={`w-full animate-in fade-in duration-500 fill-mode-forwards ${pageDirection === 'right' ? 'slide-in-from-right-16' : 'slide-in-from-left-16'}`}>
+            <div key={currentTab} className={`w-full animate-in fade-in duration-500 ${pageDirection === 'right' ? 'slide-in-from-right-16' : 'slide-in-from-left-16'}`}>
               
               {currentTab === 'dashboard' && (
                 <div>
@@ -3556,12 +3556,13 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            )}</div>
+            )}
 
             {currentTab === 'search' && <DiscoverySearch user={user!} fetchLibrary={fetchLibrary} userLibrary={userLibrary} setSelectedMedia={setSelectedMedia} onToggleFavorite={handleToggleFavorite} />}
-          {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} onOpenWrapped={setWrappedYear} />}
+            {currentTab === 'profile' && <ProfileScreen user={user!} library={userLibrary} onLogout={async () => await supabase.auth.signOut()} onDelete={handleDeleteAccount} theme={theme} toggleTheme={toggleTheme} onOpenRanking={() => setCurrentTab('ranking')} fetchLibrary={fetchLibrary} onOpenWrapped={setWrappedYear} />}
           
-          {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} allUserTags={allUserTags} rankingTagFilter={rankingTagFilter} setRankingTagFilter={setRankingTagFilter} />}
+            {currentTab === 'ranking' && <RankingScreen items={userLibrary} onUpdate={handleSWRUpdate} onSelect={setSelectedMedia} allUserTags={allUserTags} rankingTagFilter={rankingTagFilter} setRankingTagFilter={setRankingTagFilter} />}
+            </div>
         </main>
 
         {currentTab !== 'profile' && currentTab !== 'ranking' && activePlayerItem && <PersistentPlayer item={activePlayerItem} onUpdate={updateProgress} />}
