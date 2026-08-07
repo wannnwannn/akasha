@@ -175,7 +175,7 @@ const LangContext = createContext<{ lang: Lang, setLang: (l: Lang) => void, t: (
 // TYPES & INTERFACES
 // ============================================================================
 interface MediaItem {
-  id: string; source: 'tmdb' | 'anilist' | 'shikimori' | 'openlibrary' | 'manual'; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; total_episodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
+  id: string; source: 'tmdb' | 'anilist' | 'shikimori' | 'openlibrary' | 'hardcover' | 'manual'; title: string; cover: string | null; type: 'movie' | 'tv' | 'anime' | 'manga' | 'webtoon' | 'book'; year: string | number; description: string; totalEpisodes?: number | null; total_episodes?: number | null; isAiring?: boolean; genres?: string[]; runtime?: number; prod_status?: string; isAdult?: boolean; creator?: string;
 }
 interface LibraryItem {
   id: string; user_id: string; media_id: string; source: string; title: string; cover_url: string | null; type: string; status: 'planning' | 'watching' | 'completed' | 'on_hold'; progress: number; total_episodes: number | null; rating: number | null; created_at: string; updated_at: string; description?: string; year?: string; genres?: string[]; tags?: string[]; runtime?: number; prod_status?: string; creator?: string; custom_link?: string | null; notes?: string | null; reminder_day?: string | null; reminder_time?: string | null; is_favorite?: boolean; isAiring?: boolean; isAdult?: boolean; totalEpisodes?: number | null; rewatch_count?: number;
@@ -348,32 +348,72 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   }));
 };
 
-const fetchOpenLibrary = async (query: string): Promise<MediaItem[]> => {
-
-  if (query.length < 4) return [];
-
-  const isISBN = /^[0-9-]+$/.test(query) && query.replace(/-/g, '').length >= 10;
-  const searchQuery = isISBN ? `isbn=${query}` : `q=${encodeURIComponent(query)}`;
+const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
+  if (query.length < 3) return [];
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2500);
+  // On laisse 3.5s au lieu de 2.5s car GraphQL peut avoir un léger cold-start
+  const timeoutId = setTimeout(() => controller.abort(), 3500); 
+
+  const graphqlQuery = `
+    query SearchBooks($title: String!) {
+      books(where: {title: {_ilike: $title}}, limit: 10) {
+        id
+        title
+        description
+        release_year
+        pages
+        image { url }
+        contributions { author { name } }
+      }
+    }
+  `;
 
   try {
-    const res = await fetch(`https://openlibrary.org/search.json?${searchQuery}&limit=10`, {
+    const res = await fetch('https://api.hardcover.app/v1/graphql', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_HARDCOVER_API_TOKEN}`
+      },
+      body: JSON.stringify({
+        query: graphqlQuery,
+        variables: { title: `%${query}%` }
+      }),
       signal: controller.signal
     });
+
     clearTimeout(timeoutId);
-
     if (!res.ok) return [];
-    const data = await res.json();
+    
+    const json = await res.json();
+    if (!json.data || !json.data.books) return [];
 
-    return data.docs.map((item: any) => ({
-      id: String(item.key), source: 'openlibrary', title: String(item.title), cover: item.cover_i ? `https://covers.openlibrary.org/b/id/${item.cover_i}-L.jpg` : null,
-      type: 'book', year: String(item.first_publish_year || 'N/A'), description: item.author_name ? `Auteur(s) : ${item.author_name.join(', ')}` : 'Aucune description disponible.',
-      totalEpisodes: item.number_of_pages_median || null, isAiring: false, genres: item.subject ? item.subject.slice(0, 3) : [], isAdult: false, creator: item.author_name ? item.author_name[0] : null
-    }));
+    // MAPPING : On transforme le format Hardcover pour qu'il rentre dans MediaItem
+    return json.data.books.map((book: any) => {
+      // Extraction sécurisée des auteurs
+      const authors = book.contributions?.map((c: any) => c.author?.name).filter(Boolean) || [];
+      const mainAuthor = authors.length > 0 ? authors[0] : null;
+
+      return {
+        id: String(book.id),
+        source: 'hardcover',
+        title: String(book.title),
+        cover: book.image?.url || null,
+        type: 'book',
+        year: String(book.release_year || 'N/A'),
+        // Si on a une vraie description on la met, sinon on affiche les auteurs comme tu le faisais avant
+        description: book.description || (authors.length > 0 ? `Auteur(s) : ${authors.join(', ')}` : 'Aucune description disponible.'),
+        totalEpisodes: book.pages || null,
+        isAiring: false,
+        genres: [], // On laisse vide pour l'instant car Hardcover gère ça via des tags complexes
+        isAdult: false,
+        creator: mainAuthor
+      };
+    });
   } catch (error) {
     clearTimeout(timeoutId);
+    console.error("Erreur Hardcover API", error);
     return [];
   }
 };
@@ -1916,7 +1956,7 @@ const DiscoverySearch: React.FC<{
       promises.push(fetchShikimori(debouncedQuery).then(pushResults).catch(() => {}));
     }
     if (filter === 'all' || filter === 'book') {
-      promises.push(fetchOpenLibrary(debouncedQuery).then(pushResults).catch(() => {}));
+      promises.push(fetchHardcover(debouncedQuery).then(pushResults).catch(() => {}));
     }
 
     Promise.allSettled(promises).finally(() => {
@@ -2143,7 +2183,7 @@ const DiscoverySearch: React.FC<{
            <img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_short-8e7b30f73a4020692ccca9c88bafe5dcb6f8a62a4c6bc55cd9ba82bb2cd95f6c.svg" alt="TMDB" className="h-3 opacity-60" />
            <span>AniList</span>
            <span>Shikimori</span>
-           <span>OpenLibrary</span>
+           <span>Hardcover</span>
          </div>
       </div>
 
