@@ -1104,6 +1104,7 @@ const DetailModal: React.FC<{
 
       await supabase.from('user_media').update(updates).match({ id: trackedItem.id });
       if (onLibraryUpdate) onLibraryUpdate(trackedItem.id, updates);
+      setIsActing(false);
     } else {
       await supabase.from('user_media').insert([{
         user_id: user.id,
@@ -1610,7 +1611,7 @@ const DetailModal: React.FC<{
               <div className="flex w-full items-center h-12 relative">
                 
                 {/* BLOC GAUCHE : Statut, Trophée, Favori */}
-                <div className={`flex gap-2 h-full transition-all duration-300 ease-in-out overflow-hidden ${showDeleteConfirm ? 'w-0 opacity-0 pointer-events-none' : 'w-full opacity-100 pr-14'}`}>
+                <div className={`flex gap-2 h-full transition-all duration-300 ease-in-out ${showDeleteConfirm ? 'w-0 opacity-0 pointer-events-none overflow-hidden': 'w-full opacity-100 pr-14'} `}>
                   <div className="flex-1 min-w-[100px] h-full">
                     <CustomSelect 
                       placement="top" 
