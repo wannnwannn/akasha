@@ -391,18 +391,26 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
     if (!res.ok) return [];
     
     const json = await res.json();
-    console.log(json)
-    if (!json.data || !json.data.books) return [];
+    
+    // 1. On pointe vers le bon tableau Typesense (hits)
+    const hits = json.data?.search?.results?.hits;
+    if (!hits || !Array.isArray(hits)) return [];
 
-    return json.data.books.map((book: any) => {
-      const authors = book.contributions?.map((c: any) => c.author?.name).filter(Boolean) || [];
+    // 2. On map chaque résultat pour l'adapter à ton interface MediaItem
+    return hits.map((hit: any) => {
+      // Les données du livre sont cachées dans "document"
+      const book = hit.document;
+      
+      // Typesense nous facilite la vie : il nous donne directement un tableau 'author_names'
+      const authors = book.author_names || [];
       const mainAuthor = authors.length > 0 ? authors[0] : null;
 
       return {
         id: String(book.id),
         source: 'hardcover',
-        title: String(book.title),
-        cover: book.image?.url || null,
+        title: String(book.title || 'Titre inconnu'),
+        // On gère l'image selon la manière dont Typesense l'a indexée
+        cover: book.image?.url || book.image_url || null,
         type: 'book',
         year: String(book.release_year || 'N/A'),
         description: book.description || (authors.length > 0 ? `Auteur(s) : ${authors.join(', ')}` : 'Aucune description disponible.'),
