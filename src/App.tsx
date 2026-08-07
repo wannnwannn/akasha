@@ -335,7 +335,85 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
     totalEpisodes: item.episodes || null, isAiring: item.status === 'RELEASING' || item.status === 'NOT_YET_RELEASED', genres: item.genres, runtime: item.duration, prod_status: String(item.status), isAdult: item.isAdult === true, creator: item.studios?.nodes?.[0]?.name || null
   }));
 };
+const fetchAniListManga = async (query: string): Promise<MediaItem[]> => {
+  if (query.length < 3) return [];
 
+  const graphqlQuery = `
+    query ($search: String) {
+      Page(perPage: 10) {
+        media(search: $search, type: MANGA) {
+          id
+          title {
+            romaji
+            english
+            native
+          }
+          coverImage {
+            large
+          }
+          seasonYear
+          startDate {
+            year
+          }
+          description
+          chapters
+          volumes
+          status
+          isAdult
+        }
+      }
+    }
+  `;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch('https://graphql.anilist.co', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        query: graphqlQuery,
+        variables: { search: query }
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    if (!res.ok) return [];
+
+    const json = await res.json();
+    const mediaList = json.data?.Page?.media;
+    if (!mediaList || !Array.isArray(mediaList)) return [];
+
+    return mediaList.map((item: any) => {
+      const title = item.title?.english || item.title?.romaji || item.title?.native || 'Titre inconnu';
+      const year = item.seasonYear || item.startDate?.year || 'N/A';
+      
+      return {
+        id: String(item.id),
+        source: 'anilist', // On garde anilist comme source unifiée
+        title: String(title),
+        cover: item.coverImage?.large || null,
+        type: 'manga', // Tu peux affiner si c'est un webtoon selon les formats AniList
+        year: String(year),
+        description: item.description ? item.description.replace(/<[^>]*>?/gm, '') : 'Aucune description disponible.',
+        totalEpisodes: item.chapters || item.volumes || null,
+        isAiring: item.status === 'RELEASING',
+        genres: [],
+        isAdult: item.isAdult || false,
+        creator: undefined
+      };
+    });
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error("Erreur AniList Manga API", error);
+    return [];
+  }
+};
 const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   
   const res = await fetch(`https://shikimori.io/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
@@ -1968,7 +2046,10 @@ const DiscoverySearch: React.FC<{
     if (filter === 'all' || filter === 'anime') {
       promises.push(fetchAniList(debouncedQuery).then(pushResults).catch(() => {}));
     }
-    if (filter === 'all' || filter === 'manga' || filter === 'webtoon') {
+    if (filter === 'all' || filter === 'manga') {
+      promises.push(fetchAniListManga(debouncedQuery).then(pushResults).catch(() => {}));
+    }
+    if (filter === 'all' || filter === 'webtoon') {
       promises.push(fetchShikimori(debouncedQuery).then(pushResults).catch(() => {}));
     }
     if (filter === 'all' || filter === 'book') {
