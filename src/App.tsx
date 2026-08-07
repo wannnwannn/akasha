@@ -338,11 +338,11 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
 
 const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   
-  const res = await fetch(`https://shikimori.me/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
+  const res = await fetch(`https://shikimori.io/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.map((item: any) => ({
-    id: String(item.id), source: 'shikimori', title: String(item.name || item.russian), cover: item.image?.original ? `https://shikimori.me${item.image.original}` : null,
+    id: String(item.id), source: 'shikimori', title: String(item.name || item.russian), cover: item.image?.original ? `https://shikimori.io${item.image.original}` : null,
     type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A', description: 'Aucune description disponible.',
     totalEpisodes: item.volumes || item.chapters || null, isAiring: item.status === 'ongoing', isAdult: false
   }));
@@ -365,15 +365,9 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
   const timeoutId = setTimeout(() => controller.abort(), 3500); 
 
   const graphqlQuery = `
-    query SearchBooks($title: String!) {
-      books(where: {title: {_eq: $title}}, limit: 10) {
-        id
-        title
-        description
-        release_year
-        pages
-        image { url }
-        contributions { author { name } }
+    query TypesenseSearch($searchQuery: String!) {
+      search(query: $searchQuery, query_type: "book") {
+        results
       }
     }
   `;
@@ -383,12 +377,12 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        // 2. On injecte le jeton JWT dans les headers pour le serveur Vercel
         'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         query: graphqlQuery,
-        variables: { title: query }
+        // On passe directement ta recherche sans les %
+        variables: { searchQuery: query } 
       }),
       signal: controller.signal
     });
@@ -397,6 +391,7 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
     if (!res.ok) return [];
     
     const json = await res.json();
+    console.log(json)
     if (!json.data || !json.data.books) return [];
 
     return json.data.books.map((book: any) => {
