@@ -398,25 +398,30 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
 
     // 2. On map chaque résultat pour l'adapter à ton interface MediaItem
     return hits.map((hit: any) => {
-      // Les données du livre sont cachées dans "document"
       const book = hit.document;
-      
-      // Typesense nous facilite la vie : il nous donne directement un tableau 'author_names'
       const authors = book.author_names || [];
       const mainAuthor = authors.length > 0 ? authors[0] : null;
+
+      // On récupère les tags ou genres renvoyés par Hardcover (selon leur indexation)
+      const tags: string[] = book.tags || book.genres || [];
+      
+      // On détecte si c'est un manga via les mots-clés dans les tags
+      const isManga = tags.some(tag => 
+        typeof tag === 'string' && tag.toLowerCase().includes('manga')
+      );
 
       return {
         id: String(book.id),
         source: 'hardcover',
         title: String(book.title || 'Titre inconnu'),
-        // On gère l'image selon la manière dont Typesense l'a indexée
         cover: book.image?.url || book.image_url || null,
-        type: 'book',
+        // Si c'est un manga détecté dans les tags, on force le type 'manga', sinon 'book'
+        type: isManga ? 'manga' : 'book',
         year: String(book.release_year || 'N/A'),
         description: book.description || (authors.length > 0 ? `Auteur(s) : ${authors.join(', ')}` : 'Aucune description disponible.'),
         totalEpisodes: book.pages || null,
         isAiring: false,
-        genres: [],
+        genres: tags,
         isAdult: false,
         creator: mainAuthor
       };
