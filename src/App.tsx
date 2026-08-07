@@ -1429,7 +1429,37 @@ const DetailModal: React.FC<{
                 {isSharing ? <Loader2 size={14} className="animate-spin" /> : (shareCopied ? <Check size={14} /> : <Share size={14} />)}
                 {shareCopied ? t('lien-copie') : (isSharing ? t('creation') : t('partager'))}
               </button>
+
             </div>
+            {(isLoadingProviders || streamingProviders.length > 0) && (
+                <div className="pt-3 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Disponible sur :</span>
+                  {isLoadingProviders ? (
+                    <Loader2 size={12} className="animate-spin text-[var(--text-muted)]" />
+                  ) : (
+                    <div className="flex gap-2">
+                      {streamingProviders.map((prov, i) => (
+                        <a 
+                          key={i} 
+                          href={prov.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          title={prov.name}
+                          className="w-6 h-6 rounded-md overflow-hidden hover:scale-110 transition-transform shadow-sm border border-[var(--border-color)]"
+                        >
+                          {prov.icon ? (
+                            <img src={prov.icon} alt={prov.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-[var(--primary)] flex items-center justify-center text-white text-[8px] font-bold">
+                              {prov.name.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
           </div>
 
@@ -1555,35 +1585,7 @@ const DetailModal: React.FC<{
                   </div>
                 </div>
               ) : null}
-              {(isLoadingProviders || streamingProviders.length > 0) && (
-                <div className="pt-3 flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Disponible sur :</span>
-                  {isLoadingProviders ? (
-                    <Loader2 size={12} className="animate-spin text-[var(--text-muted)]" />
-                  ) : (
-                    <div className="flex gap-2">
-                      {streamingProviders.map((prov, i) => (
-                        <a 
-                          key={i} 
-                          href={prov.url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          title={prov.name}
-                          className="w-6 h-6 rounded-md overflow-hidden hover:scale-110 transition-transform shadow-sm border border-[var(--border-color)]"
-                        >
-                          {prov.icon ? (
-                            <img src={prov.icon} alt={prov.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-[var(--primary)] flex items-center justify-center text-white text-[8px] font-bold">
-                              {prov.name.substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              
 
 
               <div className="pt-2">
