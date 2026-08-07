@@ -1320,37 +1320,6 @@ const DetailModal: React.FC<{
                     </div>
                   )}
 
-                  {/* NOUVEAU : AFFICHAGE DES PLATEFORMES DE STREAMING */}
-                  {(isLoadingProviders || streamingProviders.length > 0) && (
-                    <div className="pt-3 flex items-center gap-2">
-                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Disponible sur :</span>
-                      {isLoadingProviders ? (
-                        <Loader2 size={12} className="animate-spin text-[var(--text-muted)]" />
-                      ) : (
-                        <div className="flex gap-2">
-                          {streamingProviders.map((prov, i) => (
-                            <a 
-                              key={i} 
-                              href={prov.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              title={prov.name}
-                              className="w-6 h-6 rounded-md overflow-hidden hover:scale-110 transition-transform shadow-sm border border-[var(--border-color)]"
-                            >
-                              {prov.icon ? (
-                                <img src={prov.icon} alt={prov.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full bg-[var(--primary)] flex items-center justify-center text-white text-[8px] font-bold">
-                                  {prov.name.substring(0, 2).toUpperCase()}
-                                </div>
-                              )}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
                 </div>
                 <button onClick={() => setShowReminder(!showReminder)} className={`p-3 rounded-xl border transition-colors flex items-center justify-center shrink-0 ${showReminder || reminderDays.length > 0 || reminderExactDate ? 'bg-amber-500/20 border-amber-500/50 text-amber-500' : 'bg-[var(--panel-bg-alt)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('configurer-un-rappel')}><Bell size={20} /></button>
               </div>
@@ -1415,6 +1384,7 @@ const DetailModal: React.FC<{
                   </div>
                 </div>
               )}
+
               {trackedItem.status === 'completed' || (trackedItem.rewatch_count && trackedItem.rewatch_count > 0) ? (
                 <div className="pt-4 border-t border-[var(--border-color)]">
                   <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mb-2">Historique de visionnage</p>
@@ -1451,6 +1421,35 @@ const DetailModal: React.FC<{
                   </div>
                 </div>
               ) : null}
+              {(isLoadingProviders || streamingProviders.length > 0) && (
+                <div className="pt-3 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Disponible sur :</span>
+                  {isLoadingProviders ? (
+                    <Loader2 size={12} className="animate-spin text-[var(--text-muted)]" />
+                  ) : (
+                    <div className="flex gap-2">
+                      {streamingProviders.map((prov, i) => (
+                        <a 
+                          key={i} 
+                          href={prov.url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          title={prov.name}
+                          className="w-6 h-6 rounded-md overflow-hidden hover:scale-110 transition-transform shadow-sm border border-[var(--border-color)]"
+                        >
+                          {prov.icon ? (
+                            <img src={prov.icon} alt={prov.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-[var(--primary)] flex items-center justify-center text-white text-[8px] font-bold">
+                              {prov.name.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
 
               <div className="pt-2">
