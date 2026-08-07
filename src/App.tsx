@@ -338,11 +338,11 @@ const fetchAniList = async (query: string, isUpcoming = false): Promise<MediaIte
 
 const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
   
-  const res = await fetch(`https://shikimori.one/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
+  const res = await fetch(`https://shikimori.me/api/mangas?search=${encodeURIComponent(query)}&limit=10`);
   if (!res.ok) return [];
   const data = await res.json();
   return data.map((item: any) => ({
-    id: String(item.id), source: 'shikimori', title: String(item.name || item.russian), cover: item.image?.original ? `https://shikimori.one${item.image.original}` : null,
+    id: String(item.id), source: 'shikimori', title: String(item.name || item.russian), cover: item.image?.original ? `https://shikimori.me${item.image.original}` : null,
     type: item.kind === 'manhwa' ? 'webtoon' : 'manga', year: item.aired_on ? String(item.aired_on).split('-')[0] : 'N/A', description: 'Aucune description disponible.',
     totalEpisodes: item.volumes || item.chapters || null, isAiring: item.status === 'ongoing', isAdult: false
   }));
