@@ -366,7 +366,7 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
 
   const graphqlQuery = `
     query SearchBooks($title: String!) {
-      books(where: {title: {_ilike: $title}}, limit: 10) {
+      books(where: {title: {_eq: $title}}, limit: 10) {
         id
         title
         description
@@ -388,7 +388,7 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
       },
       body: JSON.stringify({
         query: graphqlQuery,
-        variables: { title: `%${query}%` }
+        variables: { title: query }
       }),
       signal: controller.signal
     });
