@@ -351,8 +351,17 @@ const fetchShikimori = async (query: string): Promise<MediaItem[]> => {
 const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
   if (query.length < 3) return [];
 
+  // 1. Récupération du jeton d'authentification de l'utilisateur actif
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+
+  // Si l'utilisateur n'est pas connecté, on bloque la requête à la racine
+  if (!token) {
+    console.warn("Recherche bloquée : Utilisateur non authentifié");
+    return [];
+  }
+
   const controller = new AbortController();
-  // On laisse 3.5s au lieu de 2.5s car GraphQL peut avoir un léger cold-start
   const timeoutId = setTimeout(() => controller.abort(), 3500); 
 
   const graphqlQuery = `
@@ -370,11 +379,12 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
   `;
 
   try {
-    const res = await fetch('https://api.hardcover.app/v1/graphql', {
+    const res = await fetch('/api/hardcover', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_HARDCOVER_API_TOKEN}`
+        // 2. On injecte le jeton JWT dans les headers pour le serveur Vercel
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         query: graphqlQuery,
@@ -389,9 +399,7 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
     const json = await res.json();
     if (!json.data || !json.data.books) return [];
 
-    // MAPPING : On transforme le format Hardcover pour qu'il rentre dans MediaItem
     return json.data.books.map((book: any) => {
-      // Extraction sécurisée des auteurs
       const authors = book.contributions?.map((c: any) => c.author?.name).filter(Boolean) || [];
       const mainAuthor = authors.length > 0 ? authors[0] : null;
 
@@ -402,11 +410,10 @@ const fetchHardcover = async (query: string): Promise<MediaItem[]> => {
         cover: book.image?.url || null,
         type: 'book',
         year: String(book.release_year || 'N/A'),
-        // Si on a une vraie description on la met, sinon on affiche les auteurs comme tu le faisais avant
         description: book.description || (authors.length > 0 ? `Auteur(s) : ${authors.join(', ')}` : 'Aucune description disponible.'),
         totalEpisodes: book.pages || null,
         isAiring: false,
-        genres: [], // On laisse vide pour l'instant car Hardcover gère ça via des tags complexes
+        genres: [],
         isAdult: false,
         creator: mainAuthor
       };
