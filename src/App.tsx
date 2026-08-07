@@ -873,6 +873,62 @@ const DetailModal: React.FC<{
   const [isEditingLink, setIsEditingLink] = useState(false);
   const [showReminder, setShowReminder] = useState(false);
 
+  //État et Fetch pour les plateformes de streaming
+  const [streamingProviders, setStreamingProviders] = useState<{name: string, url: string, icon: string}[]>([]);
+  const [isLoadingProviders, setIsLoadingProviders] = useState(false);
+
+  useEffect(() => {
+    const fetchProviders = async () => {
+      if (!localData.source) return;
+      setIsLoadingProviders(true);
+      try {
+        const results: {name: string, url: string, icon: string}[] = [];
+
+        // 1. Logique ANILIST (GraphQL)
+        if (localData.source === 'anilist') {
+          const mediaId = (localData as any).media_id || (localData as any).id || item.id;
+          const query = `query ($id: Int) { Media(id: $id) { externalLinks { site url icon } } }`;
+          const res = await fetch('https://graphql.anilist.co', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify({ query, variables: { id: mediaId } })
+          });
+          const { data } = await res.json();
+          // On filtre pour ne garder que les vraies plateformes de streaming (Crunchyroll, Netflix, ADN...)
+          const validSites = ['Crunchyroll', 'Netflix', 'Animation Digital Network', 'Amazon Prime Video', 'Disney Plus'];
+          data?.Media?.externalLinks?.forEach((link: any) => {
+            if (validSites.includes(link.site)) {
+              results.push({ name: link.site, url: link.url, icon: link.icon || '' });
+            }
+          });
+        } 
+        // 2. Logique TMDB (REST)
+        else if (localData.source === 'tmdb') {
+          const mediaId = (localData as any).media_id || (localData as any).id || item.id;
+          const tmdbType = localData.type === 'movie' ? 'movie' : 'tv';
+          // ATTENTION : Remplace VITE_TMDB_API_KEY par ta vraie variable d'environnement
+          const res = await fetch(`https://api.themoviedb.org/3/${tmdbType}/${mediaId}/watch/providers?api_key=${import.meta.env.VITE_TMDB_API_KEY}`);
+          const data = await res.json();
+          const frProviders = data.results?.FR?.flatrate || [];
+          frProviders.forEach((prov: any) => {
+            results.push({
+              name: prov.provider_name,
+              // TMDB ne donne pas d'URL directe par épisode, on renvoie vers la page JustWatch générale
+              url: data.results?.FR?.link || '#',
+              icon: `https://image.tmdb.org/t/p/original${prov.logo_path}`
+            });
+          });
+        }
+        setStreamingProviders(results);
+      } catch (e) {
+        console.error("Erreur récupération streaming", e);
+      } finally {
+        setIsLoadingProviders(false);
+      }
+    };
+    fetchProviders();
+  }, [localData.source, localData.id]);
+
   const [reminderType, setReminderType] = useState<'weekly'|'exact'>(initialReminder.type);
   const [reminderDays, setReminderDays] = useState<string[]>(initialReminder.days);
   const [reminderFreq, setReminderFreq] = useState<string>(initialReminder.freq);
@@ -1263,6 +1319,38 @@ const DetailModal: React.FC<{
                       <button onClick={() => setIsEditingLink(true)} className="p-3 bg-[var(--panel-bg-alt)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-muted)] hover:text-[var(--primary)] rounded-xl transition-colors" title={t('modifier-le-lien')}><Edit2 size={18} /></button>
                     </div>
                   )}
+
+                  {/* NOUVEAU : AFFICHAGE DES PLATEFORMES DE STREAMING */}
+                  {(isLoadingProviders || streamingProviders.length > 0) && (
+                    <div className="pt-3 flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Disponible sur :</span>
+                      {isLoadingProviders ? (
+                        <Loader2 size={12} className="animate-spin text-[var(--text-muted)]" />
+                      ) : (
+                        <div className="flex gap-2">
+                          {streamingProviders.map((prov, i) => (
+                            <a 
+                              key={i} 
+                              href={prov.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              title={prov.name}
+                              className="w-6 h-6 rounded-md overflow-hidden hover:scale-110 transition-transform shadow-sm border border-[var(--border-color)]"
+                            >
+                              {prov.icon ? (
+                                <img src={prov.icon} alt={prov.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full bg-[var(--primary)] flex items-center justify-center text-white text-[8px] font-bold">
+                                  {prov.name.substring(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                 </div>
                 <button onClick={() => setShowReminder(!showReminder)} className={`p-3 rounded-xl border transition-colors flex items-center justify-center shrink-0 ${showReminder || reminderDays.length > 0 || reminderExactDate ? 'bg-amber-500/20 border-amber-500/50 text-amber-500' : 'bg-[var(--panel-bg-alt)] border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-main)]'}`} title={t('configurer-un-rappel')}><Bell size={20} /></button>
               </div>
