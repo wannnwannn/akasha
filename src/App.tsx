@@ -1381,7 +1381,23 @@ const DetailModal: React.FC<{
 
               {(normalizedTotal || localData.type !== 'book') && (
                 <span className="text-xs font-bold text-[var(--text-main)] bg-[var(--bg-base)] px-3 py-1 rounded-md flex items-center gap-1.5 border border-[var(--border-color)]">
-                  {normalizedTotal ? `${String(normalizedTotal)} ${localData.type === 'book' ? 'pages' : 'ép'}` : '? ép'}
+                  {normalizedTotal ? <div className="w-fit" onClick={e => e.stopPropagation()}>
+                    <InlineEpisodeEdit 
+                      item={localData} 
+                      onSave={async (_, newTotal) => {
+                        // 1. On met à jour l'état local pour que la modale s'actualise immédiatement
+                        setLocalData(prev => ({ ...prev, total_episodes: newTotal, totalEpisodes: newTotal } as any));
+                        
+                        // 2. Si l'élément est dans la bibliothèque de l'utilisateur, on met à jour le parent et la BDD
+                        if (trackedItem) {
+                          if (onLibraryUpdate) {
+                            onLibraryUpdate(trackedItem.id, { total_episodes: newTotal });
+                          }
+                          await supabase.from('user_media').update({ total_episodes: newTotal }).match({ id: trackedItem.id });
+                        }
+                      }} 
+                    />
+                  </div> : '? ép'}
                   {localData.type !== 'book' && (
                     <InlineRuntimeEdit
                       item={localData}
@@ -1396,7 +1412,11 @@ const DetailModal: React.FC<{
                     />
                   )}
                 </span>
+
+                
               )}
+              
+              
 
               <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-base)] px-3 py-1 rounded-md border border-[var(--border-color)]">{year} • {String(localData.source).toUpperCase()}</span>
             </div>
@@ -1433,7 +1453,7 @@ const DetailModal: React.FC<{
             </div>
             {(isLoadingProviders || streamingProviders.length > 0) && (
                 <div className="pt-3 flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Disponible sur :</span>
+                  <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{t('disponible-sur')}</span>
                   {isLoadingProviders ? (
                     <Loader2 size={12} className="animate-spin text-[var(--text-muted)]" />
                   ) : (
