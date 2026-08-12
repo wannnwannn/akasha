@@ -2666,7 +2666,7 @@ const ProfileScreen: React.FC<{ user: UserData, library: LibraryItem[], onLogout
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const IMPORT_OPTIONS = [
-    { value: '', label: 'Importer depuis...' },
+    { value: '', label: t('importer-depuis') },
     { value: 'letterboxd', label: 'Letterboxd (CSV)' },
     { value: 'tvtime', label: 'TV Time (CSV)' },
     { value: 'mal', label: 'MyAnimeList (XML)' },
