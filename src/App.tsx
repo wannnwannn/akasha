@@ -290,20 +290,7 @@ const fallbackCopyTextToClipboard = (text: string) => {
   document.body.removeChild(textArea);
 };
 
-const encodeMediaForShare = (item: any) => {
-  const minimalData = {
-    id: ('media_id' in item) ? item.media_id : item.id,
-    source: item.source,
-    title: item.title,
-    cover: ('cover' in item) ? item.cover : item.cover_url,
-    type: item.type,
-    year: item.year,
-    description: item.description,
-    totalEpisodes: ('total_episodes' in item) ? item.total_episodes : item.totalEpisodes,
-    runtime: item.runtime
-  };
-  return btoa(encodeURIComponent(JSON.stringify(minimalData)));
-};
+
 
 // ============================================================================
 // SERVICES API
@@ -983,6 +970,35 @@ const DetailModal: React.FC<{
   const [editCoverUrl, setEditCoverUrl] = useState('');
   const [shareCopied, setShareCopied] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
+
+  // Fonction pour générer une chaîne aléatoire de 6 caractères
+const generateShortCode = () => Math.random().toString(36).substring(2, 8);
+
+const handleShare = async (localData: any) => {
+    setIsSharing(true); // On active l'état de chargement
+    const shortCode = generateShortCode();
+    
+    const { error } = await supabase
+        .from('shared_links')
+        .insert([{ id: shortCode, media_data: localData }]);
+
+    setIsSharing(false); // On désactive le chargement
+
+    if (error) {
+        console.error("Erreur de partage:", error);
+        return; 
+    }
+
+    const shareUrl = `https://akasha-showcase.vercel.app/s/${shortCode}`;
+    
+    navigator.clipboard.writeText(shareUrl);
+    
+    // On active l'état "Copié !" pendant 2 secondes au lieu d'un alert() moche
+    setShareCopied(true);
+    setTimeout(() => setShareCopied(false), 2000);
+};
+
+
   const { t } = useTranslation();
 
   const getInitialReminderState = () => {
@@ -1257,41 +1273,7 @@ const DetailModal: React.FC<{
     }
   };
 
-  const handleShare = async () => {
-    setIsSharing(true);
-    const encoded = encodeMediaForShare(localData);
-    const originalUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
-    let finalUrl = originalUrl;
-
-    try {
-      // Utilisation de l'API TinyURL avec un fallback propre en mode 'cors'
-      const res = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(originalUrl)}`, {
-        method: 'GET',
-        headers: { 'Accept': 'text/plain' }
-      });
-      
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.startsWith('http')) {
-          finalUrl = text.trim();
-        }
-      }
-    } catch (err) {
-      console.warn("L'API de TinyURL a échoué. Fallback sur l'URL complète.", err);
-    }
-
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(finalUrl).then(() => {
-        setShareCopied(true);
-        setTimeout(() => setShareCopied(false), 3000);
-      }).catch(() => fallbackCopyTextToClipboard(finalUrl));
-    } else {
-      fallbackCopyTextToClipboard(finalUrl);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 3000);
-    }
-    setIsSharing(false);
-  };
+  
 
   const title = String(localData.title || "");
   const cover = ('cover' in localData) ? localData.cover : localData.cover_url;
@@ -3606,6 +3588,39 @@ export default function App() {
   // GESTION DU LIEN PARTAGÉ
   const [sharedItem, setSharedItem] = useState<any>(null);
   const [showAuthForShare, setShowAuthForShare] = useState(false);
+
+  useEffect(() => {
+    const handleSharedImport = async () => {
+        // 1. On vérifie s'il y a un paramètre ?import= dans l'URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const importId = urlParams.get('import');
+
+        if (importId) {
+            // 2. On récupère les données depuis Supabase
+            const { data, error } = await supabase
+                .from('shared_links')
+                .select('media_data')
+                .eq('id', importId)
+                .single();
+            if (error) {
+                console.error("Impossible de récupérer le lien partagé :", error.message);
+            }
+
+            if (data && data.media_data) {
+                // 3. ICI : Tu dois déclencher l'ouverture de ta modale.
+                // Remplace "setSelectedItem" par le nom exact de la fonction 
+                // que tu utilises habituellement dans App.tsx pour ouvrir le DetailModal.
+                setSelectedMedia(data.media_data);
+            }
+
+            // 4. On nettoie l'URL pour ne pas ré-importer si on rafraîchit la page
+            const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
+            window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
+        }
+    };
+
+    handleSharedImport();
+}, []);
 
 
   // SAUVEGARDE DE LA MÉMOIRE DES FILTRES
