@@ -1449,7 +1449,7 @@ const handleShare = async (localData: any) => {
                 <CalendarIcon size={14} /> {t('date-de-sortie')}
               </button>
               <button
-                onClick={handleShare}
+                onClick={() => handleShare(trackedItem)}
                 disabled={isSharing}
                 className={`flex items-center gap-1.5 text-xs font-bold bg-[var(--bg-base)] border border-[var(--border-color)] hover:border-[var(--primary)] text-[var(--text-main)] px-3 py-2 rounded-lg transition-colors shadow-sm ${shareCopied ? '!border-emerald-500 !text-emerald-500 bg-emerald-500/10' : 'hover:text-[var(--primary)]'}`}
               >
