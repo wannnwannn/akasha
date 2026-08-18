@@ -975,27 +975,52 @@ const DetailModal: React.FC<{
 const generateShortCode = () => Math.random().toString(36).substring(2, 8);
 
 const handleShare = async (localData: any) => {
-    setIsSharing(true); // On active l'état de chargement
-    const shortCode = generateShortCode();
+    setIsSharing(true); // On lance le chargement
     
-    const { error } = await supabase
-        .from('shared_links')
-        .insert([{ id: shortCode, media_data: localData }]);
+    try {
+        // 1. On vérifie que l'utilisateur est bien connecté
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+            console.error("Tu dois être connecté pour partager.");
+            alert("Veuillez vous connecter pour partager ce lien.");
+            setIsSharing(false);
+            return;
+        }
 
-    setIsSharing(false); // On désactive le chargement
+        const shortCode = generateShortCode();
+        
+        // 2. On envoie les données AVEC l'ID de l'utilisateur pour satisfaire le RLS
+        const { error } = await supabase
+            .from('shared_links')
+            .insert([{ 
+                id: shortCode, 
+                media_data: localData,
+                user_id: session.user.id // Injection explicite obligatoire
+            }]);
 
-    if (error) {
-        console.error("Erreur de partage:", error);
-        return; 
+        if (error) {
+            // Affiche l'erreur exacte dans la console pour faciliter le débogage
+            console.error("Supabase a refusé l'insertion :", error.message, error.details);
+            alert("Erreur lors de la création du lien.");
+            setIsSharing(false);
+            return; 
+        }
+
+        // 3. La base a accepté, on génère l'URL vitrine
+        const shareUrl = `https://akasha-showcase.vercel.app/s/${shortCode}`;
+        
+        // 4. On copie et on lance l'animation
+        await navigator.clipboard.writeText(shareUrl);
+        
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+
+    } catch (err) {
+        console.error("Erreur inattendue :", err);
+    } finally {
+        setIsSharing(false); // On coupe le chargement quoiqu'il arrive
     }
-
-    const shareUrl = `https://akasha-showcase.vercel.app/s/${shortCode}`;
-    
-    navigator.clipboard.writeText(shareUrl);
-    
-    // On active l'état "Copié !" pendant 2 secondes au lieu d'un alert() moche
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 2000);
 };
 
 
