@@ -1008,7 +1008,7 @@ const handleShare = async (localData: any) => {
         }
 
         // 3. La base a accepté, on génère l'URL vitrine
-        const shareUrl = `https://akasha-showcase.vercel.app/s/${shortCode}`;
+        const shareUrl = `https://getakasha.vercel.app/s/${shortCode}`;
         
         // 4. On copie et on lance l'animation
         await navigator.clipboard.writeText(shareUrl);
